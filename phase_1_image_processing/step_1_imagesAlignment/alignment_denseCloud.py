@@ -82,4 +82,3 @@ print("\n📐 ICP Translation Offset:")
 print(f"  X: {offset_x:.3f} m")
 print(f"  Y: {offset_y:.3f} m")
 print(f"  Z: {offset_z:.3f} m")
-# %%
