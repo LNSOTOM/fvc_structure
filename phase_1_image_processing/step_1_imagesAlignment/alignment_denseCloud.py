@@ -36,7 +36,7 @@ pipeline = [
         "filename": str(aligned_output),
         "compression": "laszip",
         "extra_dims": "all",
-        "minor_version": 4
+        "forward": "all"
     }
 ]
 
