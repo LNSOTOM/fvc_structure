@@ -1,5 +1,5 @@
 
-
+#%%
 import pdal
 import json
 from pathlib import Path
@@ -57,8 +57,7 @@ pipeline = [
     },
     {
         "type": "writers.las",
-        "filename": str(aligned_output),
-        "compression": "laszip"  # Explicitly request LAZ compression
+        "filename": str(aligned_output)
     }
 ]
 
@@ -93,3 +92,4 @@ print("\n📐 ICP Translation Offset:")
 print(f"  X: {offset_x:.3f} m")
 print(f"  Y: {offset_y:.3f} m")
 print(f"  Z: {offset_z:.3f} m")
+# %%
