@@ -1,5 +1,5 @@
 
-#%%
+
 import pdal
 import json
 from pathlib import Path
@@ -42,11 +42,11 @@ pipeline = [
     },
     {
     "type": "filters.icp",
-    "max_iter": 100,
+    "max_iter": 20,
+    "mse_abs": 1e-5,  
     "max_similar": 3,
-    "mse_abs": 1e-6,
-    "rt": 0.99999,
-    "tt": 1e-6
+    "rt": 0.9999,
+    "tt": 1e-5
     },
     {
         "type": "writers.las",
@@ -56,7 +56,7 @@ pipeline = [
 
 
 
-#%%
+
 # === Step 3: Write pipeline to file ===
 with open(pipeline_path, "w") as f:
     json.dump(pipeline, f, indent=2)
@@ -67,7 +67,7 @@ subprocess.run(["pdal", "pipeline", str(pipeline_path), "--metadata", str(metada
 print(f"✅ ICP completed.\nAligned LAS: {aligned_output}\nMetadata: {metadata_output}")
 
 
-#%%
+
 # === Step 5: Parse Offset from Metadata, ICP TRANSFORM ===
 with open(metadata_output) as f:
     metadata = json.load(f)
