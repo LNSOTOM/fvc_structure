@@ -57,7 +57,8 @@ pipeline = [
     },
     {
         "type": "writers.las",
-        "filename": str(aligned_output)
+        "filename": str(aligned_output),
+        "compression": "laszip"  # Explicitly request LAZ compression
     }
 ]
 
