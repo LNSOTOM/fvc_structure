@@ -1,15 +1,19 @@
 
-
+#%%
 from osgeo import gdal
 import json
 from pathlib import Path
 
 # === INPUT FILES ===
-orthomosaic_path = Path("/path/to/orthomosaic_original.tif")
-metadata_path = Path("/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/sfm_dense_aligned/icp_metadata.json")
+orthomosaic_path = Path("/media/laura/Extreme SSD/qgis/calperumResearch/site2_1_DD0011/orthomosaic/20220517_SASMDD0011_p1_ortho_01.tif")
+metadata_path = Path("/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/sfm_dense/sfm_dense_aligned/icp_metadata.json")
+
+# === CUSTOM OUTPUT DIRECTORY ===
+aligned_dir = Path("/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/orthomosaic_aligned")
+aligned_dir.mkdir(parents=True, exist_ok=True)
 
 # === OUTPUT FILE ===
-aligned_orthomosaic_path = orthomosaic_path.with_name(orthomosaic_path.stem + "_aligned.tif")
+aligned_orthomosaic_path = aligned_dir / (orthomosaic_path.stem + "_aligned.tif")
 
 # === Extract ICP Transform Offsets ===
 with open(metadata_path) as f:
@@ -20,9 +24,11 @@ matrix = list(map(float, transform_str.split()))
 
 offset_x = matrix[3]  # ICP X shift
 offset_y = matrix[7]  # ICP Y shift
+offset_z = matrix[11] # ICP Z shift
 
-print(f"📐 Applying offset: X = {offset_x:.3f} m, Y = {offset_y:.3f} m")
+print(f"📐 Applying offset: X = {offset_x:.3f} m, Y = {offset_y:.3f} m, Z = {offset_z:.3f} m")
 
+#%%
 # === Open original orthomosaic ===
 src_ds = gdal.Open(str(orthomosaic_path))
 gt = list(src_ds.GetGeoTransform())
@@ -43,3 +49,5 @@ del dst_ds
 del src_ds
 
 print(f"✅ Aligned orthomosaic saved to:\n{aligned_orthomosaic_path}")
+
+# %%

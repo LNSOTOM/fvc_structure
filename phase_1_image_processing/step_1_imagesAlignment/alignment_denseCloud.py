@@ -21,39 +21,77 @@ pipeline_path = output_dir / "icp_pipeline.json"
 
 # === Step 2: Build PDAL ICP Pipeline (Array-based format) ===
 # PDAL PIPELINE: SfM aligned to LiDAR with voxelgrid and ICP ===
+# pipeline = [
+#     {
+#         "type": "readers.las",
+#         "filename": str(sfm_path)
+#     },
+#     {
+#         "type": "filters.voxeldownsize",
+#         "cell": 0.05,
+#         "mode": "center"
+#     },
+#     {
+#         "type": "readers.las",
+#         "filename": str(lidar_path)
+#     },
+#     {
+#         "type": "filters.voxeldownsize",
+#         "cell": 0.05,
+#         "mode": "center"
+#     },
+#     {
+#     "type": "filters.icp",
+#     "max_iter": 20,
+#     "mse_abs": 1e-5,  
+#     "max_similar": 3,
+#     "rt": 0.9999,
+#     "tt": 1e-5
+#     },
+#     {
+#         "type": "writers.las",
+#         "filename": str(aligned_output)
+#     }
+# ]
+# === Step 2: Build PDAL ICP Pipeline ===
 pipeline = [
     {
-        "type": "readers.las",
-        "filename": str(sfm_path)
-    },
-    {
-        "type": "filters.voxeldownsize",
-        "cell": 0.05,
-        "mode": "center"
-    },
-    {
-        "type": "readers.las",
-        "filename": str(lidar_path)
-    },
-    {
-        "type": "filters.voxeldownsize",
-        "cell": 0.05,
-        "mode": "center"
-    },
-    {
-    "type": "filters.icp",
-    "max_iter": 20,
-    "mse_abs": 1e-5,  
-    "max_similar": 3,
-    "rt": 0.9999,
-    "tt": 1e-5
+        "type": "filters.icp",
+        "max_iter": 20,
+        "mse_abs": 1e-5,
+        "max_similar": 3,
+        "rt": 0.9999,
+        "tt": 1e-5,
+        "inputs": [
+            {
+                "type": "filters.voxeldownsize",
+                "cell": 0.05,
+                "mode": "center",
+                "inputs": [
+                    {
+                        "type": "readers.las",
+                        "filename": str(sfm_path)  # SfM (to be aligned)
+                    }
+                ]
+            },
+            {
+                "type": "filters.voxeldownsize",
+                "cell": 0.05,
+                "mode": "center",
+                "inputs": [
+                    {
+                        "type": "readers.las",
+                        "filename": str(lidar_path)  # LiDAR (reference)
+                    }
+                ]
+            }
+        ]
     },
     {
         "type": "writers.las",
         "filename": str(aligned_output)
     }
 ]
-
 
 
 
