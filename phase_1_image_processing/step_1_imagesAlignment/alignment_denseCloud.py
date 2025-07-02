@@ -35,7 +35,8 @@ pipeline = [
         "type": "writers.las",
         "filename": str(aligned_output),
         "compression": "laszip",
-        "forward": "all"
+        "extra_dims": "all",
+        "minor_version": 4
     }
 ]
 
@@ -66,15 +67,14 @@ else:
     print("✅ PDAL pipeline completed successfully.")
 
 print(f"✅ ICP completed in {elapsed_time:.2f} seconds.")
-print(f"✅ SfM dense point cloud aligned to LiDAR reference:")
-print(f"   ➡️ Output aligned LAZ: {aligned_output}")
-print(f"   🗂️ ICP metadata file: {metadata_output}")
+print(f"➡️ Aligned output: {aligned_output}")
+print(f"🗂️ ICP metadata saved to: {metadata_output}")
 
 # === Step 7: Parse ICP Transform from Metadata ===
 with open(metadata_output) as f:
     metadata = json.load(f)
 
-transform_str = metadata['stages']['filters.icp']['transform']
+transform_str = metadata["stages"]["filters.icp"]["transform"]
 matrix = list(map(float, transform_str.split()))
 offset_x, offset_y, offset_z = matrix[3], matrix[7], matrix[11]
 
