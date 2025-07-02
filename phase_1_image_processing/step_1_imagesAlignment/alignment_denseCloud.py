@@ -34,9 +34,9 @@ pipeline = [
     {
         "type": "writers.las",
         "filename": str(aligned_output),
-        "compression": "laszip",
-        "extra_dims": "all",
-        "forward": "all"
+        "compression": "laszip", #ensures efficient .laz output format
+        "extra_dims": "all", #ensures extra attributes like normals, colour...are preserved
+        "forward": "all" #ensures scale, offset, VLRs, version, data format are inherited from reference
     }
 ]
 
