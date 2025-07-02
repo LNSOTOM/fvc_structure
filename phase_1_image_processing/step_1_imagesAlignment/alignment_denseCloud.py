@@ -131,7 +131,9 @@ pipeline = [
         "type": "writers.las",
         "filename": str(aligned_las),
         "extra_dims": "all",
-        "forward": "all"
+        "forward": "all",
+        "minor_version": 4,
+        "dataformat_id": 6
     }
 ]
 
@@ -194,6 +196,7 @@ else:
     print(f"➡️ Compressed LAZ: {compressed_laz}")
     # Optionally delete the .las
     # aligned_las.unlink()
+
 
 
 #%%
