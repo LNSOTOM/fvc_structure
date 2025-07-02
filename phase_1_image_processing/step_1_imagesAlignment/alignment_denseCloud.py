@@ -25,11 +25,11 @@ pipeline = [
     { "type": "filters.voxeldownsize", "cell": 0.05, "mode": "center" },
     {
         "type": "filters.icp",
-        "max_iter": 100,
+        "max_iter": 20,
         "max_similar": 3,
-        "mse_abs": 1e-6,
+        "mse_abs": 1e-5,
         "rt": 0.99999,
-        "tt": 1e-6
+        "tt": 1e-5
     },
     {
         "type": "writers.las",
