@@ -177,25 +177,50 @@ print(f"  X: {offset_x:.3f} m")
 print(f"  Y: {offset_y:.3f} m")
 print(f"  Z: {offset_z:.3f} m")
 
+#%%
+import os
+
 # === Step 7: Compress using LAStools ===
-print("🛠️ Compressing with LAStools (laszip)...")
+print("🛠️ Compressing with LAStools (laszip64)...")
+
+env = os.environ.copy()
+env["LD_LIBRARY_PATH"] = "/usr/lib/x86_64-linux-gnu"
+
 lastools_cmd = [
-    "laszip",
+    "/home/laura/lastools/bin/laszip64",
     "-i", str(aligned_las),
     "-o", str(compressed_laz)
 ]
 
-compress_result = subprocess.run(lastools_cmd, capture_output=True, text=True)
+compress_result = subprocess.run(lastools_cmd, capture_output=True, text=True, env=env)
 
 if compress_result.returncode != 0:
     print("❌ LAStools compression failed!")
     print("STDOUT:\n", compress_result.stdout)
     print("STDERR:\n", compress_result.stderr)
+    raise RuntimeError("Compression failed. See STDERR above.")
 else:
     print("✅ LAStools compression complete.")
     print(f"➡️ Compressed LAZ: {compressed_laz}")
-    # Optionally delete the .las
+    # Optionally delete the .las to save space
     # aligned_las.unlink()
+
+    # === Step 8: Verify with lasinfo64 ===
+    print("📊 Validating compressed file with lasinfo64...")
+    lasinfo_cmd = [
+        "/home/laura/lastools/bin/lasinfo64",
+        "-i", str(compressed_laz)
+    ]
+    info_result = subprocess.run(lasinfo_cmd, capture_output=True, text=True, env=env)
+
+    if info_result.returncode != 0:
+        print("❌ lasinfo64 failed!")
+        print("STDOUT:\n", info_result.stdout)
+        print("STDERR:\n", info_result.stderr)
+    else:
+        print("✅ lasinfo64 output:\n")
+        print(info_result.stdout)
+
 
 
 
