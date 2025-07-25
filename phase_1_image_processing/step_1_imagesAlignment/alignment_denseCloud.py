@@ -178,6 +178,7 @@ print(f"  Y: {offset_y:.3f} m")
 print(f"  Z: {offset_z:.3f} m")
 
 #%%
+##compress aligned LAS to LAZ using LAStools
 import os
 
 # === Step 7: Compress using LAStools ===
@@ -221,6 +222,89 @@ else:
         print("✅ lasinfo64 output:\n")
         print(info_result.stdout)
 
+
+#%%
+import subprocess
+import os
+from pathlib import Path
+
+# === Input LAS ===
+lidar_path = Path("/media/laura/Extreme SSD/qgis/calperumResearch/site2_1_DD0011/lidar/cloud2453cf90763afd91.las")
+
+# === Output LAZ and metadata ===
+output_laz = Path("/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/cloud2453cf90763afd91.laz")
+output_info_txt = output_laz.with_suffix(".txt")
+
+# === Setup environment for LAStools ===
+env = os.environ.copy()
+env["LD_LIBRARY_PATH"] = "/usr/lib/x86_64-linux-gnu"
+
+# === Step 1: Compress with laszip64 ===
+print("🛠️ Compressing with laszip64...")
+
+compress_cmd = [
+    "/home/laura/lastools/bin/laszip64",
+    "-i", str(lidar_path),
+    "-o", str(output_laz)
+]
+
+compress_result = subprocess.run(compress_cmd, capture_output=True, text=True, env=env)
+
+if compress_result.returncode != 0:
+    print("❌ Compression failed!")
+    print(compress_result.stderr)
+    raise RuntimeError("Compression failed.")
+else:
+    print(f"✅ Compression complete: {output_laz}")
+
+# === Step 2: Run lasinfo64 and save output ===
+print("📊 Extracting metadata with lasinfo64...")
+
+lasinfo_cmd = [
+    "/home/laura/lastools/bin/lasinfo64",
+    "-i", str(output_laz)
+]
+
+info_result = subprocess.run(lasinfo_cmd, capture_output=True, text=True, env=env)
+
+if info_result.returncode != 0:
+    print("❌ lasinfo64 failed!")
+    print(info_result.stderr)
+    raise RuntimeError("lasinfo64 failed.")
+else:
+    print(f"✅ Metadata saved to: {output_info_txt}")
+    with open(output_info_txt, "w") as f:
+        f.write(info_result.stdout)
+
+#%%
+import subprocess
+import os
+from pathlib import Path
+
+# Path to compressed LAZ file
+# output_laz = Path("/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/cloud2453cf90763afd91.laz") #compressed fil
+output_laz = Path('/media/laura/Extreme SSD/qgis/calperumResearch/site2_1_DD0011/lidar/cloud2453cf90763afd91.las')
+output_txt = output_laz.with_suffix(".txt")
+
+# Set up environment
+env = os.environ.copy()
+env["LD_LIBRARY_PATH"] = "/usr/lib/x86_64-linux-gnu"
+
+# Run lasinfo64 with native -o argument
+lasinfo_cmd = [
+    "/home/laura/lastools/bin/lasinfo64",
+    "-i", str(output_laz),
+    "-o", str(output_txt)
+]
+
+print("📊 Extracting metadata with lasinfo64...")
+result = subprocess.run(lasinfo_cmd, capture_output=True, text=True, env=env)
+
+if result.returncode != 0:
+    print("❌ lasinfo64 failed!")
+    print(result.stderr)
+else:
+    print(f"✅ Metadata saved directly to: {output_txt}")
 
 
 

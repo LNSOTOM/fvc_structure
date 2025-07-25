@@ -10,12 +10,12 @@ import re
 lidar_path = Path('/media/laura/Extreme SSD/qgis/calperumResearch/site2_1_DD0011/lidar/cloud2453cf90763afd91.las')  # LiDAR
 sfm_path = Path('/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/sfm_dense/point_cloud_p1.laz')  # SfM
 
-output_dir = sfm_path.parent / "sfm_dense_aligned_p1"
+output_dir = Path('/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/sfm_dense_aligned_p1')
 output_dir.mkdir(parents=True, exist_ok=True)
+
 
 # === Step 2: Define Output Paths ===
 aligned_las = output_dir / f"{sfm_path.stem}_aligned.las"
-compressed_laz = aligned_las.with_suffix('.laz')
 metadata_output = output_dir / "icp_metadata.json"
 pipeline_path = output_dir / "icp_pipeline.json"
 
@@ -68,6 +68,7 @@ print("\n📏 Point Cloud Stats:")
 print(f"🛰️ LiDAR: {lidar_stats['points']:,} pts | {lidar_stats['density']} pts/m² | spacing ≈ {lidar_spacing:.4f} m")
 print(f"📷 SfM  : {sfm_stats['points']:,} pts | {sfm_stats['density']} pts/m² | spacing ≈ {sfm_stats['spacing']:.4f} m")
 
+#%%
 # === Step 4: Define PDAL Pipeline
 pipeline = [
     { "type": "readers.las", "filename": str(sfm_path) },
@@ -125,6 +126,7 @@ print(f"  X: {matrix[3]:.3f} m")
 print(f"  Y: {matrix[7]:.3f} m")
 print(f"  Z: {matrix[11]:.3f} m")
 
+#%%
 # === Step 7: Compress with LAStools
 print("🛠️ Compressing with laszip...")
 cmd = ["laszip", "-i", str(aligned_las), "-o", str(compressed_laz)]
