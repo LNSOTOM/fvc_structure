@@ -113,3 +113,7 @@ ground_las = run_csf(
     smrf_threshold=0.12,    # tighten if shrubs still sneak in (e.g., 0.10)
     smrf_scalar=1.2,        # 1.1–1.4 commonly useful
 )
+<<<<<<< HEAD
+=======
+
+>>>>>>> 25d0e1f (phase1_data processing)
