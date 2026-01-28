@@ -5,6 +5,11 @@ fvc_structure
 phase_3_models/binaryClasses/checkpoints
 phase_3_models/lightning_logs/
 assets/
+ForestFormer3D/
+libnabo/
+libs/
+phase_3_2D_imagery_prep/
+raycloudtools/
 
 app/static/css/
 app/static/sass/
