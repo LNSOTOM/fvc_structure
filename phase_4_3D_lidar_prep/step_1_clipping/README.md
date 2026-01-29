@@ -2,7 +2,7 @@
 
 Tools for clipping LiDAR point clouds to raster tile extents and applying mask-based classification.
 
-## rasterclip — Clip LAS to raster tiles
+## rasterclip - Clip LAS to raster tiles
 
 Clips large LAS files to match raster tile extents with CRS reprojection.
 
@@ -37,7 +37,7 @@ outs = clip_many_dask(
 
 ---
 
-## maskclip — Mask-based LAS classification
+## maskclip - Mask-based LAS classification
 
 Applies structure classification to clipped LAS tiles using 2D mask rasters.
 
