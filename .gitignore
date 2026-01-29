@@ -170,3 +170,10 @@ dmypy.json
 
 *.npy*
 *.ply*
+*.bin
+*.npz
+*.las
+*.db
+
+# Weights & Biases
+wandb/
