@@ -29,7 +29,9 @@ phase_2_lidar_coregistration/
 │   │   ├── 2_gefolki_flow_l1-site11.ipynb
 │   │   ├── 2_gefolki_flow_l2.ipynb
 │   │   └── 3_align_lidar_with_flow_l2.ipynb
-│   └── python/                        # GeFolki core library
+│   ├── python/                        # GeFolki core library (Python)
+│   ├── matlab/                        # GeFolki core library (MATLAB)
+│   └── datasets/                      # Example datasets for testing
 └── step_0_checks/                     # CRS validation tools
 ```
 
