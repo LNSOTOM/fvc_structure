@@ -78,3 +78,4 @@ GeFolki (Geoscience Extended Flow Optical Lucas-Kanade Iterative) is an optical 
 **References:**
 - Original implementation: `gefolki/python/` (adapted from ONERA)
 - Documentation: `gefolki/manual_gefolki_english.pdf`
+- Additional implementation: https://github.com/RS-Haynes/efolki_coreg
