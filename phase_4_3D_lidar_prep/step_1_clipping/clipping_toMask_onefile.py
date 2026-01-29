@@ -12,8 +12,8 @@ import rasterio
 # 1. The original, unclipped LAS/LAZ file for the tile.
 #site 1
 # input_las = Path("/media/laura/laura_usb/uas_data/DD0001/imagery/clipped/raster/tiles_multispectral.109.las")
-# input_las = Path("/data/calperumResearch/site1_1_DD0001/imagery/clipped/raster/tiles_multispectral.106.las")
-input_las = Path("/data/calperumResearch/site1_1_DD0001/lidar/clipped/raster/coreg/icp/tiles_multispectral.113.las")
+input_las = Path("/data/calperumResearch/site1_1_DD0001/imagery/clipped/raster/tiles_multispectral.106.las")
+# input_las = Path("/data/calperumResearch/site1_1_DD0001/lidar/clipped/raster/coreg/icp/tiles_multispectral.113.las")
 
 # site 11 
 # input_las = Path("/data/calperumResearch/site2_1_DD0011/imagery/clipped/raster/tiles_multispectral.33.las")
@@ -30,7 +30,7 @@ input_las = Path("/data/calperumResearch/site1_1_DD0001/lidar/clipped/raster/cor
 #    This is used to get the correct CRS and bounding box for processing.
 #site 1
 # aoi_raster_5cm = Path("/media/laura/laura_usb/qgis/calperumResearch/site1_1_DD0001/inputs/predictors/tiles_3072/stacked/tiles_multispectral.109.tif")
-aoi_raster_5cm = Path("/data/calperumResearch/site1_1_DD0001/imagery/inputs/predictors/tiles_3072/stacked/tiles_multispectral.113.tif")
+aoi_raster_5cm = Path("/data/calperumResearch/site1_1_DD0001/imagery/inputs/predictors/tiles_3072/stacked/tiles_multispectral.106.tif")
 
 #site 11
 # aoi_raster_5cm = Path("/data/calperumResearch/site2_1_DD0011/imagery/inputs/predictors/tiles_3072/stacked/tiles_multispectral.33.tif")
@@ -39,7 +39,7 @@ aoi_raster_5cm = Path("/data/calperumResearch/site1_1_DD0001/imagery/inputs/pred
 # 3. The TIF MASK (5cm resolution) providing the structure class values (1-4).
 # site 1
 # aoi_mask_tif_5cm = Path("/media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_raster/downsample_5cm_nearest/mask_structure_3072.109.tif")
-aoi_mask_tif_5cm = Path("/data/calperumResearch/site1_1_DD0001/imagery/inputs/masks/tiles_3072/structure_class/annotation_raster/downsample_5cm_nearest/mask_structure_3072.113.tif")
+aoi_mask_tif_5cm = Path("/data/calperumResearch/site1_1_DD0001/imagery/inputs/masks/tiles_3072/structure_class/annotation_raster/downsample_5cm_nearest/mask_structure_3072.106.tif")
 
 # site 11
 # aoi_mask_tif_5cm = Path("/data/calperumResearch/site2_1_DD0011/imagery/inputs/masks/tiles_3072/structure_class/annotation_raster/downsample_5cm_nearest/mask_structure_3072.33.tif")
@@ -48,8 +48,8 @@ aoi_mask_tif_5cm = Path("/data/calperumResearch/site1_1_DD0001/imagery/inputs/ma
 raster_name = aoi_raster_5cm.stem
 # site 1
 # out_dir = Path("/media/laura/laura_usb/uas_data/DD0001/imagery/clipped/mask")
-# out_dir = Path("/data/calperumResearch/site1_1_DD0001/imagery/clipped/mask")
-out_dir = Path("/data/calperumResearch/site1_1_DD0001/lidar/clipped/mask/coreg/icp")
+out_dir = Path("/data/calperumResearch/site1_1_DD0001/imagery/clipped/mask")
+# out_dir = Path("/data/calperumResearch/site1_1_DD0001/lidar/clipped/mask/coreg/icp")
 
 #site 11
 # out_dir = Path("/data/calperumResearch/site2_1_DD0011/imagery/clipped/mask")
