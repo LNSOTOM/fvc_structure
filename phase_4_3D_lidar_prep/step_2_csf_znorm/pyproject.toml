@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "groundnorm"
+version = "0.1.0"
+description = "Ground classification and Z normalization for LAS point clouds"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Laura", email = "laura@example.com"}
+]
+
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+    "laspy>=2.0",
+    "tqdm>=4.60",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter",
+    "matplotlib",
+    "rasterio",
+]
+
+[project.scripts]
+groundnorm = "groundnorm.cli:main"
+
+[tool.setuptools]
+packages = ["groundnorm"]

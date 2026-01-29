@@ -1,0 +1,27 @@
+[project]
+name = "rasterclip-step"
+version = "0.1.0"
+description = "Clipping LAS to raster tiles and mask classification tools"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "pdal",
+  "rasterio",
+  "shapely",
+  "pyproj",
+  "dask[distributed]",
+  "tqdm",
+  "laspy"
+]
+
+[project.scripts]
+rasterclip = "rasterclip.cli:main"
+maskclip = "maskclip.cli:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rasterclip", "maskclip"]
