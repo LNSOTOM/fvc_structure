@@ -28,7 +28,8 @@ phase_2_lidar_coregistration/
 │   │   ├── 2_gefolki_flow_l1-site01.ipynb
 │   │   ├── 2_gefolki_flow_l1-site11.ipynb
 │   │   ├── 2_gefolki_flow_l2.ipynb
-│   │   └── 3_align_lidar_with_flow_l2.ipynb
+│   │   ├── 3_align_lidar_with_flow_l2.ipynb
+│   │   └── stats_align_lidar_with_flow.py.ipynb # Statistical validation
 │   ├── python/                        # GeFolki core library (Python)
 │   ├── matlab/                        # GeFolki core library (MATLAB)
 │   └── datasets/                      # Example datasets for testing
@@ -47,6 +48,9 @@ jupyter notebook gefolki/notebooks/2_gefolki_flow_l1-site01.ipynb
 
 # Step 3: Apply flow to LiDAR
 jupyter notebook gefolki/notebooks/3_align_lidar_with_flow_l2.ipynb
+
+# Step 4: Statistical validation (optional)
+jupyter notebook gefolki/stats_align_lidar_with_flow.py.ipynb
 ```
 
 ### Scripts
