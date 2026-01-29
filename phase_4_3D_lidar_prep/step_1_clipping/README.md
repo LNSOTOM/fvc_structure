@@ -1,52 +1,84 @@
-rasterclip — LAS clipping to raster tiles
+# Step 1: LiDAR Clipping
 
-Overview
-maskclip — Mask-based LAS classification
+Tools for clipping LiDAR point clouds to raster tile extents and applying mask-based classification.
 
-Overview
-- Reprojects LAS to predictor raster CRS and crops to raster bounds.
-- Colorizes points using structure mask raster into `Classification` and filters desired classes.
-- Parallel processing with Dask, progress bar, and signature file.
+## rasterclip — Clip LAS to raster tiles
 
-CLI (via module)
-```
-python -m maskclip.cli /path/las_dir /path/raster_dir /path/mask_dir /path/out_dir \
-  --pattern "tiles_multispectral*.las" --no-skip --no-signature
-```
+Clips large LAS files to match raster tile extents with CRS reprojection.
 
-Python API
-```
-from maskclip import classify_single, classify_many_dask
+**Features:**
+- Pre-crops in LAS native CRS using transformed raster bounds
+- Reprojects output to raster CRS
+- Parallel processing with Dask
+- Progress tracking and signature logging
 
-outs = classify_many_dask(
-    las_dir=..., raster_dir=..., mask_dir=..., out_dir=...,
-    pattern="tiles_multispectral*.las", skip_existing=True, write_signature=True,
+**Python API:**
+```python
+from rasterclip import clip_single, clip_many, clip_many_dask
+
+# Single tile
+pts = clip_single(input_las, tile_raster, output_las)
+
+# Batch (sequential)
+outs = clip_many(input_las, tiles_dir, out_dir, pattern="*.tif")
+
+# Batch (Dask parallel)
+outs = clip_many_dask(
+    input_las, tiles_dir, out_dir,
+    pattern="tiles_multispectral*.tif",
+    skip_existing=True,
+    write_signature=True
 )
 ```
 
-Notebooks
-- `notebooks/02_mask_site01.ipynb` – Site 1 config, Dask run, signature, and classification histogram.
-- `notebooks/02_mask_site11.ipynb` – Site 11 config, Dask run, signature, and classification histogram.
+**Notebooks:**
+- `01_clip_site01.ipynb` – Site 1 (DD0001) raster clipping workflow
+- `01_clip_site11.ipynb` – Site 11 (DD0011) raster clipping workflow
 
+---
 
+## maskclip — Mask-based LAS classification
+
+Applies structure classification to clipped LAS tiles using 2D mask rasters.
+
+**Features:**
+- Reprojects LAS to raster CRS and crops to bounds
+- Transfers mask pixel values (64-68) to LAS `Classification` field
+- Filters points by desired structure classes
+- Parallel Dask processing with progress tracking
+
+**Python API:**
+```python
+from maskclip import classify_single, classify_many_dask
+
+outs = classify_many_dask(
+    las_dir, raster_dir, mask_dir, out_dir,
+    pattern="tiles_multispectral*.las",
+    skip_existing=True,
+    write_signature=True
+)
 ```
-python -m pip install -e /home/nvidia/projects/fvc_structure/phase_4_3D_lidar_prep/step_1_clipping
+
+**Notebooks:**
+- `02_mask_site01.ipynb` – Site 1 mask classification with histograms
+- `02_mask_site11.ipynb` – Site 11 mask classification with histograms
+- `03_icp_regCheck.ipynb` – ICP registration verification
+- `04_maskCoreg_site01.ipynb` – Co-registered mask clipping workflow
+
+---
+
+## Installation
+
+```bash
+pip install -e /media/laura/laura_usb/code/fvc_structure/phase_4_3D_lidar_prep/step_1_clipping
 ```
-Usage
-- Single tile:
-```
-```
-- Batch (sequential):
-```
-rasterclip many /path/input.las /path/tiles_dir /path/out_dir --pattern "tiles_multispectral*.tif"
-```
-- Batch (Dask):
-```
-rasterclip dask /path/input.las /path/tiles_dir /path/out_dir \
-	--pattern "tiles_multispectral*.tif" \
-	--no-skip            # process even if outputs exist \
-	--no-signature       # skip writing clip_signature.txt
-```
+
+## Dependencies
+
+See [pyproject.toml](pyproject.toml) for full list:
+- pdal, laspy, rasterio
+- dask[distributed], tqdm
+- shapely, pyproj
 
 Python API
 ```
