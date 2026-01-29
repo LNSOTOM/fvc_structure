@@ -1,0 +1,514 @@
+================================================================================
+STRUCTURE CLASSIFICATION LOG - MEDIUM SITE
+Timestamp: 2025-10-16 16:30:35
+================================================================================
+
+CONFIGURATION:
+Current site: medium
+Input directory: /media/laura/Extreme SSD/qgis/calperumResearch/site1_1_DD0001/inputs/masks/tiles_3072/raw/fvc_class/annotation_shp
+Output directory: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp
+Log directory: /media/laura/laura_usb/code/fvc_structure/phase_2_2D_imagery_prep/step_2_structure_2D_labels
+
+Structure ID Mapping:
+  forb -> ID 0
+  branch_stem_dead -> ID 1
+  branch_stem_standing -> ID 1
+  cwd -> ID 1
+  grass_hummock -> ID 2
+  grass_hummock_senescent -> ID 2
+  shrub_chenopod -> ID 3
+  shrub_chenopod_senescent -> ID 3
+  shrub -> ID 3
+  mallee -> ID 4
+
+Excluded classes: ['bare_ground', 'shadow', 'be', 'unknowm']
+================================================================================
+
+Processing shapefiles from: /media/laura/Extreme SSD/qgis/calperumResearch/site1_1_DD0001/inputs/masks/tiles_3072/raw/fvc_class/annotation_shp
+Output directory: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp
+============================================================
+
+📁 Processing shapefile: mask_fvc_3072.16.shp
+Using vegetation type column: 'structure'
+Unique vegetation types found: ['bare_ground', 'branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow']
+
+Before filtering: 571 polygons
+Excluding 24 polygons:
+  - shadow: 23 polygons
+  - bare_ground: 1 polygons
+After filtering: 547 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 19 polygons
+  - cwd -> ID 1: 59 polygons
+  - grass_hummock -> ID 2: 386 polygons
+  - grass_hummock_senescent -> ID 2: 1 polygons
+  - mallee -> ID 4: 44 polygons
+
+Removing 38 polygons with unrecognized types:
+  - 'litter': 38 polygons
+After removing unclassified: 509 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 78 polygons, 15.41 m² total area
+  ID 2 (Grass): 387 polygons, 42.39 m² total area
+  ID 4 (Mallee): 44 polygons, 167.46 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.16.shp
+
+📁 Processing shapefile: mask_fvc_3072.22.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow', 'unknown']
+
+Before filtering: 594 polygons
+Excluding 79 polygons:
+  - shadow: 79 polygons
+After filtering: 515 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 101 polygons
+  - cwd -> ID 1: 13 polygons
+  - grass_hummock -> ID 2: 330 polygons
+  - grass_hummock_senescent -> ID 2: 7 polygons
+  - mallee -> ID 4: 39 polygons
+
+Removing 25 polygons with unrecognized types:
+  - 'litter': 24 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 490 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 114 polygons, 41.78 m² total area
+  ID 2 (Grass): 337 polygons, 70.97 m² total area
+  ID 4 (Mallee): 39 polygons, 189.45 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.22.shp
+
+📁 Processing shapefile: mask_fvc_3072.26.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 723 polygons
+Excluding 237 polygons:
+  - shadow: 237 polygons
+After filtering: 486 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 18 polygons
+  - cwd -> ID 1: 24 polygons
+  - grass_hummock -> ID 2: 320 polygons
+  - grass_hummock_senescent -> ID 2: 9 polygons
+  - shrub -> ID 3: 57 polygons
+  - mallee -> ID 4: 29 polygons
+
+Removing 29 polygons with unrecognized types:
+  - 'litter': 28 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 457 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 42 polygons, 4.91 m² total area
+  ID 2 (Grass): 329 polygons, 47.07 m² total area
+  ID 3 (Shrub (Shrub)): 57 polygons, 3.66 m² total area
+  ID 4 (Mallee): 29 polygons, 122.83 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.26.shp
+
+📁 Processing shapefile: mask_fvc_3072.55.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 568 polygons
+Excluding 136 polygons:
+  - shadow: 136 polygons
+After filtering: 432 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 15 polygons
+  - cwd -> ID 1: 46 polygons
+  - grass_hummock -> ID 2: 243 polygons
+  - grass_hummock_senescent -> ID 2: 11 polygons
+  - shrub -> ID 3: 41 polygons
+  - mallee -> ID 4: 32 polygons
+
+Removing 44 polygons with unrecognized types:
+  - 'litter': 43 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 388 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 61 polygons, 8.33 m² total area
+  ID 2 (Grass): 254 polygons, 28.98 m² total area
+  ID 3 (Shrub (Shrub)): 41 polygons, 2.66 m² total area
+  ID 4 (Mallee): 32 polygons, 174.87 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.55.shp
+
+📁 Processing shapefile: mask_fvc_3072.65.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 495 polygons
+Excluding 153 polygons:
+  - shadow: 153 polygons
+After filtering: 342 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 14 polygons
+  - cwd -> ID 1: 39 polygons
+  - grass_hummock -> ID 2: 198 polygons
+  - shrub -> ID 3: 4 polygons
+  - mallee -> ID 4: 65 polygons
+
+Removing 22 polygons with unrecognized types:
+  - 'litter': 21 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 320 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 53 polygons, 4.16 m² total area
+  ID 2 (Grass): 198 polygons, 12.75 m² total area
+  ID 3 (Shrub (Shrub)): 4 polygons, 0.42 m² total area
+  ID 4 (Mallee): 65 polygons, 125.62 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.65.shp
+
+📁 Processing shapefile: mask_fvc_3072.71.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 708 polygons
+Excluding 172 polygons:
+  - shadow: 172 polygons
+After filtering: 536 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 10 polygons
+  - cwd -> ID 1: 77 polygons
+  - grass_hummock -> ID 2: 296 polygons
+  - grass_hummock_senescent -> ID 2: 31 polygons
+  - shrub -> ID 3: 19 polygons
+  - mallee -> ID 4: 44 polygons
+
+Removing 59 polygons with unrecognized types:
+  - 'litter': 58 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 477 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 87 polygons, 8.68 m² total area
+  ID 2 (Grass): 327 polygons, 33.06 m² total area
+  ID 3 (Shrub (Shrub)): 19 polygons, 1.45 m² total area
+  ID 4 (Mallee): 44 polygons, 151.43 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.71.shp
+
+📁 Processing shapefile: mask_fvc_3072.93.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 506 polygons
+Excluding 93 polygons:
+  - shadow: 93 polygons
+After filtering: 413 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 21 polygons
+  - cwd -> ID 1: 98 polygons
+  - grass_hummock -> ID 2: 123 polygons
+  - shrub -> ID 3: 10 polygons
+  - mallee -> ID 4: 84 polygons
+
+Removing 77 polygons with unrecognized types:
+  - 'litter': 76 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 336 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 119 polygons, 9.91 m² total area
+  ID 2 (Grass): 123 polygons, 3.22 m² total area
+  ID 3 (Shrub (Shrub)): 10 polygons, 1.06 m² total area
+  ID 4 (Mallee): 84 polygons, 150.31 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.93.shp
+
+📁 Processing shapefile: mask_fvc_3072.96.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 912 polygons
+Excluding 290 polygons:
+  - shadow: 290 polygons
+After filtering: 622 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 14 polygons
+  - cwd -> ID 1: 38 polygons
+  - grass_hummock -> ID 2: 455 polygons
+  - shrub -> ID 3: 17 polygons
+  - mallee -> ID 4: 49 polygons
+
+Removing 49 polygons with unrecognized types:
+  - 'litter': 48 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 573 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 52 polygons, 4.76 m² total area
+  ID 2 (Grass): 455 polygons, 15.91 m² total area
+  ID 3 (Shrub (Shrub)): 17 polygons, 1.06 m² total area
+  ID 4 (Mallee): 49 polygons, 153.75 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.96.shp
+
+📁 Processing shapefile: mask_fvc_3072.106.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 456 polygons
+Excluding 90 polygons:
+  - shadow: 90 polygons
+After filtering: 366 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 20 polygons
+  - cwd -> ID 1: 62 polygons
+  - grass_hummock -> ID 2: 142 polygons
+  - shrub -> ID 3: 4 polygons
+  - mallee -> ID 4: 57 polygons
+
+Removing 81 polygons with unrecognized types:
+  - 'litter': 80 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 285 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 82 polygons, 7.51 m² total area
+  ID 2 (Grass): 142 polygons, 5.38 m² total area
+  ID 3 (Shrub (Shrub)): 4 polygons, 0.31 m² total area
+  ID 4 (Mallee): 57 polygons, 162.31 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.106.shp
+
+📁 Processing shapefile: mask_fvc_3072.109.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 458 polygons
+Excluding 127 polygons:
+  - shadow: 127 polygons
+After filtering: 331 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 12 polygons
+  - cwd -> ID 1: 33 polygons
+  - grass_hummock -> ID 2: 129 polygons
+  - shrub -> ID 3: 13 polygons
+  - mallee -> ID 4: 48 polygons
+
+Removing 96 polygons with unrecognized types:
+  - 'litter': 95 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 235 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 45 polygons, 4.72 m² total area
+  ID 2 (Grass): 129 polygons, 5.74 m² total area
+  ID 3 (Shrub (Shrub)): 13 polygons, 1.30 m² total area
+  ID 4 (Mallee): 48 polygons, 152.05 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.109.shp
+
+📁 Processing shapefile: mask_fvc_3072.113.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 806 polygons
+Excluding 224 polygons:
+  - shadow: 224 polygons
+After filtering: 582 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 17 polygons
+  - cwd -> ID 1: 41 polygons
+  - grass_hummock -> ID 2: 384 polygons
+  - shrub -> ID 3: 2 polygons
+  - mallee -> ID 4: 49 polygons
+
+Removing 89 polygons with unrecognized types:
+  - 'litter': 88 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 493 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 58 polygons, 5.67 m² total area
+  ID 2 (Grass): 384 polygons, 11.49 m² total area
+  ID 3 (Shrub (Shrub)): 2 polygons, 0.29 m² total area
+  ID 4 (Mallee): 49 polygons, 130.52 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.113.shp
+
+📁 Processing shapefile: mask_fvc_3072.121.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 589 polygons
+Excluding 165 polygons:
+  - shadow: 165 polygons
+After filtering: 424 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 40 polygons
+  - cwd -> ID 1: 31 polygons
+  - grass_hummock -> ID 2: 271 polygons
+  - shrub -> ID 3: 3 polygons
+  - mallee -> ID 4: 54 polygons
+
+Removing 25 polygons with unrecognized types:
+  - 'litter': 24 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 399 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 71 polygons, 2.22 m² total area
+  ID 2 (Grass): 271 polygons, 12.98 m² total area
+  ID 3 (Shrub (Shrub)): 3 polygons, 0.85 m² total area
+  ID 4 (Mallee): 54 polygons, 138.85 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.121.shp
+
+📁 Processing shapefile: mask_fvc_3072.182.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 562 polygons
+Excluding 133 polygons:
+  - shadow: 133 polygons
+After filtering: 429 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 13 polygons
+  - cwd -> ID 1: 66 polygons
+  - grass_hummock -> ID 2: 209 polygons
+  - grass_hummock_senescent -> ID 2: 10 polygons
+  - shrub -> ID 3: 28 polygons
+  - mallee -> ID 4: 47 polygons
+
+Removing 56 polygons with unrecognized types:
+  - 'litter': 55 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 373 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 79 polygons, 10.81 m² total area
+  ID 2 (Grass): 219 polygons, 19.75 m² total area
+  ID 3 (Shrub (Shrub)): 28 polygons, 5.60 m² total area
+  ID 4 (Mallee): 47 polygons, 172.70 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.182.shp
+
+📁 Processing shapefile: mask_fvc_3072.192.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 501 polygons
+Excluding 102 polygons:
+  - shadow: 102 polygons
+After filtering: 399 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 19 polygons
+  - cwd -> ID 1: 73 polygons
+  - grass_hummock -> ID 2: 33 polygons
+  - grass_hummock_senescent -> ID 2: 15 polygons
+  - shrub -> ID 3: 140 polygons
+  - mallee -> ID 4: 63 polygons
+
+Removing 56 polygons with unrecognized types:
+  - 'litter': 55 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 343 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 92 polygons, 9.60 m² total area
+  ID 2 (Grass): 48 polygons, 14.53 m² total area
+  ID 3 (Shrub (Shrub)): 140 polygons, 16.74 m² total area
+  ID 4 (Mallee): 63 polygons, 152.24 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.192.shp
+
+📁 Processing shapefile: mask_fvc_3072.205.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_standing', 'cwd', 'grass_hummock', 'grass_hummock_senescent', 'litter', 'mallee', 'shadow', 'shrub', 'unknown']
+
+Before filtering: 575 polygons
+Excluding 114 polygons:
+  - shadow: 114 polygons
+After filtering: 461 polygons
+
+Assigning structure IDs:
+  - branch_stem_standing -> ID 1: 24 polygons
+  - cwd -> ID 1: 30 polygons
+  - grass_hummock -> ID 2: 39 polygons
+  - grass_hummock_senescent -> ID 2: 23 polygons
+  - shrub -> ID 3: 294 polygons
+  - mallee -> ID 4: 31 polygons
+
+Removing 20 polygons with unrecognized types:
+  - 'litter': 19 polygons
+  - 'unknown': 1 polygons
+After removing unclassified: 441 polygons
+
+📊 Final structure ID distribution:
+  ID 1 (Woody debris/stem): 54 polygons, 11.21 m² total area
+  ID 2 (Grass): 62 polygons, 12.19 m² total area
+  ID 3 (Shrub (Shrub)): 294 polygons, 65.84 m² total area
+  ID 4 (Mallee): 31 polygons, 125.44 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp/mask_fvc_3072.205.shp
+
+================================================================================
+PROCESSING SUMMARY
+================================================================================
+Total files processed: 15
+Total polygons (original): 9024
+Total polygons (final): 6119
+Polygons filtered out: 2905
+Reduction percentage: 32.2%
+
+STRUCTURE ID SUMMARY BY ACTUAL TYPES FOUND:
+  ID 1 (Woody debris/stem): branch_stem_standing, cwd
+  ID 2 (Grass): grass_hummock, grass_hummock_senescent
+  ID 3 (Shrub (Shrub)): shrub
+  ID 4 (Mallee): mallee
+
+CLASS COVERAGE ANALYSIS:
+Total unique types found across all files: 10
+Known/mapped types: 6
+Excluded types: 2
+Unknown/unmapped types: 2
+
+UNKNOWN TYPES FOUND (assigned to ID 1 - Woody debris/stem):
+  - 'litter'
+  - 'unknown'
+
+FILE-BY-FILE SUMMARY:
+  mask_fvc_3072.16.shp: 571→509 polygons (ID1: 78poly/15.4m², ID2: 387poly/42.4m², ID4: 44poly/167.5m²)
+  mask_fvc_3072.22.shp: 594→490 polygons (ID1: 114poly/41.8m², ID2: 337poly/71.0m², ID4: 39poly/189.5m²)
+  mask_fvc_3072.26.shp: 723→457 polygons (ID1: 42poly/4.9m², ID2: 329poly/47.1m², ID3: 57poly/3.7m², ID4: 29poly/122.8m²)
+  mask_fvc_3072.55.shp: 568→388 polygons (ID1: 61poly/8.3m², ID2: 254poly/29.0m², ID3: 41poly/2.7m², ID4: 32poly/174.9m²)
+  mask_fvc_3072.65.shp: 495→320 polygons (ID1: 53poly/4.2m², ID2: 198poly/12.7m², ID3: 4poly/0.4m², ID4: 65poly/125.6m²)
+  mask_fvc_3072.71.shp: 708→477 polygons (ID1: 87poly/8.7m², ID2: 327poly/33.1m², ID3: 19poly/1.4m², ID4: 44poly/151.4m²)
+  mask_fvc_3072.93.shp: 506→336 polygons (ID1: 119poly/9.9m², ID2: 123poly/3.2m², ID3: 10poly/1.1m², ID4: 84poly/150.3m²)
+  mask_fvc_3072.96.shp: 912→573 polygons (ID1: 52poly/4.8m², ID2: 455poly/15.9m², ID3: 17poly/1.1m², ID4: 49poly/153.8m²)
+  mask_fvc_3072.106.shp: 456→285 polygons (ID1: 82poly/7.5m², ID2: 142poly/5.4m², ID3: 4poly/0.3m², ID4: 57poly/162.3m²)
+  mask_fvc_3072.109.shp: 458→235 polygons (ID1: 45poly/4.7m², ID2: 129poly/5.7m², ID3: 13poly/1.3m², ID4: 48poly/152.0m²)
+  mask_fvc_3072.113.shp: 806→493 polygons (ID1: 58poly/5.7m², ID2: 384poly/11.5m², ID3: 2poly/0.3m², ID4: 49poly/130.5m²)
+  mask_fvc_3072.121.shp: 589→399 polygons (ID1: 71poly/2.2m², ID2: 271poly/13.0m², ID3: 3poly/0.8m², ID4: 54poly/138.8m²)
+  mask_fvc_3072.182.shp: 562→373 polygons (ID1: 79poly/10.8m², ID2: 219poly/19.8m², ID3: 28poly/5.6m², ID4: 47poly/172.7m²)
+  mask_fvc_3072.192.shp: 501→343 polygons (ID1: 92poly/9.6m², ID2: 48poly/14.5m², ID3: 140poly/16.7m², ID4: 63poly/152.2m²)
+  mask_fvc_3072.205.shp: 575→441 polygons (ID1: 54poly/11.2m², ID2: 62poly/12.2m², ID3: 294poly/65.8m², ID4: 31poly/125.4m²)
+
+🎉 Processing complete! Structure-classified shapefiles saved to:
+   /media/laura/laura_usb/uas_data/DD0001/imagery/inputs/masks/tiles_3072/raw/structure_class/annotations_shp
+
+📄 Log file saved to: /media/laura/laura_usb/code/fvc_structure/phase_2_2D_imagery_prep/step_2_structure_2D_labels/structure_classification_log_medium_20251016_163035.txt

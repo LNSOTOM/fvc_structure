@@ -1,0 +1,408 @@
+================================================================================
+STRUCTURE CLASSIFICATION LOG - LOW SITE
+Timestamp: 2025-10-09 16:11:47
+================================================================================
+
+CONFIGURATION:
+Current site: low
+Input directory: /media/laura/Extreme SSD/qgis/calperumResearch/site2_1_DD0011/inputs/masks/tiles_3072/raw/fvc_class/annotation_shp
+Output directory: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp
+Log directory: /media/laura/laura_usb/code/fvc_structure/phase_2_2D_imagery_prep/step_2_structure_2D_labels
+
+Structure ID Mapping:
+  forb -> ID 0
+  branch_stem_dead -> ID 1
+  branch_stem_standing -> ID 1
+  litter -> ID 1
+  cwd -> ID 1
+  grass_hummock -> ID 2
+  grass_hummock_senescent -> ID 2
+  shrub_chenopod -> ID 3
+  shrub_chenopod_senescent -> ID 3
+  shrub -> ID 3
+  mallee -> ID 4
+
+Excluded classes: ['bare_ground', 'shadow', 'be', 'unknowm']
+================================================================================
+
+Processing shapefiles from: /media/laura/Extreme SSD/qgis/calperumResearch/site2_1_DD0011/inputs/masks/tiles_3072/raw/fvc_class/annotation_shp
+Output directory: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp
+============================================================
+
+📁 Processing shapefile: mask_fvc_3072.60.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 356 polygons
+After filtering: 356 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 142 polygons
+  - shrub_chenopod -> ID 3: 75 polygons
+  - shrub_chenopod_senescent -> ID 3: 138 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 355 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 142 polygons, 76.38 m² total area
+  ID 3 (Shrub (Chenopod)): 213 polygons, 186.43 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.60.shp
+
+📁 Processing shapefile: mask_fvc_3072.41.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 451 polygons
+After filtering: 451 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 189 polygons
+  - shrub_chenopod -> ID 3: 160 polygons
+  - shrub_chenopod_senescent -> ID 3: 101 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 450 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 189 polygons, 27.18 m² total area
+  ID 3 (Shrub (Chenopod)): 261 polygons, 172.28 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.41.shp
+
+📁 Processing shapefile: mask_fvc_3072.43.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 464 polygons
+After filtering: 464 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 167 polygons
+  - shrub_chenopod -> ID 3: 190 polygons
+  - shrub_chenopod_senescent -> ID 3: 106 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 463 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 167 polygons, 30.71 m² total area
+  ID 3 (Shrub (Chenopod)): 296 polygons, 210.65 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.43.shp
+
+📁 Processing shapefile: mask_fvc_3072.66.shp
+Using vegetation type column: 'structure'
+Unique vegetation types found: ['bare_ground', 'forb', 'shrub_chenopod', 'shrub_chenopod_senescent']
+
+Before filtering: 223 polygons
+Excluding 1 polygons:
+  - bare_ground: 1 polygons
+After filtering: 222 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 45 polygons
+  - shrub_chenopod -> ID 3: 84 polygons
+  - shrub_chenopod_senescent -> ID 3: 93 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 45 polygons, 30.03 m² total area
+  ID 3 (Shrub (Chenopod)): 177 polygons, 133.10 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.66.shp
+
+📁 Processing shapefile: mask_fvc_3072.75.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 295 polygons
+After filtering: 295 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 64 polygons
+  - shrub_chenopod -> ID 3: 120 polygons
+  - shrub_chenopod_senescent -> ID 3: 110 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 294 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 64 polygons, 35.55 m² total area
+  ID 3 (Shrub (Chenopod)): 230 polygons, 142.33 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.75.shp
+
+📁 Processing shapefile: mask_fvc_3072.68.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['cwd', 'forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 432 polygons
+After filtering: 432 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 148 polygons
+  - cwd -> ID 1: 1 polygons
+  - shrub_chenopod -> ID 3: 138 polygons
+  - shrub_chenopod_senescent -> ID 3: 144 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 431 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 148 polygons, 94.87 m² total area
+  ID 1 (Woody debris/stem): 1 polygons, 0.91 m² total area
+  ID 3 (Shrub (Chenopod)): 282 polygons, 146.62 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.68.shp
+
+📁 Processing shapefile: mask_fvc_3072.30.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 223 polygons
+After filtering: 223 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 33 polygons
+  - shrub_chenopod -> ID 3: 99 polygons
+  - shrub_chenopod_senescent -> ID 3: 90 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 222 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 33 polygons, 26.86 m² total area
+  ID 3 (Shrub (Chenopod)): 189 polygons, 146.81 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.30.shp
+
+📁 Processing shapefile: mask_fvc_3072.48.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['cwd', 'forb', 'litter', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 499 polygons
+After filtering: 499 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 191 polygons
+  - litter -> ID 1: 1 polygons
+  - cwd -> ID 1: 5 polygons
+  - shrub_chenopod -> ID 3: 204 polygons
+  - shrub_chenopod_senescent -> ID 3: 97 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 498 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 191 polygons, 23.04 m² total area
+  ID 1 (Woody debris/stem): 6 polygons, 4.88 m² total area
+  ID 3 (Shrub (Chenopod)): 301 polygons, 179.07 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.48.shp
+
+📁 Processing shapefile: mask_fvc_3072.39.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 290 polygons
+After filtering: 290 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 63 polygons
+  - shrub_chenopod -> ID 3: 121 polygons
+  - shrub_chenopod_senescent -> ID 3: 105 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 289 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 63 polygons, 47.94 m² total area
+  ID 3 (Shrub (Chenopod)): 226 polygons, 167.44 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.39.shp
+
+📁 Processing shapefile: mask_fvc_3072.79.shp
+Using vegetation type column: 'structure'
+Unique vegetation types found: ['bare_ground', 'forb', 'shrub_chenopod', 'shrub_chenopod_senescent']
+
+Before filtering: 434 polygons
+Excluding 1 polygons:
+  - bare_ground: 1 polygons
+After filtering: 433 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 126 polygons
+  - shrub_chenopod -> ID 3: 123 polygons
+  - shrub_chenopod_senescent -> ID 3: 184 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 126 polygons, 72.87 m² total area
+  ID 3 (Shrub (Chenopod)): 307 polygons, 140.78 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.79.shp
+
+📁 Processing shapefile: mask_fvc_3072.25.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 803 polygons
+After filtering: 803 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 511 polygons
+  - shrub_chenopod -> ID 3: 167 polygons
+  - shrub_chenopod_senescent -> ID 3: 124 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 802 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 511 polygons, 124.33 m² total area
+  ID 3 (Shrub (Chenopod)): 291 polygons, 195.92 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.25.shp
+
+📁 Processing shapefile: mask_fvc_3072.31.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 567 polygons
+After filtering: 567 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 290 polygons
+  - shrub_chenopod -> ID 3: 173 polygons
+  - shrub_chenopod_senescent -> ID 3: 103 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 566 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 290 polygons, 80.93 m² total area
+  ID 3 (Shrub (Chenopod)): 276 polygons, 189.72 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.31.shp
+
+📁 Processing shapefile: mask_fvc_3072.33.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['branch_stem_dead', 'forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 324 polygons
+After filtering: 324 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 58 polygons
+  - branch_stem_dead -> ID 1: 1 polygons
+  - shrub_chenopod -> ID 3: 142 polygons
+  - shrub_chenopod_senescent -> ID 3: 122 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 323 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 58 polygons, 124.97 m² total area
+  ID 1 (Woody debris/stem): 1 polygons, 4.41 m² total area
+  ID 3 (Shrub (Chenopod)): 264 polygons, 179.10 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.33.shp
+
+📁 Processing shapefile: mask_fvc_3072.52.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 394 polygons
+After filtering: 394 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 59 polygons
+  - shrub_chenopod -> ID 3: 204 polygons
+  - shrub_chenopod_senescent -> ID 3: 130 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 393 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 59 polygons, 37.87 m² total area
+  ID 3 (Shrub (Chenopod)): 334 polygons, 154.35 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.52.shp
+
+📁 Processing shapefile: mask_fvc_3072.58.shp
+Using vegetation type column: 'structure'
+Found 1 rows with null/missing values in 'structure' column
+Unique vegetation types found: ['cwd', 'forb', 'shrub_chenopod', 'shrub_chenopod_senescent', 'unknown']
+
+Before filtering: 446 polygons
+After filtering: 446 polygons
+
+Assigning structure IDs:
+  - forb -> ID 0: 118 polygons
+  - cwd -> ID 1: 2 polygons
+  - shrub_chenopod -> ID 3: 208 polygons
+  - shrub_chenopod_senescent -> ID 3: 117 polygons
+
+Removing 1 polygons with unrecognized types:
+  - 'unknown': 1 polygons
+After removing unclassified: 445 polygons
+
+📊 Final structure ID distribution:
+  ID 0 (Forb): 118 polygons, 69.00 m² total area
+  ID 1 (Woody debris/stem): 2 polygons, 0.23 m² total area
+  ID 3 (Shrub (Chenopod)): 325 polygons, 159.58 m² total area
+✅ Saved to: /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp/mask_fvc_3072.58.shp
+
+================================================================================
+PROCESSING SUMMARY
+================================================================================
+Total files processed: 15
+Total polygons (original): 6201
+Total polygons (final): 6186
+Polygons filtered out: 15
+Reduction percentage: 0.2%
+
+STRUCTURE ID SUMMARY BY ACTUAL TYPES FOUND:
+  ID 0 (Forb): forb
+  ID 1 (Woody debris/stem): branch_stem_dead, cwd, litter
+  ID 3 (Shrub (Chenopod)): shrub_chenopod, shrub_chenopod_senescent
+
+CLASS COVERAGE ANALYSIS:
+Total unique types found across all files: 8
+Known/mapped types: 6
+Excluded types: 1
+Unknown/unmapped types: 1
+
+UNKNOWN TYPES FOUND (assigned to ID 1 - Woody debris/stem):
+  - 'unknown'
+
+FILE-BY-FILE SUMMARY:
+  mask_fvc_3072.60.shp: 356→355 polygons (ID0: 142poly/76.4m², ID3: 213poly/186.4m²)
+  mask_fvc_3072.41.shp: 451→450 polygons (ID0: 189poly/27.2m², ID3: 261poly/172.3m²)
+  mask_fvc_3072.43.shp: 464→463 polygons (ID0: 167poly/30.7m², ID3: 296poly/210.7m²)
+  mask_fvc_3072.66.shp: 223→222 polygons (ID0: 45poly/30.0m², ID3: 177poly/133.1m²)
+  mask_fvc_3072.75.shp: 295→294 polygons (ID0: 64poly/35.6m², ID3: 230poly/142.3m²)
+  mask_fvc_3072.68.shp: 432→431 polygons (ID0: 148poly/94.9m², ID1: 1poly/0.9m², ID3: 282poly/146.6m²)
+  mask_fvc_3072.30.shp: 223→222 polygons (ID0: 33poly/26.9m², ID3: 189poly/146.8m²)
+  mask_fvc_3072.48.shp: 499→498 polygons (ID0: 191poly/23.0m², ID1: 6poly/4.9m², ID3: 301poly/179.1m²)
+  mask_fvc_3072.39.shp: 290→289 polygons (ID0: 63poly/47.9m², ID3: 226poly/167.4m²)
+  mask_fvc_3072.79.shp: 434→433 polygons (ID0: 126poly/72.9m², ID3: 307poly/140.8m²)
+  mask_fvc_3072.25.shp: 803→802 polygons (ID0: 511poly/124.3m², ID3: 291poly/195.9m²)
+  mask_fvc_3072.31.shp: 567→566 polygons (ID0: 290poly/80.9m², ID3: 276poly/189.7m²)
+  mask_fvc_3072.33.shp: 324→323 polygons (ID0: 58poly/125.0m², ID1: 1poly/4.4m², ID3: 264poly/179.1m²)
+  mask_fvc_3072.52.shp: 394→393 polygons (ID0: 59poly/37.9m², ID3: 334poly/154.3m²)
+  mask_fvc_3072.58.shp: 446→445 polygons (ID0: 118poly/69.0m², ID1: 2poly/0.2m², ID3: 325poly/159.6m²)
+
+🎉 Processing complete! Structure-classified shapefiles saved to:
+   /media/laura/laura_usb/uas_data/DD0011/imagery/inputs/masks/tiles_3072/raw/structure_class/annotation_shp
+
+📄 Log file saved to: /media/laura/laura_usb/code/fvc_structure/phase_2_2D_imagery_prep/step_2_structure_2D_labels/structure_classification_log_low_20251009_161147.txt
