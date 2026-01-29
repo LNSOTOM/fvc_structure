@@ -5,7 +5,7 @@ Tools for processing orthomosaic imagery into structured tiles with vegetation c
 ## Method
 
 Orthomosaic imagery from UAV acquisitions was processed into gridded tiles with corresponding vegetation structure labels. The workflow involves:
-1. Clipping orthomosaics into regular grid tiles (3072×3072 px, 10m×10m)
+1. Clipping orthomosaics into regular grid tiles (30.72 × 30.72 m/pixel)
 2. Extracting and stacking multispectral bands
 3. Converting FVC (Fractional Vegetation Cover) annotations to structure-based classification
 4. Rasterizing vector labels to match tile resolution
@@ -67,7 +67,7 @@ conda install -c conda-forge gdal rasterio geopandas
 
 ## Outputs
 
-- **Tiled rasters**: 3072×3072 px multispectral tiles (10m×10m at ~3mm/px resolution)
+- **Tiled rasters**: 30.72 × 30.72 m/pixel multispectral tiles (5 cm resolution)
 - **Vector labels**: Structure-classified shapefiles with `structure_id` attribute
 - **Raster labels**: Binary masks and multi-class rasters matching tile dimensions
 - **Processing logs**: Classification statistics and polygon counts
