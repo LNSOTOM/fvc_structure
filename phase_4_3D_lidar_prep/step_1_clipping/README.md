@@ -1,6 +1,6 @@
 # Step 1: LiDAR Clipping
 
-Tools for clipping LiDAR point clouds to raster tile extents and applying mask-based classification.
+Tools for clipping RGB dense clouds and LiDAR point clouds to raster tile extents and applying mask-based classification.
 
 ## rasterclip - Clip LAS to raster tiles
 
