@@ -146,8 +146,6 @@ output_base/
 
 ---
 
----
-
 ## Parameters
 
 ### CSF Parameters
@@ -165,22 +163,6 @@ output_base/
 ### Normalization Parameters
 - `k`: Number of nearest neighbors (default: 3)
 - `extra_dim_name`: Name of HAG dimension (default: "Z_norm")
-
----
-
----
-
-## Requirements
-
-- Python ≥ 3.10
-- PDAL (with CSF and SMRF filters)
-- numpy
-- scipy
-- laspy ≥ 2.0
-- dask[distributed]
-- tqdm
-
-See [pyproject.toml](pyproject.toml) for full dependency list.
 
 ---
 
