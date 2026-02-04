@@ -1,24 +1,33 @@
-# groundnorm — Ground Classification and Z Normalization
+# Step 2: Ground Classification and Z Normalization
 
-Python package for LAS point cloud ground filtering and height-above-ground (HAG) normalization using CSF and SMRF algorithms.
+Tools for LAS point cloud ground filtering and height-above-ground (HAG) normalization using CSF and SMRF algorithms.
 
-## Features
+## groundnorm Package
 
-- **CSF (Cloth Simulation Filter)**: Terrain extraction using cloth simulation
+Python package for terrain extraction and height normalization with parallel batch processing capabilities.
+
+**Features:**
+- **CSF (Cloth Simulation Filter)**: Terrain extraction using cloth simulation (Zhang et al., 2016)
 - **SMRF (Simple Morphological Filter)**: Morphological ground filtering
-- **Z Normalization**: Height-above-ground (HAG) computation via kNN interpolation
-- **Batch Processing**: Parallel processing of multiple LAS tiles
+- **Z Normalization**: Height-above-ground (HAG) computation via kNN IDW interpolation
+- **Batch Processing**: Parallel Dask processing of multiple LAS tiles
 - **CLI & Python API**: Use from command line or import in scripts/notebooks
+- **Flexible Output**: Separate ground-only or normalized point clouds
 
 ## Installation
 
 ```bash
+# Navigate to step_2_csf_znorm directory
+cd /home/nvidia/projects/fvc_structure/phase_4_3D_lidar_prep/step_2_csf_znorm
+
 # Install in development mode
 pip install -e .
 
-# Or install from directory
-pip install /path/to/step_2_csf_znorm
+# Or install from absolute path
+pip install -e /path/to/step_2_csf_znorm
 ```
+
+---
 
 ## Command-Line Usage
 
@@ -105,6 +114,16 @@ process_batch_smrf(
 )
 ```
 
+---
+
+## Notebooks
+
+- **`01_ground_classification_site01.ipynb`** – Site 1 (DD0001) CSF ground classification and HAG normalization workflow with extent-matched visualization
+
+---
+
+---
+
 ## Output Structure
 
 ```
@@ -125,6 +144,10 @@ output_base/
         └── z_norm_smrf_tile2.las
 ```
 
+---
+
+---
+
 ## Parameters
 
 ### CSF Parameters
@@ -143,6 +166,10 @@ output_base/
 - `k`: Number of nearest neighbors (default: 3)
 - `extra_dim_name`: Name of HAG dimension (default: "Z_norm")
 
+---
+
+---
+
 ## Requirements
 
 - Python ≥ 3.10
@@ -150,7 +177,24 @@ output_base/
 - numpy
 - scipy
 - laspy ≥ 2.0
+- dask[distributed]
 - tqdm
+
+See [pyproject.toml](pyproject.toml) for full dependency list.
+
+---
+
+## Dependencies
+
+For complete dependency information, see [pyproject.toml](pyproject.toml):
+- **PDAL**: Point cloud processing with CSF/SMRF filters
+- **laspy**: LAS/LAZ file I/O
+- **rasterio**: Raster extent extraction (for notebooks)
+- **scipy**: Spatial interpolation (kNN, IDW)
+- **dask[distributed]**: Parallel batch processing
+- **tqdm**: Progress tracking
+
+---
 
 ## License
 
