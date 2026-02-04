@@ -70,6 +70,8 @@ outs = classify_many_dask(
 ## Installation
 
 ```bash
+cd to folder: (fvc_structure) nvidia@brev-rvbt83sj0:~/projects/fvc_structure/phase_4_3D_lidar_prep/step_1_clipping
+pip install -e . or
 pip install -e /media/laura/laura_usb/code/fvc_structure/phase_4_3D_lidar_prep/step_1_clipping
 ```
 

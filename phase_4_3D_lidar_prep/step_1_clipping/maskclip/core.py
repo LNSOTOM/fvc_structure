@@ -43,12 +43,13 @@ def classify_single(las_path: Path, raster_path: Path, mask_path: Path, out_path
                 "filename": str(out_path),
                 "minor_version": minor_version,
                 "extra_dims": "all",
-                # "scale_x": scale_x,
-                # "scale_y": scale_y,
-                # "scale_z": scale_z,
+                "scale_x": scale_x,
+                "scale_y": scale_y,
+                "scale_z": scale_z,
                 "offset_x": offset_x,
                 "offset_y": offset_y,
                 "offset_z": offset_z,
+                "forward": "all"
             },
         ]
     }
