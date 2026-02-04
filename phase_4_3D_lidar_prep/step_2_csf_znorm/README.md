@@ -122,8 +122,6 @@ process_batch_smrf(
 
 ---
 
----
-
 ## Output Structure
 
 ```
