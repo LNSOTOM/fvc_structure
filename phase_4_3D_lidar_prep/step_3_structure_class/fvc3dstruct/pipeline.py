@@ -1,7 +1,7 @@
-"""Complete 3D fusion pipeline matching merge_znorm approach."""
+"""Complete 3D fusion pipeline matching the Table-3 workflow."""
 
 from pathlib import Path
-from typing import Dict, Tuple, Optional
+from typing import Dict, Optional
 import numpy as np
 import laspy
 
@@ -13,8 +13,9 @@ from .height_stats import (
     compute_class_height_thresholds,
     auto_mallee_min_height,
 )
-from .io_las import ensure_las14_pf6
+from .io_las import write_stage_output, write_las_with_fields
 from .config import DEFAULT_CONFIG
+from .treeid import assign_treeID_optionA
 
 
 def process_tile(
@@ -24,14 +25,20 @@ def process_tile(
     config: Optional[Dict] = None,
 ):
     """
-    Full 3D structure pipeline (Option A: mallee canopy treeID only).
-    
-    Steps:
-    1. Cartesian voxel merge (majority vote)
-    2. Watershed crown detection
-    3. Polar refinement with height priors
-    4. Height sanity rules
-    5. TreeID only for mallee crowns above threshold
+        Occlusion-aware 3D vegetation-structure label fusion workflow.
+
+        Stages (matching Table 3):
+            1) Class height thresholding
+            2) Cartesian voxel-based label transfer
+            3) Mallee crown detection and instance assignment (treeIDs)
+            4) Crown-centric polar refinement with height priors
+            5) Height-based consolidation and crown-level consistency enforcement
+            6) Output generation
+
+        Notes:
+            - `out_path` is the vegetation-only (non-zero) LAS product.
+            - Optionally writes a full fused LAS (same points as `z_path`) when
+                `write_full_fused=True` in config.
     """
     cfg = dict(DEFAULT_CONFIG)
     if config:
@@ -46,27 +53,46 @@ def process_tile(
     
     zn_arr = np.asarray(las_z["Z_norm"], dtype=float)
     
-    print(f"📂 Processing {z_path.stem}")
+    print(f"📂 Processing {Path(z_path).stem}")
     print(f"  Z_norm pts: {len(las_z.points):,}, range: {zn_arr.min():.2f}–{zn_arr.max():.2f} m")
     print(f"  Struct pts: {len(las_s.points):,}")
     
-    # Step 1: Data-driven height thresholds
-    print("\n🔍 Step 1: Computing class height thresholds...")
-    height_ranges = compute_class_height_thresholds(las_s, las_z)
+    # Stage 1: Class height thresholding
+    print("\n1️⃣  Stage 1: Class height thresholding (robust priors)...")
+    height_ranges = compute_class_height_thresholds(
+        las_s,
+        las_z,
+        percentile_low=15.0,
+        percentile_high=85.0,
+        max_match_dist=0.30,
+    )
     mallee_min = auto_mallee_min_height(height_ranges)
     print(f"  → Mallee crown min height: {mallee_min:.2f} m")
     
-    # Step 2: Cartesian voxel merge
-    print("\n📦 Step 2: Cartesian voxel merge...")
-    classification = cartesian_voxel_merge(
+    # Stage 2: Cartesian voxel-based label transfer
+    print("\n2️⃣  Stage 2: Cartesian voxel-based label transfer (baseline)...")
+    classification_baseline = cartesian_voxel_merge(
         las_z,
         las_s,
         voxel_xy=cfg["voxel_size_xy"],
         voxel_z=cfg["voxel_size_z"],
     )
+
+    save_stages = bool(cfg.get("save_stage_outputs", False))
+    stage_dir = cfg.get("stage_out_dir")
+    if save_stages and stage_dir:
+        stage_dir = Path(stage_dir)
+        tile = Path(z_path).stem
+        write_stage_output(
+            las_template=las_z,
+            classification=classification_baseline,
+            output_path=stage_dir / f"{tile}_stage2_voxel_baseline.las",
+            zn_values=zn_arr,
+            stage_label="Stage 2 (voxel baseline)",
+        )
     
-    # Step 3: Watershed crown detection
-    print("\n🌳 Step 3: Detecting mallee crowns...")
+    # Stage 3: Mallee crown detection + per-point instance assignment
+    print("\n3️⃣  Stage 3: Mallee crown detection + instance assignment...")
 
     # Auto-derive parameters if requested
     mt = cfg.get("min_tree_dist", 1.5)
@@ -89,25 +115,39 @@ def process_tile(
         fallback_points=(las_z.x, las_z.y, zn_arr),
         fallback_min_height=mallee_min,
     )
-    
-    # Step 4: Compute crown IDs for ALL points (before filtering)
-    print("\n🏷️  Step 4: Computing crown IDs from watershed...")
-    instance_ids = np.zeros(len(las_z.points), dtype=np.uint16)
-    
+
+    instance_ids_all = assign_treeID_optionA(
+        las_z,
+        label_grid=label_grid,
+        xmin=grid_min_x,
+        ymin=grid_min_y,
+        grid_res=0.10,
+    )
     if label_grid.max() > 0:
-        ix = np.clip(((las_z.x - grid_min_x) / 0.10).astype(int), 0, label_grid.shape[1] - 1)
-        iy = np.clip(((las_z.y - grid_min_y) / 0.10).astype(int), 0, label_grid.shape[0] - 1)
-        instance_ids = label_grid[iy, ix].astype(np.uint16)
-        n_in_crowns = np.count_nonzero(instance_ids)
-        print(f"  → {n_in_crowns:,} points fall within {label_grid.max()} crowns")
+        n_in_crowns = int(np.count_nonzero(instance_ids_all))
+        print(f"  → {n_in_crowns:,} points fall within {int(label_grid.max())} crowns")
+    else:
+        print("  ⚠️ No crowns detected (label_grid max == 0)")
+
+    if save_stages and stage_dir:
+        tile = Path(z_path).stem
+        write_stage_output(
+            las_template=las_z,
+            classification=classification_baseline,
+            output_path=stage_dir / f"{tile}_stage3_treeid_instances.las",
+            zn_values=zn_arr,
+            stage_label="Stage 3 (treeID instances)",
+            tree_ids=instance_ids_all,
+        )
     
-    # Step 5: Polar refinement (if crowns detected)
+    # Stage 4: Crown-centric polar refinement with height priors
+    classification_refined = classification_baseline.copy()
     if label_grid.max() > 0:
-        print("\n🔄 Step 5: Polar refinement around crowns...")
-        classification = refine_with_polar_coords(
+        print("\n4️⃣  Stage 4: Crown-centric polar refinement with height priors...")
+        classification_refined = refine_with_polar_coords(
             las_z,
             las_s,
-            classification,
+            classification_refined,
             zn_arr,
             label_grid,
             centroids,
@@ -117,126 +157,126 @@ def process_tile(
             height_ranges=height_ranges,
             r_bin=cfg["r_bin"],
             theta_bin_deg=cfg["theta_bin_deg"],
+            min_conf=cfg["min_conf"],
+            min_flip_ratio=cfg["min_flip_ratio"],
         )
     else:
-        print("\n⚠️  No crowns detected, skipping polar refinement")
-    
-    # Step 6: Merge woody debris → mallee, apply height rules
-    print("\n✂️  Step 6: Final height sanity rules...")
-    
-    # Merge high woody debris (65) to mallee (68)
-    MERGE_65_TO_68_ZNORM = 0.5
-    mask_65 = classification == 65
-    mask_65_high = mask_65 & (zn_arr > MERGE_65_TO_68_ZNORM)
-    mask_65_low = mask_65 & (zn_arr < MERGE_65_TO_68_ZNORM)
-    classification[mask_65_high] = 68
-    
-    # Remove low woody debris (likely noise)
-    keep_mask_base = ~mask_65_low
-    
-    classification_kept = classification[keep_mask_base]
-    zn_kept = zn_arr[keep_mask_base]
-    instance_ids_kept = instance_ids[keep_mask_base]
-    
-    # Step 7: Filter class-0 and promote high unclassified points
-    print("\n🧹 Step 7: Filtering class-0 and promoting high points...")
-    HIGH_Z_KEEP = 1.3
-    
-    # Keep non-zero classes OR high class-0 points
-    keep_final = (classification_kept != 0) | (zn_kept >= HIGH_Z_KEEP)
-    
-    classification_final = classification_kept[keep_final]
-    zn_final = zn_kept[keep_final]
-    instance_ids_final = instance_ids_kept[keep_final]
-    
-    # Promote high class-0 to woody debris, then merge to mallee
-    promote = (classification_final == 0) & (zn_final >= HIGH_Z_KEEP)
-    classification_final[promote] = 65
-    classification_final[classification_final == 65] = 68  # Merge all 65 → 68
-    
-    n_kept = len(classification_final)
-    n_original = len(las_z.points)
-    pct_kept = 100.0 * n_kept / n_original
-    print(f"  → Kept {n_kept:,}/{n_original:,} points ({pct_kept:.1f}%)")
-    
-    # Step 8: Spatial majority voting within crowns
-    print("\n🗳️  Step 8: Spatial majority voting within crowns...")
-    
-    # For points within crowns (instance_ids > 0), apply majority voting
-    # Reclassify ALL non-mallee classes to 68 if within a crown that's predominantly 68
-    if instance_ids_final.max() > 0:
-        n_reclassified = 0
-        for crown_id in range(1, int(instance_ids_final.max()) + 1):
-            in_crown = instance_ids_final == crown_id
-            if in_crown.sum() == 0:
-                continue
-            
-            crown_classes = classification_final[in_crown]
-            # Count mallee (68) vs other classes
-            n_mallee = (crown_classes == 68).sum()
-            n_total = len(crown_classes)
-            
-            # If >50% of crown is already mallee, convert ALL non-mallee → 68
-            if n_mallee / n_total > 0.5:
-                is_non_mallee_in_crown = in_crown & (classification_final != 68)
-                n_converted = is_non_mallee_in_crown.sum()
-                if n_converted > 0:
-                    classification_final[is_non_mallee_in_crown] = 68
-                    n_reclassified += n_converted
-        
-        if n_reclassified > 0:
-            print(f"  → Reclassified {n_reclassified:,} points to mallee (68) via majority vote")
-            print(f"     (Converted classes 64, 66, 67 within mallee-dominant crowns)")
+        print("\n4️⃣  Stage 4: Skipping polar refinement (no crowns)")
 
-        # Height-based refinement: within crown, promote high points to mallee
-        # Rationale: Crown definition uses a mallee_min height; points above this
-        # threshold that lie inside crowns should be mallee (68).
-        n_reclassified_height = 0
-        in_any_crown = instance_ids_final > 0
-        high_in_crown = in_any_crown & (zn_final >= mallee_min) & (classification_final != 68)
-        if high_in_crown.any():
-            n_reclassified_height = high_in_crown.sum()
-            classification_final[high_in_crown] = 68
-            print(f"  → Reclassified {n_reclassified_height:,} high crown points → 68 (height rule)")
+    if save_stages and stage_dir:
+        tile = Path(z_path).stem
+        write_stage_output(
+            las_template=las_z,
+            classification=classification_refined,
+            output_path=stage_dir / f"{tile}_stage4_polar_refined.las",
+            zn_values=zn_arr,
+            stage_label="Stage 4 (polar refined)",
+            tree_ids=instance_ids_all,
+        )
     
-    # Step 9: Finalize treeIDs (mallee crowns only)
-    print("\n🌳 Step 9: Finalizing treeIDs (mallee crowns only)...")
-    treeID = instance_ids_final.copy()
-    
-    # Only keep treeID for mallee canopy points above threshold
-    is_mallee_crown = (classification_final == 68) & (zn_final >= mallee_min)
-    treeID[~is_mallee_crown] = 0
-    
-    unique_trees = len(np.unique(treeID[treeID > 0]))
-    print(f"  → Assigned {unique_trees} unique treeIDs to mallee crowns")
-    
-    # Build final keep mask for writing
-    keep_mask = np.zeros(len(las_z.points), dtype=bool)
-    keep_indices = np.where(keep_mask_base)[0][keep_final]
-    keep_mask[keep_indices] = True
-    
-    # Step 10: Write output
-    print("\n💾 Step 10: Writing output LAS...")
-    las_base = ensure_las14_pf6(las_z)
-    subset_pts = las_base.points[keep_mask].copy()
-    
-    las_out = laspy.LasData(las_base.header)
-    las_out.points = subset_pts
-    
-    if "treeID" not in las_out.point_format.dimension_names:
-        las_out.add_extra_dim(laspy.ExtraBytesParams(name="treeID", type=np.uint16))
-    if "Z_norm" not in las_out.point_format.dimension_names:
-        las_out.add_extra_dim(laspy.ExtraBytesParams(name="Z_norm", type=np.float32))
-    
-    las_out.classification = classification_final
-    las_out["Z_norm"] = zn_final.astype(np.float32)
-    las_out["treeID"] = treeID
-    
-    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-    las_out.write(str(out_path))
-    
-    print(f"✅ Wrote: {Path(out_path).name}")
-    print(f"   {len(las_out.points):,} points, {unique_trees} trees\n")
+    # Stage 5: Height-based consolidation + crown-level consistency
+    print("\n5️⃣  Stage 5: Height-based consolidation + crown consistency...")
+
+    classification_final_all = classification_refined.copy()
+    merge_65_to_68 = float(cfg.get("merge_65_to_68_znorm", 0.5))
+    promote_unlabelled = float(cfg.get("promote_unlabelled_znorm", 1.3))
+
+    # Merge woody debris (65) → mallee (68) if tall enough; remove low woody debris.
+    mask_65 = classification_final_all == 65
+    classification_final_all[mask_65 & (zn_arr > merge_65_to_68)] = 68
+    classification_final_all[mask_65 & (zn_arr <= merge_65_to_68)] = 0
+
+    # Promote unlabelled points above threshold (gap-aware fill)
+    promote_mask = (classification_final_all == 0) & (zn_arr >= promote_unlabelled)
+    if np.any(promote_mask):
+        classification_final_all[promote_mask] = 68
+        print(f"  → Promoted {int(np.count_nonzero(promote_mask)):,} high unlabelled points → 68")
+
+    # Crown-level majority voting: if crown is >50% mallee, convert all points in crown → 68.
+    if instance_ids_all.max() > 0:
+        n_reclassified = 0
+        max_id = int(instance_ids_all.max())
+        for crown_id in range(1, max_id + 1):
+            in_crown = instance_ids_all == crown_id
+            if not np.any(in_crown):
+                continue
+
+            crown_classes = classification_final_all[in_crown]
+            n_mallee = int(np.count_nonzero(crown_classes == 68))
+            n_total = int(crown_classes.size)
+            if n_total == 0:
+                continue
+
+            if (n_mallee / n_total) > 0.5:
+                non_mallee = in_crown & (classification_final_all != 68)
+                n_conv = int(np.count_nonzero(non_mallee))
+                if n_conv:
+                    classification_final_all[non_mallee] = 68
+                    n_reclassified += n_conv
+
+        if n_reclassified:
+            print(f"  → Reclassified {n_reclassified:,} crown points → 68 via majority vote")
+
+    # Finalise valid treeIDs (Option A canopy only)
+    treeID_all = instance_ids_all.copy().astype(np.uint16)
+    is_valid_mallee_canopy = (classification_final_all == 68) & (zn_arr >= mallee_min)
+    treeID_all[~is_valid_mallee_canopy] = 0
+    unique_trees = int(len(np.unique(treeID_all[treeID_all > 0])))
+    print(f"  → Valid mallee treeIDs: {unique_trees}")
+
+    if save_stages and stage_dir:
+        tile = Path(z_path).stem
+        write_stage_output(
+            las_template=las_z,
+            classification=classification_final_all,
+            output_path=stage_dir / f"{tile}_stage5_final_fullcloud.las",
+            zn_values=zn_arr,
+            stage_label="Stage 5 (final full-cloud)",
+            tree_ids=treeID_all,
+        )
+
+    # Stage 6: Output generation
+    print("\n6️⃣  Stage 6: Output generation...")
+
+    # Vegetation-only product (non-zero classes)
+    keep_veg = classification_final_all != 0
+    n_kept = int(np.count_nonzero(keep_veg))
+    n_original = int(len(las_z.points))
+    pct_kept = 100.0 * n_kept / n_original if n_original else 0.0
+    print(f"  → Vegetation-only: {n_kept:,}/{n_original:,} points ({pct_kept:.1f}%)")
+
+    write_las_with_fields(
+        las_template=las_z,
+        out_path=out_path,
+        classification=classification_final_all,
+        zn_values=zn_arr,
+        tree_ids=treeID_all,
+        keep_mask=keep_veg,
+    )
+    print(f"✅ Wrote veg-only LAS: {Path(out_path).name}")
+
+    # Full fused point cloud (gap-aware) – optional
+    if bool(cfg.get("write_full_fused", False)):
+        out_full = Path(out_path)
+        out_full = out_full.with_name(out_full.stem + "_full_fused" + out_full.suffix)
+        write_las_with_fields(
+            las_template=las_z,
+            out_path=out_full,
+            classification=classification_final_all,
+            zn_values=zn_arr,
+            tree_ids=treeID_all,
+            keep_mask=None,
+        )
+        print(f"✅ Wrote full fused LAS: {out_full.name}")
+
+    # Vegetation-only mask product – optional (boolean mask aligned to full Z_norm LAS)
+    if bool(cfg.get("write_veg_mask_npy", False)):
+        out_mask = Path(out_path)
+        out_mask = out_mask.with_name(out_mask.stem + "_veg_mask.npy")
+        np.save(out_mask, keep_veg)
+        print(f"✅ Wrote veg mask: {out_mask.name}")
+
+    print(f"   TreeIDs (unique, non-zero): {unique_trees}\n")
 
 
 def process_folder(
