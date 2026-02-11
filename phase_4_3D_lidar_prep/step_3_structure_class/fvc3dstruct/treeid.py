@@ -1,17 +1,16 @@
 import numpy as np
 
 
-def assign_treeID_optionA(las_z, classification, label_grid,
-                          xmin, ymin, grid_res):
+def assign_treeID_optionA(las_z, label_grid, xmin, ymin, grid_res, classification=None):
     """
-    Assign treeID only for points classified as MALLEE (68).
+    Assign treeID for all points based on watershed labels.
 
     Returns array treeID where:
-      - mallee canopy points get crown label
-      - everything else = 0
+      - all points get crown label from the grid
+      - unlabeled areas = 0
     """
 
-    treeID = np.zeros(len(classification), dtype=np.uint16)
+    treeID = np.zeros(len(las_z.points), dtype=np.uint16)
 
     if label_grid is None:
         return treeID
@@ -23,7 +22,6 @@ def assign_treeID_optionA(las_z, classification, label_grid,
     ix = np.clip(ix, 0, w - 1)
     iy = np.clip(iy, 0, h - 1)
 
-    mask_mallee = classification == 68
-    treeID[mask_mallee] = label_grid[iy[mask_mallee], ix[mask_mallee]]
+    treeID = label_grid[iy, ix].astype(np.uint16)
 
     return treeID
