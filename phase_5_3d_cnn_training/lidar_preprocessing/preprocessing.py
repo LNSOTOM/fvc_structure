@@ -104,7 +104,7 @@ def get_tree_ids(las, n: int, fname: str) -> np.ndarray:
 
 def write_forestformer_ply(
     out_path: Path,
-    xyz: np.ndarray,
+    xyz_abs: np.ndarray,
     semantic: np.ndarray,
     inst: np.ndarray,
     z_norm: np.ndarray,
@@ -116,7 +116,7 @@ def write_forestformer_ply(
     
     Args:
         out_path: Output PLY file path
-        xyz: XYZ coordinates (N, 3). Use local coordinates for best precision.
+        xyz_abs: Absolute XYZ coordinates (N, 3)
         semantic: Semantic class labels (N,)
         inst: Instance IDs (N,)
         z_norm: Normalized heights (N,)
@@ -131,9 +131,9 @@ def write_forestformer_ply(
         return
     
     df = pd.DataFrame({
-        "x": xyz[valid_mask, 0],
-        "y": xyz[valid_mask, 1],
-        "z": xyz[valid_mask, 2],
+        "x": xyz_abs[valid_mask, 0],
+        "y": xyz_abs[valid_mask, 1],
+        "z": xyz_abs[valid_mask, 2],
         "semantic_seg": semantic[valid_mask],
         "treeID": inst[valid_mask],
         "z_norm": z_norm[valid_mask],
@@ -143,16 +143,16 @@ def write_forestformer_ply(
     cloud.to_file(str(out_path))
 
 
-def process_las(path: Path, config: PreprocessingConfig) -> Tuple[Optional[Path], Path]:
+def process_las(path: Path, config: PreprocessingConfig) -> Tuple[Path, Path]:
     """
-    Process single LAS file into optional NPZ (MINSU3D) and PLY (ForestFormer3D).
+    Process single LAS file into NPZ (MINSU3D) and PLY (ForestFormer3D).
     
     Args:
         path: Path to input LAS file
         config: Preprocessing configuration
         
     Returns:
-        Tuple of (npz_path, ply_path). If config.save_npz is False, npz_path is None.
+        Tuple of (npz_path, ply_path)
     """
     print(f"📦 Processing {path.name}")
     las = laspy.read(path)
@@ -176,41 +176,31 @@ def process_las(path: Path, config: PreprocessingConfig) -> Tuple[Optional[Path]
     semantic = remap_classes(raw_labels, config)
     inst = get_tree_ids(las, len(raw_labels), path.name)
     
-    npz_path: Optional[Path] = None
-    if config.save_npz:
-        if config.out_npz_dir is None:
-            raise ValueError("config.save_npz=True requires config.out_npz_dir")
-        # Compute voxel coordinates
-        coords = np.floor(xyz_local / config.voxel_size).astype(np.int32)
-
-        # Save NPZ (MINSU3D format)
-        npz_path = Path(config.out_npz_dir) / f"{path.stem}.npz"
-        np.savez_compressed(
-            npz_path,
-            coords=coords,
-            feats=feats,
-            semantic_label=semantic,
-            instance_label=inst,
-            offset=offset.astype(np.float64),
-        )
+    # Compute voxel coordinates
+    coords = np.floor(xyz_local / config.voxel_size).astype(np.int32)
+    
+    # Save NPZ (MINSU3D format)
+    npz_path = config.out_npz_dir / f"{path.stem}.npz"
+    np.savez_compressed(
+        npz_path,
+        coords=coords,
+        feats=feats,
+        semantic_label=semantic,
+        instance_label=inst,
+        offset=offset.astype(np.float64),
+    )
     
     # Save PLY (ForestFormer3D format)
-    # Using local coords avoids float32 quantization at large global magnitudes.
-    xyz_for_ply = xyz_local if config.ply_use_local_coords else raw_xyz
     ply_path = config.out_ply_dir / f"{path.stem}.ply"
     write_forestformer_ply(
         ply_path,
-        xyz=xyz_for_ply,
+        xyz_abs=raw_xyz,
         semantic=semantic,
         inst=inst,
         z_norm=z_norm,
         intensity=intensity,
         config=config,
     )
-
-    if config.ply_use_local_coords and config.save_ply_offset:
-        offset_path = config.out_ply_dir / f"{path.stem}_offset.npy"
-        np.save(offset_path, offset.astype(np.float64))
     
     return npz_path, ply_path
 
@@ -237,37 +227,30 @@ def batch_process(
     
     print(f"🚀 Found {len(las_files)} LAS files.")
     
-    all_npz: List[str] = []
+    all_npz = []
     all_ply = []
     errors = []
     
     for f in las_files:
         try:
             npz, ply = process_las(f, config)
-            if npz is not None:
-                all_npz.append(str(npz))
+            all_npz.append(str(npz))
             all_ply.append(str(ply))
         except Exception as e:
             print(f"❌ Error in {f.name}: {e}")
             errors.append((f.name, str(e)))
     
     # Save file lists
-    if config.save_npz:
-        if config.out_npz_dir is None:
-            raise ValueError("config.save_npz=True requires config.out_npz_dir")
-        with open(Path(config.out_npz_dir) / "npz_list.txt", "w") as f:
-            f.write("\n".join(all_npz))
-
+    with open(config.out_npz_dir / "npz_list.txt", "w") as f:
+        f.write("\n".join(all_npz))
+    
     with open(config.out_ply_dir / "ply_list.txt", "w") as f:
         f.write("\n".join(all_ply))
     
     print(f"\n✅ Processing complete!")
-    if config.save_npz:
-        print(f"   Successful: {len(all_npz)} NPZ files")
-    print(f"   Successful: {len(all_ply)} PLY files")
+    print(f"   Successful: {len(all_npz)} files")
     print(f"   Errors: {len(errors)} files")
-    if config.save_npz and config.out_npz_dir is not None:
-        print(f"\n📄 NPZ list: {Path(config.out_npz_dir) / 'npz_list.txt'}")
+    print(f"\n📄 NPZ list: {config.out_npz_dir / 'npz_list.txt'}")
     print(f"📄 PLY list: {config.out_ply_dir / 'ply_list.txt'}")
     
     return all_npz, all_ply, errors
