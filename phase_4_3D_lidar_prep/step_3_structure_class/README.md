@@ -50,11 +50,33 @@ export PYTHONPATH="/home/nvidia/projects/fvc_structure/phase_4_3D_lidar_prep/ste
 
 ### Batch tiles
 
-See `main_run.py` for a simple example that loops over Z_norm tiles and their matching structure tiles and calls `process_tile()`.
+Use `process_folder()` to batch-process a directory of tiles.
 
-```bash
-micromamba activate fvc_structure
-python phase_4_3D_lidar_prep/step_3_structure_class/main_run.py
+Expected filename patterns (see `fvc3dstruct/pipeline.py`):
+
+- Z_norm tiles: `z_norm_csf_tiles_multispectral.{tile_id}.las`
+- Structure/mask tiles: `mask_tiles_multispectral.{tile_id}.las`
+
+```python
+from pathlib import Path
+from fvc3dstruct.pipeline import process_folder
+
+z_dir = Path("/path/to/z_norm/")
+s_dir = Path("/path/to/mask/")
+out_dir = Path("/path/to/out/")
+
+process_folder(
+  z_dir=z_dir,
+  s_dir=s_dir,
+  out_dir=out_dir,
+  site_name="",  # optional prefix
+  config={
+    # optional overrides
+    "voxel_size_xy": 0.10,
+    "voxel_size_z": 0.10,
+    "enable_radial_fill": False,
+  },
+)
 ```
 
 ### Single tile (Python)
@@ -64,7 +86,7 @@ from fvc3dstruct.pipeline import process_tile
 
 process_tile(
     z_path="/path/to/z_norm_tile.las",
-    s_path="/path/to/mask_tiles_multispectral.tileid.las",
+  s_path="/path/to/mask_tiles_multispectral.tileid.las",
     out_path="/path/to/output_struct3d_tile.las",
     config={
         # overrides (optional)
@@ -88,12 +110,24 @@ process_tile(
 
 The pipeline writes a LAS product at `out_path`.
 
+Key points:
+
+- Outputs are written as **LAS 1.4 / Point Format 6 (PF6)**.
+- Structure labels are carried in the LAS **`classification`** field using the mask codes **64–68**.
+- Height-above-ground is written in an ExtraBytes dimension **`Z_norm`**.
+- Mallee instance IDs are written in an ExtraBytes dimension **`treeID`** (Option A: only canopy mallee points get a non-zero `treeID`).
+
 Depending on config, it can also write stage outputs and/or a “full fused” LAS (same points as the input Z_norm tile) with additional dimensions.
 
 Common fields:
 - `Z_norm` (height above ground)
 - per-point fused `classification`
 - optional `treeID` for mallee crown instances
+
+Common output names when using `process_folder()`:
+
+- Veg-only product: `{site_name_}tile{tile_id}_struct_polar.las`
+- Optional full fused product: `{site_name_}tile{tile_id}_struct_polar_full_fused.las`
 
 ## Configuration
 
@@ -102,6 +136,12 @@ Defaults live in `fvc3dstruct/config.py` as `DEFAULT_CONFIG`. Typical knobs:
 - `r_bin`, `theta_bin_deg` (polar refinement bins)
 - `min_conf`, `min_flip_ratio` (update/flip thresholds)
 - watershed parameters (`min_tree_dist`, `smoothing_sigma`) or set to `"auto"`
+
+Output controls:
+
+- `write_full_fused` (default `False`): also write the full fused LAS (same points as input Z_norm)
+- `save_stage_outputs` + `stage_out_dir`: write intermediate stage snapshots for debugging/QC
+- `write_veg_mask_npy` (default `False`): write a boolean vegetation mask aligned to the full Z_norm LAS
 
 ## Dependencies
 

@@ -6,117 +6,123 @@ Tools for processing LiDAR point clouds to generate structure-classified 3D data
 
 Co-registered LiDAR point clouds (Phase 2) were processed to create 3D training datasets by:
 1. Clipping point clouds to match 2D orthomosaic tiles (3072×3072 px grid)
-2. Classifying ground points using Cloth Simulation Filter (CSF) and normalizing heights
-3. Fusing 3D LiDAR geometry with 2D structure labels through voxel-based and polar coordinate merging
+2. Classifying ground points (CSF or SMRF) and computing height-above-ground as `Z_norm`
+3. Fusing 3D LiDAR geometry with 2D structure mask labels via voxel transfer + crown-centric polar refinement
 
 The structure fusion pipeline combines Z-normalized LiDAR with 2D mask labels using:
 - **Cartesian voxel merge**: Majority-vote label transfer in 3D voxel grid
-- **Polar refinement**: Crown-centric analysis with height priors for mallee detection
+- **Mallee crown detection + instance IDs**: Watershed-based crown detection + per-point `treeID` assignment
+- **Polar refinement**: Crown-centric analysis with data-driven height priors for mallee refinement
 - **Height-based validation**: Data-driven height ranges ensure label consistency
+
+All final products are written as **LAS 1.4 / Point Format 6 (PF6)** and preserve scale/offset.
 
 ## Contents
 
 ```
 phase_4_3D_lidar_prep/
 ├── step_1_clipping/
-│   ├── clipping_toMask_coreg.py              # Clip LiDAR to 2D mask tiles (co-registered)
-│   ├── clipping_toMask_imagery.py            # Clip LiDAR to imagery extent
-│   ├── clipping_toRaster_onefile.py          # Clip single file to raster bounds
-│   ├── clipping_toRaster_daskMultiples.py    # Batch clipping with Dask parallelization
-│   ├── notebooks/
-│   │   ├── 01_clip_site01.ipynb              # Site 1 clipping workflow
-│   │   ├── 01_clip_site11.ipynb              # Site 11 clipping workflow
-│   │   ├── 02_mask_site01.ipynb              # Mask-based clipping (Site 1)
-│   │   ├── 03_icp_regCheck.ipynb             # ICP registration verification
-│   │   └── 04_maskCoreg_site01.ipynb         # Co-registered mask clipping
+│   ├── rasterclip/                           # Clip LAS to raster tile bounds (Python package)
+│   ├── maskclip/                             # Apply mask raster -> LAS Classification (Python package)
+│   ├── notebooks/                            # Clipping + mask workflows
 │   └── pyproject.toml
 ├── step_2_csf_znorm/
-│   ├── cloth_simulation_filter_3.py          # CSF ground classification pipeline
-│   ├── run_csf_ground_filter_1.py            # CSF filter wrapper
-│   ├── normalise_las_z_2.py                  # Height normalization (Z - ground)
+│   ├── groundnorm/                           # Ground filtering + Z_norm (Python package + CLI)
 │   ├── notebooks/
 │   │   └── 01_ground_classification_site01.ipynb
 │   └── pyproject.toml
 └── step_3_structure_class/
-    ├── structure_fusion_3d.py                # Main fusion pipeline (voxel + polar)
-    ├── merge_znorm_struct_to_maskClasses_polar.py           # Polar coordinate merging
-    ├── merge_znorm_struct_to_maskClasses_polar_crown.py     # Crown-based classification
-    ├── merge_znorm_struct_to_maskClasses_polar_malle_id.py  # Mallee individual detection
-    ├── merge_znorm_struct_to_maskClasses_voxel.py           # Voxel-based merging
-    ├── main_run.py                           # Batch processing script
-    ├── notebooks/
-    │   ├── 01_run_pipeline_site01.ipynb      # Complete pipeline (Site 1)
-    │   └── 01_run_pipeline_site11.ipynb      # Complete pipeline (Site 11)
-    └── pyproject.toml
+        ├── fvc3dstruct/                          # Structure fusion pipeline package
+        ├── structure_fusion_3d.py                # Full reference implementation (script)
+        ├── notebooks/                            # End-to-end fusion workflows
+        └── test_pipeline.sh
 ```
 
 ## Usage
 
 ### Step 1: Clip LiDAR to Tiles
-```bash
-# Interactive (recommended)
-jupyter notebook step_1_clipping/notebooks/02_mask_site01.ipynb
+Use `rasterclip` to clip a large LAS to raster tile bounds, then `maskclip` to transfer 2D mask values into the LAS `Classification` field.
 
-# Or run script
-python step_1_clipping/clipping_toMask_coreg.py
-```
+- Interactive workflows live under `step_1_clipping/notebooks/`.
+- For details and APIs, see `step_1_clipping/README.md`.
 
 ### Step 2: Ground Classification & Height Normalization
-```bash
-# Interactive
-jupyter notebook step_2_csf_znorm/notebooks/01_ground_classification_site01.ipynb
+This step writes a `Z_norm` ExtraBytes dimension (height above ground) into the LAS.
 
-# Or run script
-python step_2_csf_znorm/cloth_simulation_filter_3.py
+```bash
+# Examples (see step_2_csf_znorm/README.md for full CLI)
+groundnorm csf input.las ground_csf.las
+groundnorm normalize input.las ground_csf.las z_norm_csf.las --k 3
 ```
 
 ### Step 3: 3D Structure Classification
-```bash
-# Interactive (recommended)
-jupyter notebook step_3_structure_class/notebooks/01_run_pipeline_site01.ipynb
+Fuses mask-derived structure labels onto the Z-normalized point cloud and assigns mallee `treeID` instances.
 
-# Or run batch processing
-python step_3_structure_class/main_run.py
+- Interactive workflows live under `step_3_structure_class/notebooks/`.
+- The maintained pipeline implementation is `step_3_structure_class/fvc3dstruct/pipeline.py` (see `step_3_structure_class/README.md`).
+
+Minimal batch example (expects the default filename patterns used in `fvc3dstruct.pipeline.process_folder()`):
+
+```python
+from pathlib import Path
+from fvc3dstruct.pipeline import process_folder
+
+z_dir = Path("/path/to/z_norm/")    # contains: z_norm_csf_tiles_multispectral.*.las
+s_dir = Path("/path/to/mask/")      # contains: mask_tiles_multispectral.*.las
+out_dir = Path("/path/to/out/")
+
+process_folder(z_dir=z_dir, s_dir=s_dir, out_dir=out_dir, site_name="")
 ```
 
-## Ground Classification (CSF)
+## Ground Classification (CSF / SMRF)
 
-**Cloth Simulation Filter** parameters:
-- Cloth resolution: 0.5m
-- Rigidness: 3 (steep terrain)
-- Classification threshold: 0.3m
-- Iterations: 500
+This project supports two PDAL-based ground filters:
 
-**Output:** Ground-classified LAS with normalized heights (HAG - Height Above Ground)
+- **CSF (Cloth Simulation Filter)** defaults: `resolution=0.5`, `iterations=500`, `threshold=0.01`, `rigidness=2`
+- **SMRF (Simple Morphological Filter)** defaults: `slope=0.15`, `window=3.5`, `threshold=0.25`, `scalar=1.35`
+
+**Output:** Ground-only LAS + normalized LAS with `Z_norm` (HAG - Height Above Ground)
 
 ## Structure Fusion Pipeline
 
 **Inputs:**
-- Z-normalized LiDAR (geometry + HAG)
-- 2D structure labels (IDs 0-4 from Phase 3)
+- Z-normalized LiDAR tiles (geometry + `Z_norm`)
+- Structure/mask LAS tiles with labels stored in LAS `classification` (64–68)
 
 **Fusion Strategy:**
-1. **Voxel merge** (0.05m grid): Transfer 2D labels to 3D points via majority vote
-2. **Polar refinement** (r, θ, z): Crown-centric analysis with CHM watershed for mallee
-3. **Height validation**: Apply data-driven height ranges per class
+1. **Voxel merge** (default 0.10m): Transfer structure labels to Z_norm points via majority vote in a shared 3D grid
+2. **Crown detection + `treeID`**: Detect mallee crowns (class 68 evidence) and assign per-point instance IDs
+3. **Polar refinement**: Crown-centric refinement in $(r,\theta,z)$ bins with data-driven height priors
+4. **Height-based consolidation**: Post-rules to enforce crown consistency and remove implausible low vegetation labels
 
-**Structure IDs:**
-- **0**: Forbs (ground-level)
-- **1**: Woody debris/stem
-- **2**: Grass
-- **3**: Shrub
-- **4**: Mallee
+**Structure labels (LAS `classification` codes):**
+- **64**: Forb
+- **65**: Woody debris
+- **66**: Hummock
+- **67**: Shrub
+- **68**: Mallee
+- **0**: Unmatched/background
 
 ## Dependencies
 
 ```bash
-conda install -c conda-forge pdal laspy rasterio numpy scipy
-pip install CSF tqdm dask
+conda install -c conda-forge pdal laspy rasterio numpy scipy scikit-image
+pip install dask[distributed] tqdm
 ```
 
 ## Outputs
 
-- **Clipped LAS tiles**: LiDAR subsets matching 2D grid (10m×10m)
-- **Ground-classified LAS**: Points labeled as ground/non-ground with HAG
-- **Structure-classified LAS**: 3D points with structure IDs (0-4) from 2D fusion
-- **Processing logs**: Classification statistics, height distributions, crown counts
+- **Clipped LAS tiles**: LiDAR subsets matching raster/mask tile extents
+- **Mask-classified structure LAS**: LAS `classification` populated from mask raster values (64–68)
+- **Ground-only LAS**: Ground points only (CSF or SMRF)
+- **Z-normalized LAS**: Adds `Z_norm` ExtraBytes (height above ground)
+- **Fused vegetation-only LAS (training product)**:
+    - LAS 1.4 PF6
+    - non-zero structure classes (64–68)
+    - `Z_norm` and `treeID` ExtraBytes
+    - optional “full fused” product when enabled in config
+
+Common Step 3 output naming (see `fvc3dstruct.pipeline.process_folder()`):
+
+- Veg-only: `{site_name_}tile{tile_id}_struct_polar.las`
+- Optional full fused: `{site_name_}tile{tile_id}_struct_polar_full_fused.las`
