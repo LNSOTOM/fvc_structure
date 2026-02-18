@@ -3,7 +3,7 @@
 
 This phase converts the Phase 4 structure-classified LAS tiles into model-ready inputs (primarily **ForestFormer3D PLY**), and provides notebooks to:
 
-- preprocess LAS → PLY (optionally NPZ, but can be fully disabled)
+- preprocess LAS → PLY
 - export ForestFormer-compatible tensors (NPY) when needed by a downstream model
 - reconstruct predicted outputs back to LAS for QC/visualization (CloudCompare, etc.)
 - visualize SegmentAnyTree instance outputs from PLY
@@ -30,14 +30,11 @@ Typical input LAS tiles come from Phase 4 Step 3 (fusion) and contain:
 	- For each `{scan}.ply` written in local coords, a sidecar `{scan}_offset.npy` is saved (when enabled).
 	- Global coordinates can be reconstructed as: `xyz_global = xyz_local + offset`.
 
-4. **NPZ (MINSU3D) is optional**
-	- The preprocessing pipeline can produce MINSU3D-style NPZ, but the current workflow supports **PLY-only**.
-
 ## Contents
 
 ```
 phase_5_3d_cnn_training/
-├── lidar_preprocessing/                 # LAS → (optional NPZ) + PLY preprocessing
+├── lidar_preprocessing/                 # LAS → PLY preprocessing
 │   ├── config.py                        # PreprocessingConfig (toggles + mapping)
 │   ├── preprocessing.py                 # process_las(), batch_process()
 │   └── utils.py
@@ -67,7 +64,6 @@ from lidar_preprocessing import PreprocessingConfig, batch_process
 cfg = PreprocessingConfig(
 	 input_dir="/path/to/phase4/struct_polar_tiles",
 	 out_ply_dir="/path/to/preprocessed/forestformer3d_ply",
-	 save_npz=False,                # PLY-only
 	 ply_use_local_coords=True,     # precision-safe
 	 save_ply_offset=True,          # write {stem}_offset.npy
 )
@@ -80,7 +76,6 @@ Outputs:
 - `{stem}.ply` with columns: `x y z semantic_seg treeID z_norm intensity`
 - `{stem}_offset.npy` (when enabled)
 - `ply_list.txt`
-- optional `npz_list.txt` if `save_npz=True`
 
 ### B) ForestFormer export + reconstruction QC
 
@@ -98,10 +93,8 @@ In `notebooks/03_lidarModelling_back_to_las.ipynb`, the final section plots Segm
 
 Main configuration is in `lidar_preprocessing/config.py` (`PreprocessingConfig`). Important knobs:
 
-- `save_npz`: set `False` for PLY-only
 - `ply_use_local_coords`: keep `True` unless you have a strong reason not to
 - `save_ply_offset`: keep `True` if you ever need global-coordinate reconstruction
-- `voxel_size`: only affects NPZ voxelization
 - `class_remap`: LAS class code → class ID mapping
 
 ## Dependencies
