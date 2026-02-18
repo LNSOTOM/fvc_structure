@@ -1,7 +1,0 @@
-FROM maciekwielgosz/segment-any-tree:latest
-
-# The upstream image currently has a broken pandas installation (mixed versions),
-# which fails with: ImportError: cannot import name 'DtypeArg' from 'pandas._typing'.
-# Reinstall pandas cleanly.
-RUN pip3 uninstall -y pandas || true \
-    && pip3 install --no-cache-dir --upgrade --force-reinstall 'pandas==2.0.3'

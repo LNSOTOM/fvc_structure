@@ -111,3 +111,58 @@ def write_stage_output(
     # Write
     las_out.write(str(output_path))
     print(f"   📝 Saved {stage_label}: {output_path.name}")
+
+
+def write_las_with_fields(
+    las_template: laspy.LasData,
+    out_path,
+    classification,
+    zn_values,
+    tree_ids=None,
+    keep_mask=None,
+) -> None:
+    """Write LAS 1.4 PF6 with `classification`, `Z_norm`, and optional `treeID`.
+
+    If `keep_mask` is provided, writes only the subset of points where mask is True.
+    """
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    las_base = ensure_las14_pf6(las_template)
+    n = len(las_base.points)
+
+    cls_arr = np.asarray(classification, dtype=np.uint8)
+    zn_arr = np.asarray(zn_values, dtype=np.float32)
+    if tree_ids is None:
+        ids_arr = np.zeros(n, dtype=np.uint16)
+    else:
+        ids_arr = np.asarray(tree_ids, dtype=np.uint16)
+
+    if len(cls_arr) != n or len(zn_arr) != n or len(ids_arr) != n:
+        raise ValueError("write_las_with_fields(): array length mismatch.")
+
+    if keep_mask is not None:
+        keep_mask = np.asarray(keep_mask, dtype=bool)
+        if len(keep_mask) != n:
+            raise ValueError("write_las_with_fields(): keep_mask length mismatch.")
+        pts = las_base.points[keep_mask].copy()
+        cls_arr = cls_arr[keep_mask]
+        zn_arr = zn_arr[keep_mask]
+        ids_arr = ids_arr[keep_mask]
+    else:
+        pts = las_base.points.copy()
+
+    las_out = laspy.LasData(las_base.header)
+
+    if "Z_norm" not in las_out.point_format.dimension_names:
+        las_out.add_extra_dim(laspy.ExtraBytesParams(name="Z_norm", type=np.float32))
+    if "treeID" not in las_out.point_format.dimension_names:
+        las_out.add_extra_dim(laspy.ExtraBytesParams(name="treeID", type=np.uint16))
+
+    las_out.points = pts
+    las_out.classification = cls_arr
+    las_out["Z_norm"] = zn_arr
+    las_out["treeID"] = ids_arr
+
+    las_out.write(str(out_path))
