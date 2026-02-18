@@ -50,6 +50,14 @@ phase_5_3d_cnn_training/
 
 ## Usage
 
+### Notebook workflow (3 steps)
+
+The notebooks are intended to be used in this order:
+
+1. **LAS → PLY**: `notebooks/01_lidar_preprocessing_batchLoader.ipynb`
+2. **PLY → NPY** (ForestFormer export, when needed): `notebooks/02_lidar_preprocessing_forestformer.ipynb`
+3. **NPY and/or PLY → LAS** (QC/visualization + global reconstruction via offsets): `notebooks/03_lidarModelling_back_to_las.ipynb`
+
 ### A) LAS → PLY (recommended, PLY-only)
 
 Use the notebook:
@@ -80,9 +88,9 @@ Outputs:
 ### B) ForestFormer export + reconstruction QC
 
 - `notebooks/02_lidar_preprocessing_forestformer.ipynb`
-  - exports the preprocessed PLY into ForestFormer-style NPY artifacts (when required)
+	- exports the preprocessed PLY into ForestFormer-style NPY artifacts (when required by a downstream model)
 - `notebooks/03_lidarModelling_back_to_las.ipynb`
-  - reconstructs PLY→LAS and/or NPY→LAS for visualization
+	- reconstructs PLY→LAS and/or NPY→LAS for visualization
   - applies `{stem}_offset.npy` when present to recover global coordinates
 
 ### C) SegmentAnyTree instance visualization (PLY)
