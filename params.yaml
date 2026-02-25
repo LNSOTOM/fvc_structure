@@ -1,0 +1,11 @@
+# DVC experiment parameters
+# Edit values here, or override via:
+#   dvc exp run --set-param train.cuda_devices=0 --set-param train.work_dir=work_dirs/my_run
+
+train:
+  # Paths below are relative to ForestFormer3D/ because the DVC stage uses wdir: ForestFormer3D
+  config: configs/oneformer3d_qs_radius16_qp300_2many.py
+  work_dir: work_dirs/experiments/oneformer3d_qs_radius16_qp300_2many
+
+  # CUDA_VISIBLE_DEVICES value passed to the training command (string so you can do "0,1")
+  cuda_devices: "0"

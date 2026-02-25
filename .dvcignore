@@ -1,0 +1,17 @@
+# Add patterns of files dvc should ignore, which could improve
+# the performance. Learn more at
+# https://dvc.org/doc/user-guide/dvcignore
+
+# repo / env
+.git/
+.dvc/
+.venv/
+venv/
+env/
+__pycache__/
+
+# large vendor/outputs not meant for DVC tracking here
+libs/
+libnabo/
+node_modules/
+dist/

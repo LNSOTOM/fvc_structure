@@ -1,0 +1,20 @@
+stages:
+  train_ff3d:
+    cmd: >-
+      cd ForestFormer3D &&
+      CUDA_VISIBLE_DEVICES=${train.cuda_devices}
+      PYTHONPATH=.
+      python tools/train.py
+      ${train.config}
+      --work-dir ${train.work_dir}
+    deps:
+      - ForestFormer3D/tools/train.py
+      - ForestFormer3D/configs
+      - ForestFormer3D/oneformer3d
+    params:
+      - train.config
+      - train.work_dir
+      - train.cuda_devices
+    outs:
+      - ForestFormer3D/${train.work_dir}:
+          persist: true
