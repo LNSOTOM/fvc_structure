@@ -15,3 +15,6 @@ libs/
 libnabo/
 node_modules/
 dist/
+
+
+ForestFormer3D/data/ForAINetV2/
