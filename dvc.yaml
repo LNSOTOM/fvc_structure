@@ -1,4 +1,36 @@
 stages:
+  prep_forainetv2_instances:
+    cmd: >-
+      cd ForestFormer3D/data/ForAINetV2 &&
+      python batch_load_ForAINetV2_data.py
+    deps:
+      - ForestFormer3D/data/ForAINetV2/batch_load_ForAINetV2_data.py
+      - ForestFormer3D/data/ForAINetV2/load_forainetv2_data.py
+    outs:
+      - ForestFormer3D/data/ForAINetV2/forainetv2_instance_data:
+          persist: true
+
+  prep_forainetv2_infos:
+    cmd: >-
+      cd ForestFormer3D &&
+      python tools/create_data_forainetv2.py forainetv2
+    deps:
+      - ForestFormer3D/tools/create_data_forainetv2.py
+      - ForestFormer3D/data/ForAINetV2/forainetv2_instance_data
+    outs:
+      - ForestFormer3D/data/ForAINetV2/instance_mask:
+          persist: true
+      - ForestFormer3D/data/ForAINetV2/semantic_mask:
+          persist: true
+      - ForestFormer3D/data/ForAINetV2/points:
+          persist: true
+      - ForestFormer3D/data/ForAINetV2/forainetv2_oneformer3d_infos_test.pkl:
+          persist: true
+      - ForestFormer3D/data/ForAINetV2/forainetv2_oneformer3d_infos_train.pkl:
+          persist: true
+      - ForestFormer3D/data/ForAINetV2/forainetv2_oneformer3d_infos_val.pkl:
+          persist: true
+
   train_ff3d:
     cmd: >-
       cd ForestFormer3D &&
@@ -18,3 +50,63 @@ stages:
     outs:
       - ForestFormer3D/${train.work_dir}:
           persist: true
+
+  test_ff3d_single:
+    cmd: >-
+      cd ForestFormer3D &&
+      CUDA_VISIBLE_DEVICES=${test.single_cuda_devices}
+      PYTHONPATH=.
+      python tools/test.py
+      ${test.config}
+      ${test.checkpoint}
+      --work-dir ${test.work_dir_single}
+      &&
+      python tools/dvc_collect_metrics.py
+      --work-dir ${test.work_dir_single}
+      --out ${test.metrics_file_single}
+    deps:
+      - ForestFormer3D/tools/test.py
+      - ForestFormer3D/tools/dvc_collect_metrics.py
+      - ForestFormer3D/configs
+      - ForestFormer3D/oneformer3d
+      - ForestFormer3D/${test.checkpoint}
+    params:
+      - test.config
+      - test.checkpoint
+      - test.single_cuda_devices
+      - test.work_dir_single
+      - test.metrics_file_single
+    metrics:
+      - ForestFormer3D/${test.metrics_file_single}:
+          cache: false
+
+  test_ff3d_dist:
+    cmd: >-
+      cd ForestFormer3D &&
+      CUDA_VISIBLE_DEVICES=${test.cuda_devices}
+      bash tools/dist_test.sh
+      ${test.config}
+      ${test.checkpoint}
+      ${test.gpus}
+      --work-dir ${test.work_dir_dist}
+      &&
+      python tools/dvc_collect_metrics.py
+      --work-dir ${test.work_dir_dist}
+      --out ${test.metrics_file_dist}
+    deps:
+      - ForestFormer3D/tools/dist_test.sh
+      - ForestFormer3D/tools/test.py
+      - ForestFormer3D/tools/dvc_collect_metrics.py
+      - ForestFormer3D/configs
+      - ForestFormer3D/oneformer3d
+      - ForestFormer3D/${test.checkpoint}
+    params:
+      - test.config
+      - test.checkpoint
+      - test.cuda_devices
+      - test.gpus
+      - test.work_dir_dist
+      - test.metrics_file_dist
+    metrics:
+      - ForestFormer3D/${test.metrics_file_dist}:
+          cache: false
