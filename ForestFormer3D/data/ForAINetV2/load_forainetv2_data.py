@@ -1,0 +1,357 @@
+# Modified from
+# https://github.com/facebookresearch/votenet/blob/master/scannet/load_scannet_data.py
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+"""Load FOR-instance dataset with ground truth labels for semantic and
+instance segmentations."""
+import argparse
+import inspect
+import json
+import os
+
+import numpy as np
+from plyutils import read_ply
+
+currentdir = os.path.dirname(
+    os.path.abspath(inspect.getfile(inspect.currentframe())))
+
+
+def read_aggregation(filename):
+    assert os.path.isfile(filename)
+    object_id_to_segs = {}
+    label_to_segs = {}
+    with open(filename) as f:
+        data = json.load(f)
+        num_objects = len(data['segGroups'])
+        for i in range(num_objects):
+            object_id = data['segGroups'][i][
+                'objectId'] + 1  # instance ids should be 1-indexed
+            label = data['segGroups'][i]['label']
+            segs = data['segGroups'][i]['segments']
+            object_id_to_segs[object_id] = segs
+            if label in label_to_segs:
+                label_to_segs[label].extend(segs)
+            else:
+                label_to_segs[label] = segs
+    return object_id_to_segs, label_to_segs
+
+
+def read_segmentation(filename):
+    assert os.path.isfile(filename)
+    seg_to_verts = {}
+    with open(filename) as f:
+        data = json.load(f)
+        num_verts = len(data['segIndices'])
+        for i in range(num_verts):
+            seg_id = data['segIndices'][i]
+            if seg_id in seg_to_verts:
+                seg_to_verts[seg_id].append(i)
+            else:
+                seg_to_verts[seg_id] = [i]
+    return seg_to_verts, num_verts
+
+
+def extract_bbox(mesh_vertices, label_ids, instance_ids, bg_sem=np.array([0])):
+    # Filter out background points
+    valid_mask = ~np.isin(label_ids, bg_sem)
+    mesh_vertices = mesh_vertices[valid_mask]
+    instance_ids = instance_ids[valid_mask]
+    label_ids = label_ids[valid_mask]
+
+    # Get the number of unique instances
+    # instance_id == 0 is background/unannotated in ForAINetV2
+    unique_instance_ids = np.unique(instance_ids)
+    unique_instance_ids = unique_instance_ids[unique_instance_ids != 0]
+    num_instances = len(unique_instance_ids)
+
+    # Initialize instance_bboxes
+    instance_bboxes = np.zeros((num_instances, 7))
+
+    for i, instance_id in enumerate(unique_instance_ids):
+        # Select points corresponding to the current instance
+        mask = instance_ids == instance_id
+        pts = mesh_vertices[mask, :3]
+
+        if pts.shape[0] == 0:
+            continue
+
+        # Calculate min_pts, max_pts, locations, and dimensions
+        min_pts = pts.min(axis=0)
+        max_pts = pts.max(axis=0)
+        locations = (min_pts + max_pts) / 2
+        dimensions = max_pts - min_pts
+
+        # Store the results in instance_bboxes
+        instance_bboxes[i, :3] = locations
+        instance_bboxes[i, 3:6] = dimensions
+        instance_bboxes[i, 6] = 1
+
+    return instance_bboxes
+
+
+def export(ply_file,
+           output_file=None,
+           test_mode=False):
+    """Export original files to vert, ins_label, sem_label and bbox file.
+
+    Args:
+        ply_file (str): Path of the ply_file.
+        output_file (str): Path of the output folder.
+            Default: None.
+        test_mode (bool): Whether is generating test data without labels.
+            Default: False.
+
+    It returns a tuple, which contains the the following things:
+        np.ndarray: Vertices of points data.
+        np.ndarray: Indexes of label.
+        np.ndarray: Indexes of instance.
+        np.ndarray: Instance bboxes.
+        dict: Map from object_id to label_id.
+    """
+
+    #from plyfile import PlyData, PlyElement
+    #def read_ply(filename):
+    #    """Read a PLY file and return its contents as a dictionary."""
+    #    ply_data = PlyData.read(filename)
+    #    data = ply_data['vertex'].data
+    #    return {key: data[key] for key in data.dtype.names}
+
+    pcd = read_ply(ply_file)
+    #points = np.vstack((pcd['x'], pcd['y'], pcd['z'])).astype(np.float32).T
+
+    points = np.vstack((pcd['x'], pcd['y'], pcd['z'])).astype(np.float64).T
+
+    is_blue = 'bluepoints' in os.path.basename(ply_file)
+
+    if is_blue:
+        offsets = np.zeros(3, dtype=np.float64)
+        print("-------------------has blue point-----------------------")
+    else:
+        print("-------------------no blue point-----------------------")
+        mean_x = np.mean(points[:, 0])
+        mean_y = np.mean(points[:, 1])
+        min_z = np.min(points[:, 2])
+        offsets = np.array([mean_x, mean_y, min_z], dtype=np.float64)
+
+        points[:, 0] -= mean_x
+        points[:, 1] -= mean_y
+        points[:, 2] -= min_z
+
+    points = points.astype(np.float32)
+
+    #semantic_seg = np.ones((points.shape[0],), dtype=np.int64)
+    #treeID = np.zeros((points.shape[0],), dtype=np.int64)
+    semantic_seg = pcd["semantic_seg"].astype(np.int64)
+    treeID = pcd["treeID"].astype(np.int64)
+    #semantic_seg = pcd["semantic"].astype(np.int64)
+    #treeID = pcd["instance"].astype(np.int64)
+
+    # test set data doesn't have align_matrix
+    axis_align_matrix = np.eye(4)
+    axis_align_matrix = np.array(axis_align_matrix).reshape((4, 4))
+
+    # perform global alignment of mesh vertices
+    pts = np.ones((points.shape[0], 4))
+    pts[:, 0:3] = points[:, 0:3]
+    pts = np.dot(pts, axis_align_matrix.transpose())  # Nx4
+    aligned_mesh_vertices = pts[:, 0:3]
+
+    def remap_semantic_ids(semantic_seg_raw: np.ndarray,
+                           tree_id_raw: np.ndarray) -> np.ndarray:
+        """Remap raw `semantic_seg` values into a stable 4-class label space.
+
+        Target IDs:
+          0 = forb
+          1 = hummock
+          2 = shrub
+          3 = mallee
+
+        Notes:
+        - `treeID > 0` indicates mallee instances; force those points to label 3.
+        - Negative `semantic_seg` values are treated as unlabeled and mapped to -1.
+        - This function supports multiple raw label schemas (e.g. 0..4, 1..5,
+          64..68) and always returns labels in {-1, 0, 1, 2, 3}.
+        - Some splits may not contain all classes (e.g. forb missing in test l/m);
+          in that case the missing class simply won't appear.
+        """
+        sem = semantic_seg_raw.astype(np.int64, copy=False)
+        tid = tree_id_raw.astype(np.int64, copy=False)
+
+        out = np.full(sem.shape, -1, dtype=np.int64)
+
+        uniq = np.unique(sem)
+        uniq_set = set(int(v) for v in uniq.tolist())
+
+        def is_subset(values, allowed):
+            return all(v in allowed for v in values)
+
+        # Fast-path: already in target label space (possibly with -1)
+        if is_subset(uniq_set, {-1, 0, 1, 2, 3}):
+            out = sem.copy()
+            out[out < 0] = -1
+        else:
+            # Determine mallee raw id from instance points when possible.
+            mallee_raw_id = None
+            mallee_mask = tid > 0
+            if mallee_mask.any():
+                vals = sem[mallee_mask]
+                vals = vals[vals >= 0]
+                if vals.size > 0:
+                    u, c = np.unique(vals, return_counts=True)
+                    mallee_raw_id = int(u[int(np.argmax(c))])
+
+            # Known raw schemas
+            # (a) LAS/classification style codes 64..68
+            if is_subset(uniq_set, {64, 65, 66, 67, 68} | {-1}):
+                raw_to_target = {64: 0, 66: 1, 67: 2, 68: 3, 65: -1}
+                for raw_id, new_id in raw_to_target.items():
+                    out[sem == raw_id] = new_id
+            # (b) compact 0..4: {forb, woody, hummock, shrub, mallee}
+            elif is_subset(uniq_set, {0, 1, 2, 3, 4} | {-1}):
+                # Drop woody-debris (1) to match 4-class setup.
+                raw_to_target = {0: 0, 2: 1, 3: 2, 4: 3, 1: -1}
+                for raw_id, new_id in raw_to_target.items():
+                    out[sem == raw_id] = new_id
+            # (c) compact 1..5 (often used when 0 is reserved for unlabeled)
+            elif is_subset(uniq_set, {1, 2, 3, 4, 5} | {-1}):
+                sem0 = sem - 1
+                raw_to_target = {0: 0, 2: 1, 3: 2, 4: 3, 1: -1}
+                for raw_id, new_id in raw_to_target.items():
+                    out[sem0 == raw_id] = new_id
+            else:
+                # Fallback heuristic: map remaining non-mallee IDs in ascending order
+                # to (forb, hummock, shrub), and force mallee to 3.
+                non_mallee_mask = tid <= 0
+                non_mallee_sem = sem[non_mallee_mask]
+                non_mallee_ids = sorted({
+                    int(v) for v in np.unique(non_mallee_sem)
+                    if int(v) >= 0 and int(v) != mallee_raw_id
+                })
+
+                if len(non_mallee_ids) >= 3:
+                    mapping = {
+                        non_mallee_ids[0]: 0,
+                        non_mallee_ids[1]: 1,
+                        non_mallee_ids[2]: 2,
+                    }
+                elif len(non_mallee_ids) == 2:
+                    # Common case: forb absent; use (hummock, shrub)
+                    mapping = {
+                        non_mallee_ids[0]: 1,
+                        non_mallee_ids[1]: 2,
+                    }
+                elif len(non_mallee_ids) == 1:
+                    mapping = {non_mallee_ids[0]: 1}
+                else:
+                    mapping = {}
+
+                for raw_id, new_id in mapping.items():
+                    out[non_mallee_mask & (sem == raw_id)] = new_id
+
+                if mallee_raw_id is not None:
+                    out[sem == mallee_raw_id] = 3
+
+        # Always force mallee wherever treeID indicates an instance.
+        out[tid > 0] = 3
+        out[out < -1] = -1
+        return out
+
+    # Load semantic and instance labels
+    if not test_mode:
+        # With 4 semantic classes: 0=forb, 1=hummock, 2=shrub, 3=mallee
+        # Only mallee (3) has instances; the rest are treated as background
+        # for instance IDs / bbox extraction.
+        # -1 is used as "unlabeled/unclassified".
+        bg_sem = np.array([-1, 0, 1, 2])
+        label_ids = remap_semantic_ids(semantic_seg, treeID)
+        instance_ids = treeID  # 0: unannotated
+
+        # Set instance_ids of background points to -1
+        instance_ids[np.isin(label_ids, bg_sem)] = -1
+    
+
+        '''
+        # Get unique instance IDs that are not -1
+        unique_instance_ids = np.unique(instance_ids[instance_ids != -1])
+    
+        # Create a mapping from old instance IDs to new instance IDs
+        new_instance_id_map = {old_id: new_id for new_id, old_id in enumerate(unique_instance_ids,start=1)} #####wythan wood start=0)}
+    
+        # Update instance_ids with new instance IDs
+        new_instance_ids = np.zeros_like(instance_ids)
+        for old_id, new_id in new_instance_id_map.items():
+            new_instance_ids[instance_ids == old_id] = new_id
+        # Set background points back to 0
+        new_instance_ids[instance_ids == -1] = 0
+        instance_ids = new_instance_ids
+        '''
+        # Create a mask for non-background points
+        valid_mask = instance_ids != -1
+
+        # Create a new array for instance IDs, initialized to 0
+        new_instance_ids = np.zeros_like(instance_ids)
+
+        # Keep the original instance IDs without making them continuous
+        new_instance_ids[valid_mask] = instance_ids[valid_mask]
+
+        # Set background points back to 0
+        new_instance_ids[instance_ids == -1] = 0
+
+        # Assign the result back to instance_ids
+        instance_ids = new_instance_ids
+
+        unaligned_bboxes = extract_bbox(points, label_ids, instance_ids, bg_sem)
+        aligned_bboxes = extract_bbox(aligned_mesh_vertices, label_ids, instance_ids, bg_sem)
+    else:
+        label_ids = None
+        instance_ids = None
+        unaligned_bboxes = None
+        aligned_bboxes = None
+
+    if output_file is not None:
+        np.save(output_file + '_vert.npy', points)
+        if not test_mode:
+            np.save(output_file + '_sem_label.npy', label_ids)
+            np.save(output_file + '_ins_label.npy', instance_ids)
+            np.save(output_file + '_unaligned_bbox.npy', unaligned_bboxes)
+            np.save(output_file + '_aligned_bbox.npy', aligned_bboxes)
+            np.save(output_file + '_axis_align_matrix.npy', axis_align_matrix)
+
+    return points, label_ids, instance_ids, unaligned_bboxes, \
+        aligned_bboxes, axis_align_matrix, offsets
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--scan_path',
+        required=True,
+        help='path to scannet scene (e.g., data/ScanNet/v2/scene0000_00')
+    parser.add_argument('--output_file', required=True, help='output file')
+    parser.add_argument(
+        '--label_map_file',
+        required=True,
+        help='path to scannetv2-labels.combined.tsv')
+    parser.add_argument(
+        '--scannet200',
+        action='store_true',
+        help='Use it for scannet200 mapping')
+
+    opt = parser.parse_args()
+
+    scan_name = os.path.split(opt.scan_path)[-1]
+    mesh_file = os.path.join(opt.scan_path, scan_name + '_vh_clean_2.ply')
+    agg_file = os.path.join(opt.scan_path, scan_name + '.aggregation.json')
+    seg_file = os.path.join(opt.scan_path,
+                            scan_name + '_vh_clean_2.0.010000.segs.json')
+    meta_file = os.path.join(
+        opt.scan_path, scan_name +
+        '.txt')  # includes axisAlignment info for the train set scans.
+    export(mesh_file, agg_file, seg_file, meta_file, opt.label_map_file,
+           opt.output_file, scannet200=opt.scannet200)
+
+
+if __name__ == '__main__':
+    main()
