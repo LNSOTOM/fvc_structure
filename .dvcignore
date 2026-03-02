@@ -16,5 +16,7 @@ libnabo/
 node_modules/
 dist/
 
-
-ForestFormer3D/data/ForAINetV2/
+# NOTE:
+# Do not ignore `ForestFormer3D/data/ForAINetV2/` because the DVC pipeline
+# stages in `dvc.yaml` track outputs under this directory (e.g.
+# `forainetv2_instance_data`, `points`, `instance_mask`, etc.).

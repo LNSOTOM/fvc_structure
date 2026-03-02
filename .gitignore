@@ -5,11 +5,18 @@ fvc_structure
 phase_3_models/binaryClasses/checkpoints
 phase_3_models/lightning_logs/
 assets/
-ForestFormer3D/
 libnabo/
 libs/
 phase_3_2D_imagery_prep/
 raycloudtools/
+
+# ForestFormer3D: keep code tracked, ignore generated artifacts/data
+ForestFormer3D/work_dirs/
+ForestFormer3D/predictions_global/
+ForestFormer3D/data/ForAINetV2/forainetv2_instance_data/
+ForestFormer3D/data/ForAINetV2/points/
+ForestFormer3D/data/ForAINetV2/instance_mask/
+ForestFormer3D/data/ForAINetV2/semantic_mask/
 
 app/static/css/
 app/static/sass/

@@ -84,6 +84,7 @@ stages:
     cmd: >-
       cd ForestFormer3D &&
       CUDA_VISIBLE_DEVICES=${test.cuda_devices}
+      PORT=${test.port}
       bash tools/dist_test.sh
       ${test.config}
       ${test.checkpoint}
@@ -105,6 +106,7 @@ stages:
       - test.checkpoint
       - test.cuda_devices
       - test.gpus
+      - test.port
       - test.work_dir_dist
       - test.metrics_file_dist
     metrics:

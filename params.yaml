@@ -15,6 +15,10 @@ test:
   config: configs/oneformer3d_qs_radius16_qp300_2many.py
   checkpoint: work_dirs/clean_forestformer/epoch_3000_fix.pth
 
+  # Port used for PyTorch distributed rendezvous in `tools/dist_test.sh`.
+  # If you see "Address already in use" for 29500, change this.
+  port: 29501
+
   # Deterministic output dirs for test runs (avoids mixing different tests in the default work_dirs)
   work_dir_single: work_dirs/dvc_test/single
   work_dir_dist: work_dirs/dvc_test/dist
