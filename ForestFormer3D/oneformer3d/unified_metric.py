@@ -65,17 +65,37 @@ class UnifiedSegMetric(SegMetric):
         logger: MMLogger = MMLogger.get_current_instance()
 
         # These are specific to ForAINetV2 evaluation script
-        NUM_CLASSES_BINARY = 3  # unclassified, non-tree, tree
-        NUM_CLASSES_SEM = 3  # After remapping: 0=hummock, 1=shrub, 2=mallee
-        INS_CLASS_IDS = [2]  # Instance class is mallee (2 after remap) which maps to binary 'tree' (2)
-        STUFF_CLASS_IDS = [0, 1] # Stuff classes are hummock(0) and shrub(1) which map to binary 'non-tree' (1)
+        # Data arrives already in FOREST3 space via RemapSemanticMask_ transform:
+        #   0 = ground  (stuff  — forb, hummock)
+        #   1 = wood    (thing  — woody shrubs)
+        #   2 = leaf    (thing  — mallee crowns)
+        NUM_CLASSES_BINARY = 3   # unclassified, non-tree, tree
+        NUM_CLASSES_SEM = 2      # 2-class semantic: 0=ground, 1=tree (FOREST3 wood+leaf pooled)
+        INS_CLASS_IDS = [2]       # Mallee = wood(1) + leaf(2) pooled into tree bucket(2)
+        STUFF_CLASS_IDS = [0]   # Only ground is stuff
         
-        # Semantic label remapping: actual TEST data {1,2,3} → model expects {0,1,2}
-        # Test data classes (preprocessed .bin files):
-        #   1 = hummock (stuff, no instances)  → 0 (stuff)
-        #   2 = shrub (stuff, no instances)    → 1 (stuff) 
-        #   3 = mallee (thing, HAS instances)  → 2 (thing)
-        SEMANTIC_REMAP = {1: 0, 2: 1, 3: 2}
+        # No remapping needed — RemapSemanticMask_ in the pipeline already
+        # converted RAW4 {0,1,2,3} → FOREST3 {0,1,2} before the metric runs.
+        SEMANTIC_REMAP = {}  # identity — do not remap again
+
+        # Some runs may provide GT masks in RAW4 space (0..3) directly from
+        # `load_forainetv2_data.py` without the pipeline remap, or may contain
+        # ignore labels (e.g. -100). Make evaluation robust to both.
+        ignore_values = set(self.metric_meta.get('ignore_index', []) or [])
+        if not ignore_values:
+            # Default used in configs (RemapSemanticMask_) when not provided.
+            ignore_values = {-100}
+
+        def _remap_raw4_to_forest3(sem: np.ndarray) -> np.ndarray:
+            # RAW4: 0=forb, 1=hummock, 2=shrub, 3=mallee
+            # FOREST3: 0=ground, 1=wood (no GT in this dataset), 2=leaf
+            # shrub (RAW4=2) is NOT a tree — maps to ground, not wood.
+            out = np.full_like(sem, next(iter(ignore_values)), dtype=np.int64)
+            out[sem == 0] = 0
+            out[sem == 1] = 0
+            out[sem == 2] = 0  # shrub -> ground
+            out[sem == 3] = 2
+            return out
 
         # Global accumulators
         true_positive_classes_global = np.zeros(NUM_CLASSES_SEM)
@@ -96,10 +116,16 @@ class UnifiedSegMetric(SegMetric):
             sem_gt_raw = eval_ann['pts_semantic_mask'].copy()
             ins_gt_raw = eval_ann['pts_instance_mask']
             
-            # Remap semantic labels: {1,2,3} → {0,1,2}
-            sem_gt_i = sem_gt_raw.copy()
+            sem_gt_i = sem_gt_raw.copy().astype(np.int64, copy=False)
             for old_cls, new_cls in SEMANTIC_REMAP.items():
                 sem_gt_i[sem_gt_raw == old_cls] = new_cls
+
+            # Auto-detect and remap RAW4 (0..3) -> FOREST3 (0..2) if needed.
+            # This makes the metric consistent with `load_forainetv2_data.py` output
+            # and the `RemapSemanticMask_` pipeline transform.
+            uniq_gt = set(int(v) for v in np.unique(sem_gt_i).tolist())
+            if (max(uniq_gt - ignore_values, default=-1) > 2) and (uniq_gt - ignore_values).issubset({0, 1, 2, 3}):
+                sem_gt_i = _remap_raw4_to_forest3(sem_gt_i)
             
             logger.info(f"GT original classes: {np.unique(sem_gt_raw)} → remapped: {np.unique(sem_gt_i)}")
             
@@ -155,9 +181,24 @@ class UnifiedSegMetric(SegMetric):
             
             min_size = sem_gt_i.shape[0]
 
-            # Semantic Segmentation Evaluation
+            # Ignore points that are marked as IGNORE_INDEX (e.g. -100).
+            ignore_mask = np.isin(sem_gt_i, list(ignore_values))
+
+            # Pool FOREST3=1(wood)+FOREST3=2(leaf) → 2-class semantic: 0=ground, 1=tree
+            # This makes mIoU meaningful: mallee GT is FOREST3=2 and the model may
+            # predict 1 or 2 for tree regions — both should count as correct.
+            sem_gt_2cls = np.where((sem_gt_i == 1) | (sem_gt_i == 2), 1, sem_gt_i)
+            sem_pre_2cls = np.where((sem_pre_i == 1) | (sem_pre_i == 2), 1, sem_pre_i)
+
+            # Semantic Segmentation Evaluation (2-class: ground vs tree)
             for j in range(min_size):
-                gt_l, pred_l = int(sem_gt_i[j]), int(sem_pre_i[j])
+                if ignore_mask[j]:
+                    continue
+                gt_l, pred_l = int(sem_gt_2cls[j]), int(sem_pre_2cls[j])
+                if gt_l < 0 or gt_l >= NUM_CLASSES_SEM:
+                    continue
+                if pred_l < 0 or pred_l >= NUM_CLASSES_SEM:
+                    continue
                 gt_classes_global[gt_l] += 1
                 positive_classes_global[pred_l] += 1
                 true_positive_classes_global[gt_l] += int(gt_l == pred_l)
@@ -167,52 +208,91 @@ class UnifiedSegMetric(SegMetric):
             sem_gt_bi = np.ones_like(sem_gt_i)  # Default to non-tree (1)
             sem_pre_bi = np.ones_like(sem_pre_i)  # Default to non-tree (1)
             
-            # For GT after remapping: class 0=hummock, class 1=shrub (stuff), class 2=mallee (thing with instances)
-            sem_gt_bi[sem_gt_i == 0] = 1  # hummock → non-tree (stuff)
-            sem_gt_bi[sem_gt_i == 1] = 1  # shrub → non-tree (stuff)
-            sem_gt_bi[sem_gt_i == 2] = 2  # mallee → tree (thing)
+            # FOREST3 space: 0=ground (stuff), 1=wood (thing), 2=leaf (thing)
+            sem_gt_bi[sem_gt_i == 0] = 1   # ground  → non-tree
+            sem_gt_bi[sem_gt_i == 1] = 2   # wood    → tree
+            sem_gt_bi[sem_gt_i == 2] = 2   # leaf    → tree
             
-            # For predictions in this project: class 0=hummock (stuff), class 1=shrub (stuff), class 2=mallee (thing)
-            sem_pre_bi[sem_pre_i == 0] = 1  # hummock → non-tree (stuff)
-            sem_pre_bi[sem_pre_i == 1] = 1  # shrub → non-tree (stuff)
-            sem_pre_bi[sem_pre_i == 2] = 2  # mallee → tree (thing)
+            sem_pre_bi[sem_pre_i == 0] = 1  # ground  → non-tree
+            sem_pre_bi[sem_pre_i == 1] = 2  # wood    → tree
+            sem_pre_bi[sem_pre_i == 2] = 2  # leaf    → tree
             
             logger.info(f"Binary mapping - GT: {np.sum(sem_gt_bi == 2)} tree points, Pred: {np.sum(sem_pre_bi == 2)} tree points")
 
+            # Many ForAINetV2 scenes contain tree semantics without per-tree instance
+            # annotations (instance_id==0). Make that explicit in logs so
+            # "0 GT mallee instances" is not confused with a metric bug.
+            gt_tree_mask = (sem_gt_bi == 2) & (~ignore_mask)
+            gt_tree_pts = int(np.sum(gt_tree_mask))
+            gt_tree_annot_pts = int(np.sum(gt_tree_mask & (ins_gt_i > 0)))
+            gt_tree_unannot_pts = int(np.sum(gt_tree_mask & (ins_gt_i == 0)))
+            if gt_tree_pts > 0:
+                logger.info(
+                    "GT tree annotation coverage - "
+                    f"annotated(inst>0)={gt_tree_annot_pts}/{gt_tree_pts} "
+                    f"({100.0*gt_tree_annot_pts/gt_tree_pts:.1f}%), "
+                    f"unannotated(inst==0)={gt_tree_unannot_pts}/{gt_tree_pts}"
+                )
+
             # Binary semantic evaluation
             for j in range(min_size):
+                if ignore_mask[j]:
+                    continue
                 gt_l, pred_l = int(sem_gt_bi[j]), int(sem_pre_bi[j])
+                if gt_l < 0 or gt_l >= NUM_CLASSES_BINARY:
+                    continue
+                if pred_l < 0 or pred_l >= NUM_CLASSES_BINARY:
+                    continue
                 gt_classes_bi_global[gt_l] += 1
                 positive_classes_bi_global[pred_l] += 1
                 true_positive_classes_bi_global[gt_l] += int(gt_l == pred_l)
 
-            # Filter out points that are ground in both pred and gt for instance evaluation
-            idxc = (sem_gt_bi != 1) | (sem_pre_bi != 1)
+            # Unannotated tree points: GT says "tree" semantically but no instance label
+            # (instance_id==0). Predictions landing here are genuinely ambiguous —
+            # the annotator simply did not trace individual trees in that region.
+            # Counting them as FP penalises the model for detecting real trees in
+            # areas where GT is silent, which is unfair. So we exclude them from
+            # the instance evaluation space (they still count in semantic IoU above).
+            unannotated_tree = (sem_gt_bi == 2) & (ins_gt_i == 0) & (~ignore_mask)
+            n_unannot = int(np.sum(unannotated_tree))
+            if n_unannot > 0:
+                logger.info(
+                    f"Instance eval: excluding {n_unannot} unannotated tree pts "
+                    f"({100.0*n_unannot/max(int(np.sum(sem_gt_bi==2)),1):.1f}% of GT tree pts) "
+                    "from FP/TP accounting"
+                )
+
+            # Filter out points that are ground in both pred and gt for instance evaluation,
+            # AND exclude unannotated tree points (neither TP nor FP there).
+            idxc = ((sem_gt_bi != 1) | (sem_pre_bi != 1)) & (~ignore_mask) & (~unannotated_tree)
             pred_ins, gt_ins = ins_pre_i[idxc], ins_gt_i[idxc]
             pred_sem, gt_sem = sem_pre_bi[idxc], sem_gt_bi[idxc]
+            # FOREST3-space semantics for instance classification (wood+leaf → mallee bucket 2)
+            sem_pre_forest3 = sem_pre_i[idxc]
+            sem_gt_forest3 = sem_gt_i[idxc]
 
-            # Get predicted instances
+            # Get predicted instances — wood(1) and leaf(2) both → mallee bucket(2)
             un = np.unique(pred_ins)
             pts_in_pred = [[] for _ in range(NUM_CLASSES_BINARY)]
             for g in un:
                 if g == -1: continue
                 tmp = (pred_ins == g)
-                sem_seg_i = int(stats.mode(pred_sem[tmp], keepdims=True)[0][0])
+                forest3_cls = int(stats.mode(sem_pre_forest3[tmp], keepdims=True)[0][0])
+                sem_seg_i = 2 if forest3_cls in [1, 2] else 1  # wood+leaf → mallee(2)
                 pts_in_pred[sem_seg_i].append(tmp)
 
-            # Get ground truth instances
+            # Get ground truth instances — wood(1) and leaf(2) both → mallee bucket(2)
             un = np.unique(gt_ins)
             pts_in_gt = [[] for _ in range(NUM_CLASSES_BINARY)]
             for g in un:
                 if g == 0: continue # In ForAINetV2, instance ID 0 is not a valid instance
                 tmp = (gt_ins == g)
-                sem_seg_i = int(stats.mode(gt_sem[tmp], keepdims=True)[0][0])
+                forest3_cls = int(stats.mode(sem_gt_forest3[tmp], keepdims=True)[0][0])
+                sem_seg_i = 2 if forest3_cls in [1, 2] else 1  # wood+leaf → mallee(2)
                 pts_in_gt[sem_seg_i].append(tmp)
-                if g == 1:  # Debug first GT instance
-                    logger.info(f"First GT instance semantic class: {sem_seg_i}, unique sem values: {np.unique(gt_sem[tmp])}")
             
             # Debug logging
-            logger.info(f"Sample: {len(pts_in_pred[2])} predicted tree instances, {len(pts_in_gt[2])} GT tree instances, {len(pts_in_gt[1])} GT non-tree")
+            logger.info(f"Sample: {len(pts_in_pred[2])} predicted mallee instances, {len(pts_in_gt[2])} GT mallee instances")
 
             # Coverage Metrics (MUCov, MWCov)
             for i_sem in INS_CLASS_IDS:
@@ -262,7 +342,7 @@ class UnifiedSegMetric(SegMetric):
 
         # Semantic Segmentation
         iou_list = []
-        class_names = self.metric_meta.get('classes', ['hummock', 'shrub', 'mallee'])
+        class_names = self.metric_meta.get('classes', ['ground', 'tree'])
         valid_sem_classes = [i for i, n in enumerate(gt_classes_global) if n > 0 and i < NUM_CLASSES_SEM]
         
         logger.info("\nPer-class Semantic IoU:")
@@ -319,14 +399,13 @@ class UnifiedSegMetric(SegMetric):
         metrics['mRQ'] = np.mean(RQ[valid_ins_classes])
 
         # Compact percent summaries for quick reporting
-        tree_class_id = INS_CLASS_IDS[0] if INS_CLASS_IDS else 2
-        logger.info("\nIndividual Tree Seg. (%):")
+        logger.info("\nIndividual Tree Seg. (%) [mean across thing classes]:")
         logger.info(
             "  "
-            f"Prec={precision[tree_class_id] * 100:.2f}  "
-            f"Rec={recall[tree_class_id] * 100:.2f}  "
-            f"F1={RQ[tree_class_id] * 100:.2f}  "
-            f"Cov(MWCov)={MWCov[tree_class_id] * 100:.2f}"
+            f"Prec={metrics['mPrecision'] * 100:.2f}  "
+            f"Rec={metrics['mRecall'] * 100:.2f}  "
+            f"F1={metrics['F1'] * 100:.2f}  "
+            f"Cov(MWCov)={metrics['mMWCov'] * 100:.2f}"
         )
 
         logger.info("\nSemantic Seg. (%):")
@@ -335,11 +414,8 @@ class UnifiedSegMetric(SegMetric):
             logger.info(f"  {name}: IoU={iou_list[i] * 100:.2f}")
         logger.info(f"  mIoU: {metrics['mIoU'] * 100:.2f}")
 
-        logger.info(f"\nInstance Metrics Summary:")
-        logger.info(f"  Total GT instances: {int(total_gt_ins_global[2])}")
-        logger.info(f"  Total predicted instances: {len(tpsins_global[2])}")
-        logger.info(f"  True positives (IoU≥0.5): {int(np.sum(tpsins_global[2]))}")
-        logger.info(f"  False positives: {int(np.sum(fpsins_global[2]))}")
+        logger.info(f"\nInstance Metrics Summary (mallee = wood+leaf pooled):")
+        logger.info(f"  Mallee (cls 1+2→2): GT={int(total_gt_ins_global[2])}, Pred={len(tpsins_global[2])}, TP={int(np.sum(tpsins_global[2]))}, FP={int(np.sum(fpsins_global[2]))}")
 
         log_str = '\nEvaluation Results:\n'
         log_str += f"mIoU: {metrics['mIoU']:.4f}, mIoU_binary: {metrics['mIoU_binary']:.4f}\n"
