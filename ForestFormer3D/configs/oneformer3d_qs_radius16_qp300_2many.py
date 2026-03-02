@@ -3,14 +3,42 @@ _base_ = [
 ]
 custom_imports = dict(imports=['oneformer3d'])
 
+# ----------------------------
+# Semantic remap for zero-shot testing
+#
+# `data/ForAINetV2/load_forainetv2_data.py` exports `*_sem_label.npy` in a
+# stable 4-class space (woody_debris dropped):
+#   0=forb, 1=hummock, 2=shrub, 3=mallee
+# Model wants FOREST3:
+#   0=ground, 1=wood, 2=leaf
+# ----------------------------
+IGNORE_INDEX = -100
+RAW4_TO_FOREST3 = {
+    -1: IGNORE_INDEX,
+    0: 0,  # forb    -> ground
+    1: 0,  # hummock -> ground
+    2: 0,  # shrub   -> ground  (shrub is NOT a tree in this ecosystem)
+    3: 2,  # mallee  -> leaf    (the only tree; wood/1 has no GT in this dataset)
+}
+
+
 # model settings
 num_channels = 32
-num_instance_classes = 1  # Only 'tree' for instance detection
+num_instance_classes = 1  # Single instance class: tree
 num_semantic_classes = 3  # ground, wood, leaf for point segmentation
 radius = 16  # modify the radius of input cylinder
-voxel_size = 0.05  # voxel size in meters (0.2m = 20cm voxels)  #0.2
+voxel_size = 0.2  # voxel size in meters (0.2m = 20cm voxels)  #0.2
 score_th = 0.4
 chunk = 20_000
+
+# Remap RAW5 semantic labels on disk -> FOREST3 labels used by the model/checkpoint.
+# IMPORTANT: This must run before PointInstClassMapping_, because that transform
+# treats label == num_classes as "ignore".
+semantic_remap = dict(
+    type='RemapSemanticMask_',
+    mapping=RAW4_TO_FOREST3,
+    default_value=IGNORE_INDEX,
+)
 model = dict(
     type='ForAINetV2OneFormer3D_XAwarequery',
     data_preprocessor=dict(type='Det3DDataPreprocessor'),
@@ -19,8 +47,9 @@ model = dict(
     voxel_size=voxel_size,
     num_classes=num_instance_classes,
     min_spatial_shape=128,
-    stuff_classes=[0, 1],   # hummock + shrub are stuff (for semantic segmentation)
-    thing_cls=[2],  # # mallee is the only "thing"
+    # IMPORTANT: these are semantic indices AFTER remap (0..2)
+    stuff_classes=[0],            # ground as stuff
+    thing_cls=[1, 2],             # wood + leaf as "things" (semantic)
     prepare_epoch=1000,   # -1, #700,
     #prepare_epoch2=-1,#1000,
     query_point_num=300,   #modify the number of query points
@@ -63,18 +92,19 @@ model = dict(
             fix_mean_loss=True)),
     train_cfg=dict(),
     test_cfg=dict(
-        topk_insts=120,  #120
-        inst_score_thr=0.36,  #0.38
+        topk_insts=150,
+        inst_score_thr=0.1,   # 0.05 generated too many low-conf FP; 0.1 prunes them
         pan_score_thr=0.0,
-        npoint_thr=500,  #500
+        npoint_thr=50,        # raised from 30: removes tiny spurious instances
+                              # (1-4% voxelized → real crown still has ≥50 pts)
         obj_normalization=True,
         obj_normalization_thr=0.01,
-        sp_score_thr=0.50, #0.5
+        sp_score_thr=0.25,    # raised from 0.2: stricter seed quality, fewer ghost instances
         nms=True,
         matrix_nms_kernel='linear',
         num_sem_cls=num_semantic_classes,
-        stuff_cls=[0, 1],  # hummock + shrub are stuff (background)
-        thing_cls=[2],  # mallee is the only "thing"
+        stuff_cls=[0],  # hummock + shrub are stuff (background)
+        thing_cls=[1, 2],  # mallee is the only "thing"
         output_dir='work_dirs/test_results'))  # Output directory for predictions
 
 # dataset settings
@@ -83,8 +113,13 @@ data_root_forainetv2 = 'data/ForAINetV2/'
 data_prefix = dict(
     pts='points',
     pts_instance_mask='instance_mask',
+    # pts_semantic_mask='semantic_mask_forest3')   # <--- remapped masks for pretrained
     pts_semantic_mask='semantic_mask')
 
+# ----------------------------
+# Pipelines: REMAP RIGHT AFTER LoadAnnotations3D
+# (this is the critical part)
+# ----------------------------
 train_pipeline = [
     dict(
         type='LoadPointsFromFile',
@@ -99,6 +134,7 @@ train_pipeline = [
         with_label_3d=False,
         with_mask_3d=True,
         with_seg_3d=True),
+    semantic_remap,
     dict(type='CylinderCrop', radius=radius),
     dict(type='GridSample', grid_size=voxel_size),
     dict(
@@ -138,6 +174,7 @@ val_pipeline = [
         with_label_3d=False,
         with_mask_3d=True,
         with_seg_3d=True),
+    semantic_remap,
     dict(type='CylinderCrop', radius=radius),
     dict(type='GridSample', grid_size=voxel_size),
     dict(
@@ -161,6 +198,7 @@ test_pipeline = [
         with_label_3d=False,
         with_mask_3d=True,
         with_seg_3d=True),
+    semantic_remap,
     dict(type='Pack3DDetInputs_', keys=['points', 'gt_labels_3d', 'pts_semantic_mask', 'pts_instance_mask','instance_mask'])
 ]
 
@@ -204,32 +242,32 @@ test_dataloader = dict(
         test_mode=True,
         backend_args=None))
 
-# Instance class (for bbox detection) - used by dataset for statistics
-instance_class_names = ['mallee']
-class_names = instance_class_names
+# Instance/semantic meta (match pretrained forest config)
+class_names = ['ground', 'wood', 'leaf']
 label2cat = {i: name for i, name in enumerate(class_names)}
 metric_meta = dict(
     label2cat=label2cat,
     ignore_index=[],
     classes=class_names,
-    dataset_name='ForAINetV2')
+    dataset_name='ForAINetV2'
+)
 
 # Semantic classes (for point segmentation) - used by evaluator
-# semantic_class_names = ['ground', 'wood', 'leaf']
-semantic_class_names = ['hummock', 'shrub', 'mallee']
+semantic_class_names = ['ground', 'tree']  # 2-class: FOREST3=1(wood)+FOREST3=2(leaf) pooled as 'tree'
+# semantic_class_names = ['hummock', 'shrub', 'mallee']
 semantic_label2cat = {i: name for i, name in enumerate(semantic_class_names)}
 semantic_metric_meta = dict(
     label2cat=semantic_label2cat,
-    ignore_index=[],
+    ignore_index=[IGNORE_INDEX],
     classes=semantic_class_names,
     dataset_name='ForAINetV2')
 
 sem_mapping = [0, 1, 2]  # identity mapping (your labels already 0..2)
-inst_mapping = [2]       # ONLY mallee has instances
+inst_mapping = sem_mapping[1:]
 val_evaluator = dict(
     type='UnifiedSegMetric',
-    stuff_class_inds=[0, 1], 
-    thing_class_inds=[2],     # semantic indices
+    stuff_class_inds=[0], 
+    thing_class_inds=[1, 2],     # semantic indices
     min_num_points=1, 
     id_offset=2**16,
     sem_mapping=sem_mapping,

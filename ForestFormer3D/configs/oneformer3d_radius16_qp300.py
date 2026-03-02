@@ -71,7 +71,7 @@ model = dict(
         matrix_nms_kernel='linear',
         num_sem_cls=num_semantic_classes,
         stuff_cls=[0],
-        thing_cls=[0]))
+        thing_cls=[1, 2]))
 
 # dataset settings
 dataset_type = 'ForAINetV2SegDataset_'

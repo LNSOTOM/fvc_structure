@@ -5,22 +5,21 @@ custom_imports = dict(imports=['oneformer3d'])
 
 # model settings
 num_channels = 32
-num_instance_classes = 1  # Only 'tree' for instance detection
-num_semantic_classes = 3  # ground, wood, leaf for point segmentation
-radius = 16  # modify the radius of input cylinder
-voxel_size = 0.05  # voxel size in meters (0.2m = 20cm voxels)  #0.2
-score_th = 0.4
+num_instance_classes = 3
+num_semantic_classes = 3
+radius=16  #modify the radius of input cylinder
+score_th = 00.4
 chunk = 20_000
 model = dict(
     type='ForAINetV2OneFormer3D_XAwarequery',
     data_preprocessor=dict(type='Det3DDataPreprocessor'),
     in_channels=3,
     num_channels=num_channels,
-    voxel_size=voxel_size,
+    voxel_size=0.2,
     num_classes=num_instance_classes,
     min_spatial_shape=128,
-    stuff_classes=[0],  # Ground is stuff (for semantic segmentation)
-    thing_cls=[1, 2],  # Wood and leaf are things (semantic classes in trees)
+    stuff_classes=[0],
+    thing_cls=[1, 2],
     prepare_epoch=1000,   # -1, #700,
     #prepare_epoch2=-1,#1000,
     query_point_num=300,   #modify the number of query points
@@ -73,9 +72,8 @@ model = dict(
         nms=True,
         matrix_nms_kernel='linear',
         num_sem_cls=num_semantic_classes,
-        stuff_cls=[0],  # Ground is stuff (background)
-        thing_cls=[1, 2],  # Wood and leaf are things (part of trees)
-        output_dir='work_dirs/test_results'))  # Output directory for predictions
+        stuff_cls=[0],
+        thing_cls=[0]))
 
 # dataset settings
 dataset_type = 'ForAINetV2SegDataset_'
@@ -100,7 +98,7 @@ train_pipeline = [
         with_mask_3d=True,
         with_seg_3d=True),
     dict(type='CylinderCrop', radius=radius),
-    dict(type='GridSample', grid_size=voxel_size),
+    dict(type='GridSample', grid_size=0.2),
     dict(
         type='PointSample_',
         num_points=640000),
@@ -139,7 +137,7 @@ val_pipeline = [
         with_mask_3d=True,
         with_seg_3d=True),
     dict(type='CylinderCrop', radius=radius),
-    dict(type='GridSample', grid_size=voxel_size),
+    dict(type='GridSample', grid_size=0.2),
     dict(
         type='PointSample_',
         num_points=640000),
@@ -204,9 +202,7 @@ test_dataloader = dict(
         test_mode=True,
         backend_args=None))
 
-# Instance class (for bbox detection) - used by dataset for statistics
-instance_class_names = ['tree']
-class_names = instance_class_names
+class_names = ['ground', 'wood', 'leaf']
 label2cat = {i: name for i, name in enumerate(class_names)}
 metric_meta = dict(
     label2cat=label2cat,
@@ -214,26 +210,18 @@ metric_meta = dict(
     classes=class_names,
     dataset_name='ForAINetV2')
 
-# Semantic classes (for point segmentation) - used by evaluator
-semantic_class_names = ['ground', 'wood', 'leaf']
-semantic_label2cat = {i: name for i, name in enumerate(semantic_class_names)}
-semantic_metric_meta = dict(
-    label2cat=semantic_label2cat,
-    ignore_index=[],
-    classes=semantic_class_names,
-    dataset_name='ForAINetV2')
-
-sem_mapping = [0, 1, 2]
-inst_mapping = [1, 2]
+sem_mapping = [
+    0, 1, 2]
+inst_mapping = sem_mapping[1:]
 val_evaluator = dict(
     type='UnifiedSegMetric',
     stuff_class_inds=[0], 
-    thing_class_inds=[1, 2], 
+    thing_class_inds=list(range(1, num_semantic_classes)), 
     min_num_points=1, 
     id_offset=2**16,
     sem_mapping=sem_mapping,
     inst_mapping=inst_mapping,
-    metric_meta=semantic_metric_meta)
+    metric_meta=metric_meta)
 test_evaluator = val_evaluator
 
 optim_wrapper = dict(
