@@ -17,6 +17,10 @@ ForestFormer3D/data/ForAINetV2/forainetv2_instance_data/
 ForestFormer3D/data/ForAINetV2/points/
 ForestFormer3D/data/ForAINetV2/instance_mask/
 ForestFormer3D/data/ForAINetV2/semantic_mask/
+ForestFormer3D/data/ForAINetV2/forainetv2_oneformer3d_infos_train.pkl
+ForestFormer3D/data/ForAINetV2/forainetv2_oneformer3d_infos_val.pkl
+ForestFormer3D/data/ForAINetV2/forainetv2_oneformer3d_infos_test.pkl
+
 
 app/static/css/
 app/static/sass/
