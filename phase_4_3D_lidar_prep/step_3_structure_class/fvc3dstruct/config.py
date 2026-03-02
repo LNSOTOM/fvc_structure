@@ -15,8 +15,19 @@ DEFAULT_CONFIG = {
     # Stage-output / product generation
     "write_full_fused": False,
     "write_veg_mask_npy": False,
+    # If True, collapse any non-zero treeID to 1 in the written outputs.
+    # (This does not change crown detection; it only changes the exported IDs.)
+    "collapse_treeid_to_one": False,
     "save_stage_outputs": False,
     "stage_out_dir": None,
+    # Option A (mallee canopy) height controls
+    # If set (meters), overrides the auto-derived mallee crown min height used for:
+    #   - watershed fallback canopy signal threshold
+    #   - final treeID validity mask (treeIDs only kept for Z_norm >= mallee_min_znorm)
+    "mallee_min_znorm": None,
+    # If set (meters), forces points *inside detected crowns* with Z_norm >= threshold
+    # to be classified as mallee (68). Useful when tall shrub labels leak into crowns.
+    "mallee_force_min_znorm": None,
     # Watershed parameters
     "min_tree_dist": 1.5,      # Minimum distance between tree peaks (m)
     "smoothing_sigma": 1.0,      # Gaussian smoothing for CHM

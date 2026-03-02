@@ -5,6 +5,49 @@ import numpy as np
 from pathlib import Path
 
 
+def _clone_las(
+    las_in: laspy.LasData,
+    keep_mask: np.ndarray | None = None,
+) -> laspy.LasData:
+    """Create a new LasData object with the same header/points.
+
+    Some laspy versions don't provide `LasData.copy()`. This helper performs a
+    safe clone that works across versions.
+
+    If `keep_mask` is provided, clones only the selected subset of points.
+    """
+
+    if keep_mask is not None:
+        keep_mask = np.asarray(keep_mask, dtype=bool)
+
+    # Prefer header.copy() when available to avoid mutating the template header.
+    try:
+        hdr = las_in.header.copy()
+    except Exception:
+        hdr = laspy.LasHeader(
+            version=str(las_in.header.version),
+            point_format=las_in.header.point_format,
+        )
+        hdr.scales = las_in.header.scales
+        hdr.offsets = las_in.header.offsets
+
+        # Preserve extra dimension definitions when possible.
+        for eb in las_in.header.extra_dimensions:
+            try:
+                hdr.add_extra_dim(eb)
+            except Exception:
+                pass
+
+    las_out = laspy.LasData(hdr)
+
+    pts = las_in.points if keep_mask is None else las_in.points[keep_mask]
+    # Make a best-effort deep copy of the point record.
+    if hasattr(pts, "copy"):
+        pts = pts.copy()
+    las_out.points = pts
+    return las_out
+
+
 def ensure_las14_pf6(las_in: laspy.LasData) -> laspy.LasData:
     """
     Ensure LAS 1.4 / point format 6, preserving coordinates and extra dims.
@@ -90,18 +133,14 @@ def write_stage_output(
     if len(cls_arr) != n or len(zn_arr) != n or len(ids_arr) != n:
         raise ValueError("write_stage_output(): array length mismatch.")
 
-    # Create empty LAS with correct header
-    las_out = laspy.LasData(las_base.header)
+    # Start from a clone of the base LAS so point formats always match.
+    # Important: add extra dims AFTER points exist to avoid laspy format mismatch.
+    las_out = _clone_las(las_base)
 
-    # Add extra dimensions BEFORE assigning points
     if "Z_norm" not in las_out.point_format.dimension_names:
         las_out.add_extra_dim(laspy.ExtraBytesParams(name="Z_norm", type=np.float32))
-
     if "treeID" not in las_out.point_format.dimension_names:
         las_out.add_extra_dim(laspy.ExtraBytesParams(name="treeID", type=np.uint16))
-
-    # Copy points from base, which already holds XYZ
-    las_out.points = las_base.points.copy()
 
     # Assign fields
     las_out.classification = cls_arr
@@ -146,21 +185,19 @@ def write_las_with_fields(
         keep_mask = np.asarray(keep_mask, dtype=bool)
         if len(keep_mask) != n:
             raise ValueError("write_las_with_fields(): keep_mask length mismatch.")
-        pts = las_base.points[keep_mask].copy()
         cls_arr = cls_arr[keep_mask]
         zn_arr = zn_arr[keep_mask]
         ids_arr = ids_arr[keep_mask]
-    else:
-        pts = las_base.points.copy()
 
-    las_out = laspy.LasData(las_base.header)
+    # Start from base LAS (PF6) to keep point formats consistent.
+    las_out = _clone_las(las_base, keep_mask=keep_mask)
 
+    # Add extra dims AFTER points exist to avoid: "Cannot set points with a different point format"
     if "Z_norm" not in las_out.point_format.dimension_names:
         las_out.add_extra_dim(laspy.ExtraBytesParams(name="Z_norm", type=np.float32))
     if "treeID" not in las_out.point_format.dimension_names:
         las_out.add_extra_dim(laspy.ExtraBytesParams(name="treeID", type=np.uint16))
 
-    las_out.points = pts
     las_out.classification = cls_arr
     las_out["Z_norm"] = zn_arr
     las_out["treeID"] = ids_arr

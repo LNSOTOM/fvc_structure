@@ -67,7 +67,12 @@ def process_tile(
         max_match_dist=0.30,
     )
     mallee_min = auto_mallee_min_height(height_ranges)
-    print(f"  → Mallee crown min height: {mallee_min:.2f} m")
+    mallee_min_override = cfg.get("mallee_min_znorm", None)
+    if mallee_min_override is not None:
+        mallee_min = float(mallee_min_override)
+        print(f"  → Mallee crown min height: {mallee_min:.2f} m (override)")
+    else:
+        print(f"  → Mallee crown min height: {mallee_min:.2f} m")
     
     # Stage 2: Cartesian voxel-based label transfer
     print("\n2️⃣  Stage 2: Cartesian voxel-based label transfer (baseline)...")
@@ -217,10 +222,31 @@ def process_tile(
         if n_reclassified:
             print(f"  → Reclassified {n_reclassified:,} crown points → 68 via majority vote")
 
+    # Optional: force mallee inside detected crowns above a chosen height.
+    # This prevents tall points in crowns being kept as shrub (67) when you
+    # want a strict Z_norm cutoff (e.g., 1.8 m).
+    force_thr = cfg.get("mallee_force_min_znorm", None)
+    if force_thr is not None and instance_ids_all.max() > 0:
+        force_thr = float(force_thr)
+        force_mask = (instance_ids_all > 0) & (zn_arr >= force_thr)
+        n_forced = int(np.count_nonzero(force_mask & (classification_final_all != 68)))
+        if n_forced:
+            classification_final_all[force_mask] = 68
+            print(f"  → Forced {n_forced:,} crown points → 68 for Z_norm >= {force_thr:.2f} m")
+
     # Finalise valid treeIDs (Option A canopy only)
     treeID_all = instance_ids_all.copy().astype(np.uint16)
     is_valid_mallee_canopy = (classification_final_all == 68) & (zn_arr >= mallee_min)
     treeID_all[~is_valid_mallee_canopy] = 0
+
+    # Safety: any point that keeps a treeID must be class 68 in the written output.
+    if treeID_all.max() > 0:
+        classification_final_all[treeID_all > 0] = 68
+
+    # Optional: collapse all non-zero IDs to a single ID=1 in exported products.
+    if bool(cfg.get("collapse_treeid_to_one", False)):
+        treeID_all[treeID_all > 0] = 1
+
     unique_trees = int(len(np.unique(treeID_all[treeID_all > 0])))
     print(f"  → Valid mallee treeIDs: {unique_trees}")
 
