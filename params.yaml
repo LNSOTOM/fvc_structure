@@ -17,7 +17,7 @@ test:
 
   # Port used for PyTorch distributed rendezvous in `tools/dist_test.sh`.
   # If you see "Address already in use" for 29500, change this.
-  port: 29501
+  port: 29505
 
   # Deterministic output dirs for test runs (avoids mixing different tests in the default work_dirs)
   work_dir_single: work_dirs/dvc_test/single
