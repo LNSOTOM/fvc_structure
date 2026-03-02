@@ -11,12 +11,12 @@ class ForAINetV2SegDataset_(ScanNetDataset):
     """We just add super_pts_path."""
     METAINFO = {
         'classes':
-        ('ground','wood','leaf'),
-        'palette': [[0, 255, 0],[0, 0, 255], [0, 255, 255]],
+        ('forb', 'hummock', 'shrub', 'mallee'),
+        'palette': [[0, 255, 0], [0, 0, 255], [0, 255, 255], [255, 0, 0]],
         'seg_valid_class_ids':
-        (0, 1, 2),
+        (0, 1, 2, 3),
         'seg_all_class_ids':
-        (0, 1, 2)  # possibly with 'stair' class
+        (0, 1, 2, 3)
     }
 
     def get_scene_idxs(self, *args, **kwargs):
@@ -38,4 +38,40 @@ class ForAINetV2SegDataset_(ScanNetDataset):
 
         info = super().parse_data_info(info)
 
+        return info
+
+
+@DATASETS.register_module()
+class ForAINetV2SegDataset_GWL(ScanNetDataset):
+    """ForAINetV2 dataset variant for 3-class label space: ground/wood/leaf.
+
+    Use this when evaluating/checkpointing models trained in the original
+    3-class semantic space.
+    """
+
+    METAINFO = {
+        'classes':
+        ('ground', 'wood', 'leaf'),
+        'palette': [[0, 255, 0], [0, 0, 255], [0, 255, 255]],
+        'seg_valid_class_ids':
+        (0, 1, 2),
+        'seg_all_class_ids':
+        (0, 1, 2)
+    }
+
+    def get_scene_idxs(self, *args, **kwargs):
+        """Compute scene_idxs for data sampling."""
+        return np.arange(len(self)).astype(np.int32)
+
+    def parse_data_info(self, info: dict) -> dict:
+        """Process the raw data info.
+
+        Args:
+            info (dict): Raw info dict.
+
+        Returns:
+            dict: Has `ann_info` in training stage. And
+            all path has been converted to absolute path.
+        """
+        info = super().parse_data_info(info)
         return info

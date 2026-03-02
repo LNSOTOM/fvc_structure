@@ -187,10 +187,16 @@ def export(ply_file,
         def is_subset(values, allowed):
             return all(v in allowed for v in values)
 
-        # Fast-path: already in target label space (possibly with -1)
-        if is_subset(uniq_set, {-1, 0, 1, 2, 3}):
+        # Fast-path A: already in 0-indexed target label space (0 is present)
+        if 0 in uniq_set and is_subset(uniq_set, {-1, 0, 1, 2, 3}):
             out = sem.copy()
             out[out < 0] = -1
+        # Fast-path B: 1-indexed FOREST3 {1=ground, 2=wood, 3=leaf} — shift to {0,1,2}
+        #   Train PLY files use this schema; original code handled it with `sem - 1`.
+        elif is_subset(uniq_set - {-1}, {1, 2, 3}):
+            out = sem.astype(np.int64, copy=True)
+            out[out >= 0] -= 1
+            out[sem < 0] = -1
         else:
             # Determine mallee raw id from instance points when possible.
             mallee_raw_id = None
@@ -260,11 +266,12 @@ def export(ply_file,
 
     # Load semantic and instance labels
     if not test_mode:
-        # With 4 semantic classes: 0=forb, 1=hummock, 2=shrub, 3=mallee
-        # Only mallee (3) has instances; the rest are treated as background
-        # for instance IDs / bbox extraction.
+        # With 4 semantic classes: 0=forb/ground, 1=hummock/wood, 2=shrub/leaf, 3=mallee
+        # bg_sem=[0]: only the 0-indexed ground/forb class is explicitly background.
+        # Non-tree stuff classes (hummock/shrub) have treeID=0 and are handled as
+        # unannotated (instance_id=0) by extract_bbox, which skips instance_id==0.
         # -1 is used as "unlabeled/unclassified".
-        bg_sem = np.array([-1, 0, 1, 2])
+        bg_sem = np.array([0])
         label_ids = remap_semantic_ids(semantic_seg, treeID)
         instance_ids = treeID  # 0: unannotated
 
