@@ -13,7 +13,7 @@ from .instance_criterion import (
 from .loading import LoadAnnotations3D_, NormalizePointsColor_
 from .formatting import Pack3DDetInputs_
 from .transforms_3d import (
-    ElasticTransfrom, AddSuperPointAnnotations, SwapChairAndFloor, RemapSemanticMask_, PointSample_)
+    ElasticTransfrom, AddSuperPointAnnotations, SwapChairAndFloor, PointSample_)
 from .data_preprocessor import Det3DDataPreprocessor_
 from .unified_metric import UnifiedSegMetric
 from .structures import InstanceData_

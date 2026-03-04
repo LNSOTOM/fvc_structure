@@ -701,7 +701,7 @@ class ForAINetV2OneFormer3D(Base3DDetector):
         base_name = os.path.basename(lidar_path)
         current_filename = os.path.splitext(base_name)[0]
         #if 'val' in lidar_path:
-        if True:  # Always save PLY predictions
+        if 'test' in lidar_path:
             import numpy as np
             from sklearn.neighbors import NearestNeighbors
             from plyfile import PlyData, PlyElement
@@ -1966,10 +1966,8 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
         queries_inslabel = []
         queries_idx = []
 
-        if self.prepare_epoch:# Use .get() to provide a default value if 'epoch' is missing
-            current_epoch = kwargs.get('epoch', 0)
-            if current_epoch > self.prepare_epoch:
-            # if kwargs['epoch'] > self.prepare_epoch:
+        if self.prepare_epoch:
+            if kwargs['epoch'] > self.prepare_epoch:
                 total_qscore_loss = 0
                 for i in range(batch_size):
                     voxel_superpoints = inverse_mapping[coordinates[:, 0][inverse_mapping] == i]
@@ -2098,7 +2096,7 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
         base_name = os.path.basename(lidar_path)
         current_filename = os.path.splitext(base_name)[0]
         #if 'val' in lidar_path:
-        if True:  # Always save PLY predictions
+        if 'test' in lidar_path:
             import numpy as np
             from sklearn.neighbors import NearestNeighbors
             from plyfile import PlyData, PlyElement
@@ -2269,7 +2267,7 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
         #########print(f"load pc: {(t1 - t0)*1000:.0f} ms")
         #is_test = True
         #if is_test:
-        if True:  # Always save PLY predictions
+        if 'test' in lidar_path:
             step_size = self.radius/4
             grid_size = 0.2
             num_points = 640000
@@ -2292,9 +2290,8 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
             all_instance_labels = set(np.unique(pts_instance_gt))
             
             ##########output_path = "work_dirs/bluepoint_th04fixed_03_priority_test_tobedelete"
-            #########output_path = "work_dirs/bluepoint_forinstancev2"   
-            output_path = "work_dirs/test_results_oneformer3d"
-            # output_path = self.test_cfg.get('output_dir', 'work_dirs/default_output')
+            #########output_path = "work_dirs/bluepoint_forinstancev2"
+            output_path = self.test_cfg.get('output_dir', 'work_dirs/default_output')
             score_th1 = self.score_th
             score_th2 = 0.3
             t2 = time.time()   
@@ -2579,17 +2576,21 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
             
             t15 = time.time()                 
             ######print(f"postprocessing 9: {(t15 - t14)*1000:.0f} ms")
-            #for i, data_sample in enumerate(batch_data_samples):
-            #    data_sample.pred_pts_seg = results_list[i]
-            #    data_sample.pred_pts_seg['originids'] = originids
-                #data_sample.originids = originids
-            if last_results is not None and len(last_results)==len(batch_data_samples):                 # 本帧里至少有一个 region 得到了结果
-                for i, data_sample in enumerate(batch_data_samples):
-                    data_sample.pred_pts_seg = last_results[i]
-                    data_sample.pred_pts_seg['originids'] = last_originids
-            else:                                      
-                for data_sample in batch_data_samples:
-                    data_sample.pred_pts_seg = None
+            # IMPORTANT: mmengine evaluator expects per-point predictions aligned
+            # to the full scene. Returning the last cylinder's PointData causes a
+            # huge GT/Pred length mismatch. Use the merged full-scene arrays.
+            full_sem = np.asarray(final_semantic_labels, dtype=np.int64)
+            full_ins = np.asarray(clean_all_pre_ins, dtype=np.int64)
+            empty_inst_masks = np.zeros((0, full_sem.shape[0]), dtype=bool)
+
+            for data_sample in batch_data_samples:
+                data_sample.pred_pts_seg = PointData(
+                    pts_semantic_mask=[full_sem, full_sem],
+                    pts_instance_mask=[empty_inst_masks, full_ins],
+                    instance_labels=np.zeros((0,), dtype=np.int64),
+                    instance_scores=np.zeros((0,), dtype=np.float32),
+                )
+
             return batch_data_samples
         else:
             coordinates, features, inverse_mapping, spatial_shape = self.collate(

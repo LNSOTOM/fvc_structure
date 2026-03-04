@@ -61,9 +61,7 @@ def extract_bbox(mesh_vertices, label_ids, instance_ids, bg_sem=np.array([0])):
     label_ids = label_ids[valid_mask]
 
     # Get the number of unique instances
-    # instance_id == 0 is background/unannotated in ForAINetV2
     unique_instance_ids = np.unique(instance_ids)
-    unique_instance_ids = unique_instance_ids[unique_instance_ids != 0]
     num_instances = len(unique_instance_ids)
 
     # Initialize instance_bboxes
@@ -86,7 +84,9 @@ def extract_bbox(mesh_vertices, label_ids, instance_ids, bg_sem=np.array([0])):
         # Store the results in instance_bboxes
         instance_bboxes[i, :3] = locations
         instance_bboxes[i, 3:6] = dimensions
-        instance_bboxes[i, 6] = 1
+        # instance_bboxes[i, 6] = 1
+        # FIX: use actual semantic label instead of hardcoded 1
+        instance_bboxes[i, 6] = np.bincount(label_ids[mask].astype(int)).argmax()
 
     return instance_bboxes
 
@@ -158,121 +158,11 @@ def export(ply_file,
     pts = np.dot(pts, axis_align_matrix.transpose())  # Nx4
     aligned_mesh_vertices = pts[:, 0:3]
 
-    def remap_semantic_ids(semantic_seg_raw: np.ndarray,
-                           tree_id_raw: np.ndarray) -> np.ndarray:
-        """Remap raw `semantic_seg` values into a stable 4-class label space.
-
-        Target IDs:
-          0 = forb
-          1 = hummock
-          2 = shrub
-          3 = mallee
-
-        Notes:
-        - `treeID > 0` indicates mallee instances; force those points to label 3.
-        - Negative `semantic_seg` values are treated as unlabeled and mapped to -1.
-        - This function supports multiple raw label schemas (e.g. 0..4, 1..5,
-          64..68) and always returns labels in {-1, 0, 1, 2, 3}.
-        - Some splits may not contain all classes (e.g. forb missing in test l/m);
-          in that case the missing class simply won't appear.
-        """
-        sem = semantic_seg_raw.astype(np.int64, copy=False)
-        tid = tree_id_raw.astype(np.int64, copy=False)
-
-        out = np.full(sem.shape, -1, dtype=np.int64)
-
-        uniq = np.unique(sem)
-        uniq_set = set(int(v) for v in uniq.tolist())
-
-        def is_subset(values, allowed):
-            return all(v in allowed for v in values)
-
-        # Fast-path A: already in 0-indexed target label space (0 is present)
-        if 0 in uniq_set and is_subset(uniq_set, {-1, 0, 1, 2, 3}):
-            out = sem.copy()
-            out[out < 0] = -1
-        # Fast-path B: 1-indexed FOREST3 {1=ground, 2=wood, 3=leaf} — shift to {0,1,2}
-        #   Train PLY files use this schema; original code handled it with `sem - 1`.
-        elif is_subset(uniq_set - {-1}, {1, 2, 3}):
-            out = sem.astype(np.int64, copy=True)
-            out[out >= 0] -= 1
-            out[sem < 0] = -1
-        else:
-            # Determine mallee raw id from instance points when possible.
-            mallee_raw_id = None
-            mallee_mask = tid > 0
-            if mallee_mask.any():
-                vals = sem[mallee_mask]
-                vals = vals[vals >= 0]
-                if vals.size > 0:
-                    u, c = np.unique(vals, return_counts=True)
-                    mallee_raw_id = int(u[int(np.argmax(c))])
-
-            # Known raw schemas
-            # (a) LAS/classification style codes 64..68
-            if is_subset(uniq_set, {64, 65, 66, 67, 68} | {-1}):
-                raw_to_target = {64: 0, 66: 1, 67: 2, 68: 3, 65: -1}
-                for raw_id, new_id in raw_to_target.items():
-                    out[sem == raw_id] = new_id
-            # (b) compact 0..4: {forb, woody, hummock, shrub, mallee}
-            elif is_subset(uniq_set, {0, 1, 2, 3, 4} | {-1}):
-                # Drop woody-debris (1) to match 4-class setup.
-                raw_to_target = {0: 0, 2: 1, 3: 2, 4: 3, 1: -1}
-                for raw_id, new_id in raw_to_target.items():
-                    out[sem == raw_id] = new_id
-            # (c) compact 1..5 (often used when 0 is reserved for unlabeled)
-            elif is_subset(uniq_set, {1, 2, 3, 4, 5} | {-1}):
-                sem0 = sem - 1
-                raw_to_target = {0: 0, 2: 1, 3: 2, 4: 3, 1: -1}
-                for raw_id, new_id in raw_to_target.items():
-                    out[sem0 == raw_id] = new_id
-            else:
-                # Fallback heuristic: map remaining non-mallee IDs in ascending order
-                # to (forb, hummock, shrub), and force mallee to 3.
-                non_mallee_mask = tid <= 0
-                non_mallee_sem = sem[non_mallee_mask]
-                non_mallee_ids = sorted({
-                    int(v) for v in np.unique(non_mallee_sem)
-                    if int(v) >= 0 and int(v) != mallee_raw_id
-                })
-
-                if len(non_mallee_ids) >= 3:
-                    mapping = {
-                        non_mallee_ids[0]: 0,
-                        non_mallee_ids[1]: 1,
-                        non_mallee_ids[2]: 2,
-                    }
-                elif len(non_mallee_ids) == 2:
-                    # Common case: forb absent; use (hummock, shrub)
-                    mapping = {
-                        non_mallee_ids[0]: 1,
-                        non_mallee_ids[1]: 2,
-                    }
-                elif len(non_mallee_ids) == 1:
-                    mapping = {non_mallee_ids[0]: 1}
-                else:
-                    mapping = {}
-
-                for raw_id, new_id in mapping.items():
-                    out[non_mallee_mask & (sem == raw_id)] = new_id
-
-                if mallee_raw_id is not None:
-                    out[sem == mallee_raw_id] = 3
-
-        # Always force mallee wherever treeID indicates an instance.
-        out[tid > 0] = 3
-        out[out < -1] = -1
-        return out
-
     # Load semantic and instance labels
     if not test_mode:
-        # With 4 semantic classes: 0=forb/ground, 1=hummock/wood, 2=shrub/leaf, 3=mallee
-        # bg_sem=[0]: only the 0-indexed ground/forb class is explicitly background.
-        # Non-tree stuff classes (hummock/shrub) have treeID=0 and are handled as
-        # unannotated (instance_id=0) by extract_bbox, which skips instance_id==0.
-        # -1 is used as "unlabeled/unclassified".
-        bg_sem = np.array([0])
-        label_ids = remap_semantic_ids(semantic_seg, treeID)
+        # semantic label
+        bg_sem=np.array([0])   #####wythan wood np.array([1])
+        label_ids = semantic_seg - 1
         instance_ids = treeID  # 0: unannotated
 
         # Set instance_ids of background points to -1

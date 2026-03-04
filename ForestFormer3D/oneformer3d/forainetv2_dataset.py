@@ -11,12 +11,12 @@ class ForAINetV2SegDataset_(ScanNetDataset):
     """We just add super_pts_path."""
     METAINFO = {
         'classes':
-        ('tree',),
-        'palette': [[0, 255, 0]],
+        ('ground','wood','leaf'),
+        'palette': [[0, 255, 0],[0, 0, 255], [0, 255, 255]],
         'seg_valid_class_ids':
-        (0,),
+        (0, 1, 2),
         'seg_all_class_ids':
-        (0,)  # Instance class for bounding box detection
+        (0, 1, 2)  # possibly with 'stair' class
     }
 
     def get_scene_idxs(self, *args, **kwargs):

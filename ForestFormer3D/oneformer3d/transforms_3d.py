@@ -226,64 +226,6 @@ class SwapChairAndFloor(BaseTransform):
 
 
 @TRANSFORMS.register_module()
-class RemapSemanticMask_(BaseTransform):
-    """Remap semantic labels in `pts_semantic_mask`.
-
-    This is useful when your on-disk labels use a different label space than
-    the checkpoint/config expects (e.g. RAW5 labels -> FOREST3 labels).
-
-    Required Keys:
-    - pts_semantic_mask (np.ndarray | torch.Tensor)
-
-    Modified Keys:
-    - pts_semantic_mask
-
-    Also updates `eval_ann_info['pts_semantic_mask']` if present.
-
-    Args:
-        mapping (dict[int, int]): Source label -> destination label.
-        default_value (int | None): Value for labels not present in `mapping`.
-            If None, leaves unmapped labels unchanged.
-        ignore_value (int): Labels equal to this value will be preserved.
-            Defaults to -1.
-    """
-
-    def __init__(self, mapping, default_value=None, ignore_value=-1):
-        self.mapping = {int(k): int(v) for k, v in mapping.items()}
-        self.default_value = default_value
-        self.ignore_value = int(ignore_value)
-
-    def _remap(self, mask):
-        if isinstance(mask, torch.Tensor):
-            mask_np = mask.detach().cpu().numpy()
-            out_np = self._remap(mask_np)
-            return torch.from_numpy(out_np).to(mask.device)
-
-        mask = np.asarray(mask)
-        out = mask.copy()
-
-        if self.default_value is not None:
-            out.fill(int(self.default_value))
-            if self.ignore_value is not None:
-                out[mask == self.ignore_value] = self.ignore_value
-
-        for src, dst in self.mapping.items():
-            out[mask == src] = dst
-        return out
-
-    def transform(self, input_dict):
-        if 'pts_semantic_mask' not in input_dict:
-            return input_dict
-
-        input_dict['pts_semantic_mask'] = self._remap(input_dict['pts_semantic_mask'])
-        if 'eval_ann_info' in input_dict and input_dict['eval_ann_info'] is not None:
-            if 'pts_semantic_mask' in input_dict['eval_ann_info']:
-                input_dict['eval_ann_info']['pts_semantic_mask'] = self._remap(
-                    input_dict['eval_ann_info']['pts_semantic_mask'])
-        return input_dict
-
-
-@TRANSFORMS.register_module()
 class PointInstClassMapping_(BaseTransform):
     """Delete instances from non-instaces classes.
 

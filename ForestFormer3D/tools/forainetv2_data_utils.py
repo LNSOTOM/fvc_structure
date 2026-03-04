@@ -23,19 +23,12 @@ class ForAINetV2Data(object):
         self.split = split
         self.split_dir = osp.join(root_path)
         
-        # Instance classes for bounding box detection (not semantic point classes)
-        self.classes = ['tree']
-        self.cat_ids = np.array([1])
-        
-        # Semantic classes are handled separately via pts_semantic_mask_path
-        # Semantic: 0=ground, 1=wood, 2=leaf (stored in semantic_mask files)
+        self.classes = ['ground', 'wood', 'leaf']
+        self.cat_ids = np.array([0, 1, 2])
 
-        self.cat2label = {cat: self.classes.index(cat) for cat in self.classes}
-        self.label2cat = {self.cat2label[t]: t for t in self.cat2label}
-        self.cat_ids2class = {
-            cat_id: i
-            for i, cat_id in enumerate(list(self.cat_ids))
-        }
+        self.cat2label = {'ground': 0, 'wood': 1, 'leaf': 2}
+        self.label2cat = {0: 'ground', 1: 'wood', 2: 'leaf'}
+        self.cat_ids2class = {0: 0, 1: 1, 2: 2}
         assert split in ['train', 'val', 'test']
         split_file = osp.join(self.root_dir, 'meta_data',
                               f'{split}_list.txt')
@@ -141,10 +134,10 @@ class ForAINetV2Data(object):
                 if annotations['gt_num'] != 0:
                     aligned_box = aligned_box_label[:, :-1]  # k, 6
                     unaligned_box = unaligned_box_label[:, :-1]
-                    # classes = aligned_box_label[:, -1]  # k
-                    classes = aligned_box_label[:, -1].astype(np.int64) # Ensure int /change
+                    classes = aligned_box_label[:, -1]  # k
                     annotations['name'] = np.array([
-                        self.label2cat[self.cat_ids2class[classes[i]]] for i in range(annotations['gt_num'])
+                        self.label2cat[self.cat_ids2class[classes[i]]]
+                        for i in range(annotations['gt_num'])
                     ])
                     # default names are given to aligned bbox for compatibility
                     # we also save unaligned bbox info with marked names
@@ -157,14 +150,10 @@ class ForAINetV2Data(object):
                         'unaligned_gt_boxes_upright_depth'] = unaligned_box
                     annotations['index'] = np.arange(
                         annotations['gt_num'], dtype=np.int32)
-                    # annotations['class'] = np.array([
-                    #     self.cat_ids2class[classes[i]]
-                    #     for i in range(annotations['gt_num'])
-                    # ])
                     annotations['class'] = np.array([
-                        classes[i] for i in range(annotations['gt_num'])
+                        self.cat_ids2class[classes[i]]
+                        for i in range(annotations['gt_num'])
                     ])
-
                 axis_align_matrix = self.get_axis_align_matrix(sample_idx)
                 annotations['axis_align_matrix'] = axis_align_matrix  # 4x4
                 info['annos'] = annotations

@@ -15,16 +15,18 @@ import os
 from os import path as osp
 import importlib
 
+import torch
+import segmentator
+import open3d as o3d
 import numpy as np
 from load_forainetv2_data import export
+from plyutils import read_ply
+from scipy.spatial import Delaunay
 
-# The loader writes -1 for unlabeled / ignored points.
-# Exclude them from the exported dataset so semantic masks contain only
-# valid class ids.
-DONOTCARE_CLASS_IDS = np.array([-1])
+DONOTCARE_CLASS_IDS = np.array([])
 
-FORAINETV2_OBJ_CLASS_IDS = np.array(
-    [1])
+# FORAINETV2_OBJ_CLASS_IDS = np.array([1])
+FORAINETV2_OBJ_CLASS_IDS = np.array([1, 2])  # FIX: include both wood=1 and leaf=2
 
 def create_ply_with_superpoints(points, superpoints, filename):
     # Combine points and superpoints into a single array

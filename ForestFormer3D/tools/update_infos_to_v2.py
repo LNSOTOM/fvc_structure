@@ -386,18 +386,14 @@ def update_forainetv2_infos(pkl_path, out_dir):
         print(f'Warning, you may overwriting '
               f'the original data {pkl_path}.')
         time.sleep(5)
-    # Instance class for bounding box detection (not semantic point classes)
     METAINFO = {
-        'classes': ('tree',)
+        'classes':
+        ('ground', 'wood', 'leaf')
     }
     print(f'Reading from input file: {pkl_path}.')
     data_list = mmengine.load(pkl_path)
     print('Start updating:')
     converted_list = []
-    
-    ignore_class_name = set()   # ✅ add this line
-
-    
     for ori_info_dict in mmengine.track_iter_progress(data_list):
         temp_data_info = get_empty_standard_data_info()
         temp_data_info['lidar_points']['num_pts_feats'] = ori_info_dict[
@@ -417,7 +413,7 @@ def update_forainetv2_infos(pkl_path, out_dir):
         # TODO support camera
         # np.linalg.inv(info['axis_align_matrix'] @ extrinsic): depth2cam
         anns = ori_info_dict.get('annos', None)
-        # ignore_class_name = set() # ❌ delete or comment this line
+        ignore_class_name = set()
         if anns is not None:
             temp_data_info['axis_align_matrix'] = anns[
                 'axis_align_matrix'].tolist()
@@ -446,7 +442,7 @@ def update_forainetv2_infos(pkl_path, out_dir):
     pkl_name = Path(pkl_path).name
     out_path = osp.join(out_dir, pkl_name)
     print(f'Writing to output file: {out_path}.')
-    print(f'ignore classes: {ignore_class_name}')  # now always defined ✅
+    print(f'ignore classes: {ignore_class_name}')
 
     # dataset metainfo
     metainfo = dict()
