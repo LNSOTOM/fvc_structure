@@ -7,8 +7,8 @@ custom_imports = dict(imports=['oneformer3d'])
 num_channels = 32
 num_instance_classes = 3
 num_semantic_classes = 3
-radius=16  #modify the radius of input cylinder
-score_th = 00.4
+radius = 16  #modify the radius of input cylinder
+score_th = 0.4
 # NOTE: `torch.cdist(pc1_chunk, pc3)` materializes a (chunk x |pc3|) distance
 # matrix; with |pc3|~640k, large chunks will OOM even on big GPUs.
 chunk = 20_000
@@ -20,8 +20,8 @@ model = dict(
     voxel_size=0.2,
     num_classes=num_instance_classes,
     min_spatial_shape=128,
-    stuff_classes=[0],
-    thing_cls=[1, 2],
+    stuff_classes=[0],  #0,1
+    thing_cls=[1, 2],         # was [0]
     prepare_epoch=1000,   # -1, #700,
     #prepare_epoch2=-1,#1000,
     query_point_num=300,   #modify the number of query points
@@ -75,8 +75,8 @@ model = dict(
         nms=True,
         matrix_nms_kernel='linear',
         num_sem_cls=num_semantic_classes,
-        stuff_cls=[0],
-        thing_cls=[1, 2],   # FIX: was [0], should be [1, 2] to match wood and leaf
+        stuff_cls=[0],  #0,1
+        thing_cls=[0],   #2
         output_dir='./work_dirs/oneformer3d_qs_radius16_qp300_2many'))
 
 # dataset settings
@@ -223,7 +223,7 @@ sem_mapping = [
 inst_mapping = sem_mapping[1:]
 val_evaluator = dict(
     type='UnifiedSegMetric',
-    stuff_class_inds=[0], 
+    stuff_class_inds=[0],   # was [0, 1]
     thing_class_inds=list(range(1, num_semantic_classes)), 
     min_num_points=1, 
     id_offset=2**16,

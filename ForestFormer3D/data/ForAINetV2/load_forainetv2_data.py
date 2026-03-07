@@ -161,8 +161,31 @@ def export(ply_file,
     # Load semantic and instance labels
     if not test_mode:
         # semantic label
-        bg_sem=np.array([0])   #####wythan wood np.array([1])
+        # Normalize dataset-specific semantic ids into a contiguous 1..K range,
+        # then convert to 0..(K-1) via -1.
+        # This supports common conventions like 1..K, 2..K+1, 3..K+2 (e.g. grass/shrub/mallee as 3,4,5).
+        NUM_CLASSES = 3
+
+        def _normalize_semantic_seg_ids(sem: np.ndarray, num_classes: int) -> np.ndarray:
+            sem = np.asarray(sem).astype(np.int64)
+            pos = sem[sem > 0]
+            if pos.size == 0:
+                return sem
+            vmin = int(pos.min())
+            vmax = int(pos.max())
+            if (vmax - vmin + 1) == int(num_classes):
+                out = sem.copy()
+                mask = out > 0
+                out[mask] = out[mask] - (vmin - 1)
+                return out
+            return sem
+
+        semantic_seg = _normalize_semantic_seg_ids(semantic_seg, NUM_CLASSES)
         label_ids = semantic_seg - 1
+
+        # Background semantics (after label_ids conversion):
+        # 0=grass, 1=shrub are background; 2=mallee is the tree class.
+        bg_sem = np.array([0, 1], dtype=np.int64)
         instance_ids = treeID  # 0: unannotated
 
         # Set instance_ids of background points to -1

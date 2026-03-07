@@ -2265,9 +2265,10 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
         current_filename = os.path.splitext(base_name)[0]
         t1 = time.time()                 
         #########print(f"load pc: {(t1 - t0)*1000:.0f} ms")
-        #is_test = True
-        #if is_test:
-        if 'test' in lidar_path:
+        # Use the full test-time inference path whenever the model is in eval
+        # mode. Relying on `'test' in lidar_path` breaks for splits whose scene
+        # ids don't contain the substring "test" (e.g. `znorm_3Dlabels_m_*`).
+        if not self.training:
             step_size = self.radius/4
             grid_size = 0.2
             num_points = 640000

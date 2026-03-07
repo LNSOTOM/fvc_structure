@@ -169,6 +169,10 @@ def main():
         '--test_scan_names_file',
         default='meta_data/test_list.txt',
         help='The path of the file that stores the test scan names.')
+    parser.add_argument(
+        '--only-test',
+        action='store_true',
+        help='Only export the test split (skip train/val). Useful for zero-shot inference on extra test lists.')
     args = parser.parse_args()
 
     if args.loader == 'orig':
@@ -177,22 +181,23 @@ def main():
         loader_module = importlib.import_module('load_forainetv2_data_fast')
     export_func = loader_module.export
 
-    batch_export(
-        args.max_num_point,
-        args.output_folder,
-        args.train_scan_names_file,
-        args.train_forainetv2_dir,
-        export_func,
-        test_mode=False
-        )
-    batch_export(
-        args.max_num_point,
-        args.output_folder,
-        args.val_scan_names_file,
-        args.train_forainetv2_dir,
-        export_func,
-        test_mode=False
-        )
+    if not args.only_test:
+        batch_export(
+            args.max_num_point,
+            args.output_folder,
+            args.train_scan_names_file,
+            args.train_forainetv2_dir,
+            export_func,
+            test_mode=False
+            )
+        batch_export(
+            args.max_num_point,
+            args.output_folder,
+            args.val_scan_names_file,
+            args.train_forainetv2_dir,
+            export_func,
+            test_mode=False
+            )
     batch_export(
         args.max_num_point,
         args.output_folder,
