@@ -193,9 +193,3 @@ dmypy.json
 
 # Weights & Biases
 wandb/
-
-# DVC (these must not be ignored)
-!dvc.yaml
-!params.yaml
-!.dvcignore
-!dvc.lock

@@ -155,51 +155,6 @@ CUDA_VISIBLE_DEVICES=0 python tools/train.py configs/oneformer3d_qs_radius16_qp3
   --work-dir work_dirs/<output_folder_name>
 ```
 
----
-
-## Track experiments with DVC
-
-This repo is configured with a simple DVC pipeline at the git root (see `dvc.yaml` and `params.yaml`) so you can run repeatable training runs and compare them via `dvc exp`.
-
-### Run an experiment
-
-From the repo root:
-
-```bash
-# (one-time) initialize your shell so `dvc` is available
-# If you used the provided env, DVC is included in environment.yml
-
-# run with defaults from params.yaml
-dvc exp run
-
-# override parameters for a new run
-dvc exp run \
-  --set-param train.cuda_devices=0 \
-  --set-param train.work_dir=work_dirs/experiments/run_001
-```
-
-The training command executed is equivalent to:
-
-```bash
-cd ForestFormer3D
-CUDA_VISIBLE_DEVICES=0 PYTHONPATH=. python tools/train.py configs/oneformer3d_qs_radius16_qp300_2many.py --work-dir work_dirs/experiments/run_001
-```
-
-### Compare experiments
-
-```bash
-dvc exp show
-```
-
-### Store large outputs (recommended)
-
-Checkpoints and logs under `work_dirs/` can be large. Configure a DVC remote (S3, GCS, SSH, local NAS, etc.) and push:
-
-```bash
-dvc remote add -d myremote <remote-url>
-dvc push
-```
-
 #### **Run testing**
 ##### Use your own trained Checkpoint
 ```bash
