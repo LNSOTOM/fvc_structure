@@ -53,7 +53,7 @@ def to_ply(pos, label, file):
     ply_array["green"] = colors[:, 1]
     ply_array["blue"] = colors[:, 2]
     el = PlyElement.describe(ply_array, 'vertex')
-    PlyData([el], text=True).write(file)
+    PlyData([el], text=False).write(file)
     print('out')
 
 
@@ -72,7 +72,7 @@ def to_eval_ply(pos, pre_label, gt, file):
     ply_array["preds"] = np.asarray(pre_label)
     ply_array["gt"] = np.asarray(gt)
     el = PlyElement.describe(ply_array, 'vertex')
-    PlyData([el], text=True).write(file)
+    PlyData([el], text=False).write(file)
 
 
 def to_ins_ply(pos, label, file):
@@ -96,7 +96,7 @@ def to_ins_ply(pos, label, file):
     # ply_array["blue"] = colors[:, 2]
     ply_array["preds"] = np.asarray(label)
     el = PlyElement.describe(ply_array, 'vertex')
-    PlyData([el], text=True).write(file)
+    PlyData([el], text=False).write(file)
 
 
 # @Treeins: added parameter output_file_name because we now save several final evaluation files because we have several test files
@@ -516,7 +516,9 @@ def final_eval(pre_sem, pre_ins_embed, pre_ins_offset, gt_sem, gt_ins, output_fi
 
 class PanopticTreeinsBase:
     INSTANCE_CLASSES = CLASSES_INV.keys()
-    NUM_MAX_OBJECTS = 80  # @Treeins: increased int because we had more number of instances in data files from the Treeins data set
+    # Upper bound for per-sample instance count; some tiles exceed the previous value.
+    # Keep this reasonably sized to avoid unnecessary memory overhead.
+    NUM_MAX_OBJECTS = 5000
 
     STUFFCLASSES = torch.tensor([i for i in VALID_CLASS_IDS if i not in SemIDforInstance])
     THINGCLASSES = torch.tensor([i for i in VALID_CLASS_IDS if i in SemIDforInstance])

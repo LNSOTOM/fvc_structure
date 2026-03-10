@@ -19,13 +19,19 @@ class ConfusionMatrix:
         return matrix
 
     def count_predicted_batch(self, ground_truth_vec, predicted):
-        assert np.max(predicted) < self.number_of_labels
         if torch.is_tensor(ground_truth_vec):
             ground_truth_vec = ground_truth_vec.numpy()
         if torch.is_tensor(predicted):
             predicted = predicted.numpy()
+        ground_truth_vec = ground_truth_vec.astype(int)
+        predicted = predicted.astype(int)
+        # Mask out any labels outside the valid range [0, number_of_labels-1]
+        valid_mask = (ground_truth_vec >= 0) & (ground_truth_vec < self.number_of_labels) & \
+                     (predicted >= 0) & (predicted < self.number_of_labels)
+        ground_truth_vec = ground_truth_vec[valid_mask]
+        predicted = predicted[valid_mask]
         batch_confusion = np.bincount(
-            self.number_of_labels * ground_truth_vec.astype(int) + predicted, minlength=self.number_of_labels ** 2
+            self.number_of_labels * ground_truth_vec + predicted, minlength=self.number_of_labels ** 2
         ).reshape(self.number_of_labels, self.number_of_labels)
         if self.confusion_matrix is None:
             self.confusion_matrix = batch_confusion

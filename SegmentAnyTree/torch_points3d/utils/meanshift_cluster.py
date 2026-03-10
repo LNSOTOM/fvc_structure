@@ -1,14 +1,12 @@
+import os
+from functools import partial
+
 import numpy as np
 import torch
-import torch
 from sklearn.cluster import MeanShift
-import time
 import multiprocessing
-from multiprocessing import Process
-from functools import partial
 def meanshift_cluster(prediction, bandwidth):
-    bandwidth = bandwidth #0.6
-    ms = MeanShift(bandwidth=bandwidth,bin_seeding=True) #, n_jobs=-1)
+    ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)  # n_jobs removed in newer sklearn
     #print ('Mean shift clustering, might take some time ...')
     ms.fit(prediction)
     labels = ms.labels_
@@ -16,6 +14,52 @@ def meanshift_cluster(prediction, bandwidth):
     #num_clusters = cluster_centers.shape[0]
         
     return torch.from_numpy(labels)
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _run_meanshift_all(all_clusters, fn, processes: int):
+    """Run MeanShift over a list of numpy arrays.
+
+    Multiprocessing can easily hang or appear stuck in Docker due to pickle overhead
+    (embeddings are large) or Pool worker stalls. Default is to run in-process.
+
+    Controls:
+      - MEANSHIFT_USE_MP: enable multiprocessing when >1 processes (default: false)
+      - MEANSHIFT_NPROCS: hard cap processes (default: 0 => auto)
+    """
+
+    if len(all_clusters) == 0:
+        return []
+
+    use_mp = _env_bool("MEANSHIFT_USE_MP", False)
+    cap = _env_int("MEANSHIFT_NPROCS", 0)
+    if cap > 0:
+        processes = min(processes, cap)
+
+    # Never spawn a Pool for single-process work.
+    if (not use_mp) or processes <= 1:
+        return [fn(arr) for arr in all_clusters]
+
+    # Use a context explicitly; 'fork' is typically fastest on Linux.
+    ctx = multiprocessing.get_context("fork")
+    with ctx.Pool(processes=processes, maxtasksperchild=1) as pool:
+        return pool.map(fn, all_clusters, chunksize=1)
         
 def cluster_loop(embed_logits_logits_u, unique_in_batch, label_batch, local_ind, low, high, loop_num):
     
@@ -48,23 +92,21 @@ def cluster_loop(embed_logits_logits_u, unique_in_batch, label_batch, local_ind,
                 all_clusters.append(sample_embed_logits.cpu().detach().numpy())
                 cluster_type_loop.append(loop_i)
     
-    if unique_in_batch.shape[0]>0:
-        processes=unique_in_batch.shape[0]
-    else:
-        processes=1
-    with multiprocessing.Pool(processes=processes) as pool:
-        results = pool.map(meanshift_cluster, all_clusters)
-        for i in range(len(results)):
-            pre_ins_labels_embed = results[i]
-            sampleInBatch_local_ind = local_logits[i]
-            loop_i_ = cluster_type_loop[i]
-            unique_preInslabels = torch.unique(pre_ins_labels_embed)
-            for l in unique_preInslabels:
-                if l == -1:
-                    continue
-                label_mask_l = pre_ins_labels_embed == l
-                final_result.append(sampleInBatch_local_ind[label_mask_l])
-                cluster_type.append(loop_i_)
+    processes = int(unique_in_batch.shape[0]) if unique_in_batch.shape[0] > 0 else 1
+    # NOTE: cluster_loop is not used by the default pipeline; keep it safe anyway.
+    partial_meanshift_cluster = partial(meanshift_cluster, bandwidth=0.6)
+    results = _run_meanshift_all(all_clusters, partial_meanshift_cluster, processes)
+    for i in range(len(results)):
+        pre_ins_labels_embed = results[i]
+        sampleInBatch_local_ind = local_logits[i]
+        loop_i_ = cluster_type_loop[i]
+        unique_preInslabels = torch.unique(pre_ins_labels_embed)
+        for l in unique_preInslabels:
+            if l == -1:
+                continue
+            label_mask_l = pre_ins_labels_embed == l
+            final_result.append(sampleInBatch_local_ind[label_mask_l])
+            cluster_type.append(loop_i_)
     
     #print("total time",time.time()-t)
     return final_result, cluster_type
@@ -93,22 +135,19 @@ def cluster_single(embed_logits_logits_u, unique_in_batch, label_batch, local_in
             #normalize(sample_embed_logits, axis=0)
     
     partial_meanshift_cluster = partial(meanshift_cluster, bandwidth=bandwidth)
-    if unique_in_batch.shape[0]>0:
-        processes=unique_in_batch.shape[0]
-    else:
-        processes=1
-    with multiprocessing.Pool(processes=processes) as pool:
-        results = pool.map(partial_meanshift_cluster, all_clusters)
-        for i in range(len(results)):
-            pre_ins_labels_embed = results[i]
-            sampleInBatch_local_ind = local_logits[i]
-            unique_preInslabels = torch.unique(pre_ins_labels_embed)
-            for l in unique_preInslabels:
-                if l == -1:
-                    continue
-                label_mask_l = pre_ins_labels_embed == l
-                final_result.append(sampleInBatch_local_ind[label_mask_l])
-                cluster_type.append(type)        
+    processes = int(unique_in_batch.shape[0]) if unique_in_batch.shape[0] > 0 else 1
+
+    results = _run_meanshift_all(all_clusters, partial_meanshift_cluster, processes)
+    for i in range(len(results)):
+        pre_ins_labels_embed = results[i]
+        sampleInBatch_local_ind = local_logits[i]
+        unique_preInslabels = torch.unique(pre_ins_labels_embed)
+        for l in unique_preInslabels:
+            if l == -1:
+                continue
+            label_mask_l = pre_ins_labels_embed == l
+            final_result.append(sampleInBatch_local_ind[label_mask_l])
+            cluster_type.append(type)
             
             #pre_ins_labels_embed = hdbscan_cluster(sample_embed_logits)
             #unique_preInslabels = torch.unique(pre_ins_labels_embed)
@@ -123,15 +162,5 @@ def cluster_single(embed_logits_logits_u, unique_in_batch, label_batch, local_in
     return final_result, cluster_type
 
 if __name__ == "__main__":
-    embed_logits_logits_u = torch.load("embed_logits_logits_u.pt").cpu()
-    label_batch = torch.load("label_batch.pt").cpu()
-    local_ind = torch.load("local_ind.pt").cpu()
-    unique_in_batch = torch.load("unique_in_batch.pt").cpu()
-    print(np.shape(embed_logits_logits_u))
-    print(np.shape(label_batch))
-    print(np.shape(local_ind))
-    print(np.shape(unique_in_batch))
-    t = time.time()
-    for i in range(4):
-        cluster_loop(embed_logits_logits_u, unique_in_batch, label_batch, local_ind, low=3, high=5, loop_num=10)
-    print("total time",time.time()-t)
+    # Simple smoke test (optional)
+    pass

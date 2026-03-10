@@ -21,8 +21,19 @@ def modify_yaml(file_path, new_fold, output_dir_path=None):
     # Ensuring data is an OrderedDict
     data = OrderedDict(data)
 
+    # Ensure nested keys exist
+    if 'data' not in data or data['data'] is None:
+        data['data'] = OrderedDict()
+
     # Update the fold field
     data['data']['fold'] = list(new_fold)
+
+    # IMPORTANT: point dataroot to the directory containing the fold (.ply) files.
+    # Otherwise Hydra defaults may keep an image-specific dataroot, and dataset
+    # preprocessing will try to write processed .pt files into a non-mounted path.
+    first_fold = data['data']['fold'][0]
+    if isinstance(first_fold, str) and first_fold:
+        data['data']['dataroot'] = os.path.abspath(os.path.dirname(first_fold))
 
     # Update the output_dir field
     if output_dir_path:

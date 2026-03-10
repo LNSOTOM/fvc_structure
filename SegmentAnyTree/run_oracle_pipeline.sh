@@ -39,6 +39,19 @@ run_oracle_wrapper_input() {
     if [ "$DEBUG_MODE" = true ]; then
         # This is mapped in the docker run
         bucket_location=${DOCKER_IN_FOLDER}
+
+        # Fast path (local/debug): avoid copying the entire input set into
+        # $PATH_DATA/docker_in_folder (which is usually bind-mounted to host).
+        # Instead, read directly from the mounted bucket folder.
+        #
+        # If the bucket contains .zip files, we fall back to the previous
+        # behavior so we can unzip into a writable folder.
+        shopt -s nullglob
+        zips=("$bucket_location"/*.zip)
+        if [ ${#zips[@]} -eq 0 ]; then
+            ORACLE_IN_DATA_FOLDER="$bucket_location"
+            return 0
+        fi
     else
         # Get the input location from the environment variable
         bucket_location=${OBJ_INPUT_LOCATION}
@@ -93,13 +106,20 @@ run_oracle_wrapper_output() {
 
     # copy the results from the oracle output folder to the temporary folder
     shopt -s nullglob
-    cp -r "$ORACLE_OUT_DATA_FOLDER/final_results/"* "$PATH_DATA/results" || true
+    outs=("$ORACLE_OUT_DATA_FOLDER/final_results/"*)
+    if [ ${#outs[@]} -gt 0 ]; then
+        cp -r "${outs[@]}" "$PATH_DATA/results" || true
+    fi
 
     # Find and zip only the files in the specified directory, excluding subfolders
     find "$PATH_DATA/results" -maxdepth 1 -type f -exec zip -q "$PATH_DATA/results.zip" {} +
 
     # copy the zipped results to the output location
-    cp "$PATH_DATA/results.zip" "$bucket_location"
+    if [ -f "$PATH_DATA/results.zip" ]; then
+        cp "$PATH_DATA/results.zip" "$bucket_location"
+    else
+        echo "WARNING: No results were produced; results.zip not created."
+    fi
 
     # # Zip the output folder
     # zip "$ORACLE_OUT_DATA_FOLDER/results.zip" "$ORACLE_OUT_DATA_FOLDER/final_results"/*
@@ -124,7 +144,12 @@ OLD_IFS="$IFS"
 # Change IFS to handle only newline characters
 IFS=$'\n'
 
-files=($(find "$ORACLE_IN_DATA_FOLDER" -maxdepth 1 -type f))
+if [ "$DEBUG_MODE" = true ]; then
+    # Follow symlinks so INPUT_DISTRIBUTION=symlink works.
+    files=($(find -L "$ORACLE_IN_DATA_FOLDER" -maxdepth 1 -type f))
+else
+    files=($(find "$ORACLE_IN_DATA_FOLDER" -maxdepth 1 -type f))
+fi
 
 IFS="$OLD_IFS"
 

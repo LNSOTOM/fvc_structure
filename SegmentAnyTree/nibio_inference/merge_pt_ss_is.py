@@ -7,9 +7,17 @@ import laspy
 import concurrent.futures
 import numpy as np
 
+import os
+
 import pandas as pd
 
-import dask.dataframe as dd  # dask==2021.8.1
+# Optional: dask can accelerate joins for very large point clouds, but it is
+# sensitive to pandas internal API changes. Fall back to pure pandas if dask
+# cannot be imported in the current environment.
+try:
+    import dask.dataframe as dd  # type: ignore
+except Exception:  # pragma: no cover
+    dd = None
 
 from nibio_inference.ply_to_pandas import ply_to_pandas
 from nibio_inference.las_to_pandas import las_to_pandas
@@ -76,17 +84,18 @@ class MergePtSsIs(object):
         semantic_segmentation_df.columns = [f'{col}_semantic_segmentation' for col in semantic_segmentation_df.columns]
         instance_segmentation_df.columns = [f'{col}_instance_segmentation' for col in instance_segmentation_df.columns]
 
-        # Convert to Dask DataFrames for parallel processing
-        point_cloud_dd = dd.from_pandas(point_cloud_df, npartitions=48)
-        semantic_segmentation_dd = dd.from_pandas(semantic_segmentation_df, npartitions=48)
-        instance_segmentation_dd = dd.from_pandas(instance_segmentation_df, npartitions=48)
+        # Merge (prefer dask if available; otherwise pandas)
+        if dd is not None and str(os.environ.get('DISABLE_DASK', '0')).lower() not in {'1', 'true', 'yes'}:
+            point_cloud_dd = dd.from_pandas(point_cloud_df, npartitions=48)
+            semantic_segmentation_dd = dd.from_pandas(semantic_segmentation_df, npartitions=48)
+            instance_segmentation_dd = dd.from_pandas(instance_segmentation_df, npartitions=48)
 
-        # Merge using Dask
-        merged_dd = point_cloud_dd.join(semantic_segmentation_dd, how='outer')
-        merged_dd = merged_dd.join(instance_segmentation_dd, how='outer')
-
-        # Convert back to pandas DataFrame
-        merged_df = merged_dd.compute()
+            merged_dd = point_cloud_dd.join(semantic_segmentation_dd, how='outer')
+            merged_dd = merged_dd.join(instance_segmentation_dd, how='outer')
+            merged_df = merged_dd.compute()
+        else:
+            merged_df = point_cloud_df.join(semantic_segmentation_df, how='outer')
+            merged_df = merged_df.join(instance_segmentation_df, how='outer')
 
         # remove the following columns from the merged data frame : x_instance_segmentation, y_instance_segmentation, z_instance_segmentation
         merged_df.drop(columns=['x_instance_segmentation', 'y_instance_segmentation', 'z_instance_segmentation'], inplace=True)

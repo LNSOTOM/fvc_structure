@@ -11,8 +11,6 @@ from scipy.spatial import KDTree
 
 import pandas as pd
 
-import dask.dataframe as dd  # dask==2021.8.1
-
 from nibio_inference.ply_to_pandas import ply_to_pandas
 from nibio_inference.las_to_pandas import las_to_pandas
 from nibio_inference.pandas_to_ply import pandas_to_ply
