@@ -14,6 +14,21 @@ import os
 import numpy as np
 from plyutils import read_ply
 
+
+def _get_protocol() -> str:
+    """Return label protocol from env.
+
+    NOTE:
+    Ground-truth export is fixed to forest mapping for fair comparisons.
+    FORAINETV2_PROTOCOL is still validated for run bookkeeping.
+    """
+    protocol = os.environ.get('FORAINETV2_PROTOCOL', 'forest').strip().lower()
+    if protocol not in {'forest', 'sparse'}:
+        raise ValueError(
+            f"Invalid FORAINETV2_PROTOCOL='{protocol}'. "
+            "Use one of: forest, sparse.")
+    return protocol
+
 currentdir = os.path.dirname(
     os.path.abspath(inspect.getfile(inspect.currentframe())))
 
@@ -160,32 +175,62 @@ def export(ply_file,
 
     # Load semantic and instance labels
     if not test_mode:
-        # semantic label
-        # Normalize dataset-specific semantic ids into a contiguous 1..K range,
-        # then convert to 0..(K-1) via -1.
-        # This supports common conventions like 1..K, 2..K+1, 3..K+2 (e.g. grass/shrub/mallee as 3,4,5).
-        NUM_CLASSES = 3
-
-        def _normalize_semantic_seg_ids(sem: np.ndarray, num_classes: int) -> np.ndarray:
+        # Remap site-specific semantic ids into contiguous class ids used by the
+        # model and dataset metadata.
+        # Protocols:
+        # - forest: {1,4,5}->{0,1,2}, {3,4,5}->{0,1,2}
+        # - sparse: {1,4,5}->{0,0,2}, {3,4,5}->{0,0,2}
+        def _remap_semantic_seg_ids(sem: np.ndarray) -> np.ndarray:
             sem = np.asarray(sem).astype(np.int64)
-            pos = sem[sem > 0]
-            if pos.size == 0:
-                return sem
-            vmin = int(pos.min())
-            vmax = int(pos.max())
-            if (vmax - vmin + 1) == int(num_classes):
-                out = sem.copy()
-                mask = out > 0
-                out[mask] = out[mask] - (vmin - 1)
+            out = sem.copy()
+            _get_protocol()  # validate env value if provided
+
+            unique_vals = set(np.unique(out).tolist())
+            if unique_vals.issubset({0, 1, 2}):
                 return out
-            return sem
 
-        semantic_seg = _normalize_semantic_seg_ids(semantic_seg, NUM_CLASSES)
-        label_ids = semantic_seg - 1
+            # Explicit site maps first, so behavior is deterministic.
+            if unique_vals.issubset({1, 4, 5}):
+                remapped = np.zeros_like(out)
+                remapped[out == 4] = 1
+                remapped[out == 5] = 2
+                return remapped
 
-        # Background semantics (after label_ids conversion):
-        # 0=grass, 1=shrub are background; 2=mallee is the tree class.
-        bg_sem = np.array([0, 1], dtype=np.int64)
+            if unique_vals.issubset({3, 4, 5}):
+                remapped = np.zeros_like(out)
+                remapped[out == 4] = 1
+                remapped[out == 5] = 2
+                return remapped
+
+            # Mixed variants where some files carry both possible ground ids.
+            if unique_vals.issubset({0, 1, 4, 5}) or unique_vals.issubset({0, 3, 4, 5}):
+                remapped = np.zeros_like(out)
+                remapped[out == 4] = 1
+                remapped[out == 3] = 1
+                remapped[out == 5] = 2
+                return remapped
+
+            if unique_vals.issubset({1, 2, 3}):
+                out = out - 1
+                return out
+
+            if unique_vals.issubset({2, 3, 4}):
+                out = out - 2
+                return out
+
+            if unique_vals.issubset({0, 3, 4}):
+                remapped = np.full_like(out, fill_value=0)
+                remapped[out == 3] = 1
+                remapped[out == 4] = 2
+                return remapped
+
+            # Fallback: keep as-is so unexpected taxonomies are visible in logs.
+            return out
+
+        label_ids = _remap_semantic_seg_ids(semantic_seg)
+
+        # For ForAINetV2 classes, only ground is stuff/background for instances.
+        bg_sem = np.array([0], dtype=np.int64)
         instance_ids = treeID  # 0: unannotated
 
         # Set instance_ids of background points to -1

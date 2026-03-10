@@ -39,6 +39,20 @@ def _run(cmd: list[str], cwd: Path | None = None) -> None:
     subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
 
 
+def _get_protocol() -> str:
+    protocol = os.environ.get("FORAINETV2_PROTOCOL", "forest").strip().lower()
+    if protocol not in {"forest", "sparse"}:
+        raise ValueError(
+            f"Invalid FORAINETV2_PROTOCOL='{protocol}'. Use one of: forest, sparse."
+        )
+    return protocol
+
+
+def _instance_cache_dirname() -> str:
+    protocol = _get_protocol()
+    return f"forainetv2_instance_data_{protocol}"
+
+
 def _rel_or_abs(path: Path, base: Path) -> str:
     """Return path relative to base if possible, else absolute."""
     try:
@@ -190,6 +204,9 @@ def main() -> None:
     default_scene_list, default_ply_dir, default_tag = _default_paths(args.split, data_root)
     scene_list = args.scene_list or default_scene_list
     ply_dir = args.ply_dir or default_ply_dir
+    # Normalize user-provided data paths to avoid nested relative-path issues.
+    scene_list = _resolve_under(data_root, scene_list).resolve() if not scene_list.is_absolute() else scene_list
+    ply_dir = _resolve_under(data_root, ply_dir).resolve() if not ply_dir.is_absolute() else ply_dir
     extra_tag = args.extra_tag or default_tag
 
     config_path = _resolve_under(repo_root, args.config)
@@ -202,7 +219,18 @@ def main() -> None:
     scene_ids = _read_scene_list(scene_list)
     _validate_plys(scene_ids, ply_dir)
 
-    # 1) Export per-scene npys into forainetv2_instance_data
+    # Use explicit env overrides when provided; otherwise default to protocol-specific cache.
+    cache_dir_name = os.environ.get("FORAINETV2_INSTANCE_DATA_DIR", "").strip()
+    if not cache_dir_name:
+        cache_dir_name = _instance_cache_dirname()
+    bin_base_dir = os.environ.get("FORAINETV2_BIN_BASE_DIR", "").strip()
+    if not bin_base_dir:
+        bin_base_dir = cache_dir_name
+
+    os.environ["FORAINETV2_INSTANCE_DATA_DIR"] = cache_dir_name
+    os.environ["FORAINETV2_BIN_BASE_DIR"] = bin_base_dir
+
+    # 1) Export per-scene npys into protocol-specific instance_data cache.
     if not args.skip_export:
         exporter = (data_root / "batch_load_ForAINetV2_data.py")
         if not exporter.is_file():
@@ -218,7 +246,7 @@ def main() -> None:
                 "--test_scan_names_file",
                 _rel_or_abs(scene_list, data_root),
                 "--output_folder",
-                "./forainetv2_instance_data",
+                f"./{cache_dir_name}",
             ],
             cwd=data_root,
         )
@@ -259,6 +287,15 @@ def main() -> None:
         if args.gpus < 1:
             raise ValueError("--gpus must be >= 1")
 
+        cfg_opts = [
+            f"test_dataloader.dataset.ann_file={ann_file}",
+            f"test_dataloader.dataset.data_prefix.pts={bin_base_dir}/points",
+            f"test_dataloader.dataset.data_prefix.pts_instance_mask={bin_base_dir}/instance_mask",
+            f"test_dataloader.dataset.data_prefix.pts_semantic_mask={bin_base_dir}/semantic_mask",
+        ]
+        if args.cfg_options:
+            cfg_opts.extend(list(args.cfg_options))
+
         cmd = [
             "bash",
             os.fspath(dist_sh),
@@ -268,10 +305,8 @@ def main() -> None:
             "--work-dir",
             os.fspath(args.work_dir),
             "--cfg-options",
-            f"test_dataloader.dataset.ann_file={ann_file}",
+            *cfg_opts,
         ]
-        if args.cfg_options:
-            cmd.extend(list(args.cfg_options))
         print("\n[info] Running distributed test")
         if args.cuda_visible_devices is not None:
             print(f"[info] CUDA_VISIBLE_DEVICES={args.cuda_visible_devices}")
@@ -280,6 +315,15 @@ def main() -> None:
         test_py = repo_root / "tools" / "test.py"
         if not test_py.is_file():
             raise FileNotFoundError(f"tools/test.py not found: {test_py}")
+        cfg_opts = [
+            f"test_dataloader.dataset.ann_file={ann_file}",
+            f"test_dataloader.dataset.data_prefix.pts={bin_base_dir}/points",
+            f"test_dataloader.dataset.data_prefix.pts_instance_mask={bin_base_dir}/instance_mask",
+            f"test_dataloader.dataset.data_prefix.pts_semantic_mask={bin_base_dir}/semantic_mask",
+        ]
+        if args.cfg_options:
+            cfg_opts.extend(list(args.cfg_options))
+
         cmd = [
             sys.executable,
             os.fspath(test_py),
@@ -288,13 +332,14 @@ def main() -> None:
             "--work-dir",
             os.fspath(args.work_dir),
             "--cfg-options",
-            f"test_dataloader.dataset.ann_file={ann_file}",
+            *cfg_opts,
         ]
-        if args.cfg_options:
-            cmd.extend(list(args.cfg_options))
         subprocess.run(cmd, cwd=str(repo_root), env=env, check=True)
 
     print("\nDone.")
+    print(f"- Protocol: {_get_protocol()}")
+    print(f"- Instance cache dir: {data_root / cache_dir_name}")
+    print(f"- Bin base dir: {data_root / bin_base_dir}")
     print(f"- Split: {args.split}")
     print(f"- Scene list: {scene_list}")
     print(f"- PLY dir: {ply_dir}")

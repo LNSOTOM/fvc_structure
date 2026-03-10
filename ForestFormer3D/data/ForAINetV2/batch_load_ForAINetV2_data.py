@@ -25,8 +25,23 @@ from scipy.spatial import Delaunay
 
 DONOTCARE_CLASS_IDS = np.array([])
 
-# FORAINETV2_OBJ_CLASS_IDS = np.array([1])
-FORAINETV2_OBJ_CLASS_IDS = np.array([1, 2])  # FIX: include both wood=1 and leaf=2
+
+def _get_protocol() -> str:
+    protocol = os.environ.get('FORAINETV2_PROTOCOL', 'forest').strip().lower()
+    if protocol not in {'forest', 'sparse'}:
+        raise ValueError(
+            f"Invalid FORAINETV2_PROTOCOL='{protocol}'. "
+            "Use one of: forest, sparse.")
+    return protocol
+
+
+def _get_obj_class_ids() -> np.ndarray:
+    # Keep GT export fixed for fair A/B comparisons: wood+leaf instances.
+    _get_protocol()  # validate env value if provided
+    return np.array([1, 2])
+
+
+FORAINETV2_OBJ_CLASS_IDS = _get_obj_class_ids()
 
 def create_ply_with_superpoints(points, superpoints, filename):
     # Combine points and superpoints into a single array

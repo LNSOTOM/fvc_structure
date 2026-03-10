@@ -1580,7 +1580,14 @@ class ForAINetV2OneFormer3D(Base3DDetector):
                             dtype=dtype)
 
         el = PlyElement.describe(vertex, 'vertex')
-        PlyData([el], text=True).write(filename)
+        # Write atomically to avoid leaving a partially written PLY on interruption.
+        tmp_filename = f"{filename}.tmp.{os.getpid()}"
+        try:
+            PlyData([el], text=False).write(tmp_filename)
+            os.replace(tmp_filename, filename)
+        finally:
+            if os.path.exists(tmp_filename):
+                os.remove(tmp_filename)
 
     @staticmethod
     def finalize_semantic_labels(all_pre_sem):
@@ -3755,7 +3762,14 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
                             dtype=dtype)
 
         el = PlyElement.describe(vertex, 'vertex')
-        PlyData([el], text=True).write(filename)
+        # Write atomically to avoid leaving a partially written PLY on interruption.
+        tmp_filename = f"{filename}.tmp.{os.getpid()}"
+        try:
+            PlyData([el], text=False).write(tmp_filename)
+            os.replace(tmp_filename, filename)
+        finally:
+            if os.path.exists(tmp_filename):
+                os.remove(tmp_filename)
 
     @staticmethod
     def save_bluepoints(points, semantic_pred, instance_pred, scores, filename, semantic_gt=None, instance_gt=None):

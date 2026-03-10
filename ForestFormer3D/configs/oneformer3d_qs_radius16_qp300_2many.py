@@ -75,8 +75,8 @@ model = dict(
         nms=True,
         matrix_nms_kernel='linear',
         num_sem_cls=num_semantic_classes,
-        stuff_cls=[0],  #0,1
-        thing_cls=[0],   #2
+        stuff_cls=[0],
+        thing_cls=[1, 2],
         output_dir='./work_dirs/oneformer3d_qs_radius16_qp300_2many'))
 
 # dataset settings

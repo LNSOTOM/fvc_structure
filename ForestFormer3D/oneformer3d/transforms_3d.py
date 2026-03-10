@@ -9,6 +9,56 @@ from mmdet3d.registry import TRANSFORMS
 
 
 @TRANSFORMS.register_module()
+class RemapSemanticLabels(BaseTransform):
+    """Remap semantic label ids in `pts_semantic_mask`.
+
+    This is useful when GT labels are non-contiguous or differ by site, e.g.:
+    - {2,3,4} = (grass, shrub, mallee)
+    - {0,3,4} = (forb, shrub, mallee)
+
+    The transform remaps them into a contiguous space (typically 0..K-1)
+    for training/evaluation, without modifying the stored dataset on disk.
+
+    Required Keys:
+    - pts_semantic_mask
+
+    Modified Keys:
+    - pts_semantic_mask
+
+    Args:
+        mapping (dict[int,int]): Old id -> new id.
+        default_value (int): Value for labels not present in mapping.
+            Use -1 if you want them to become "unclassified" for metrics that
+            shift labels by +1 (so -1 becomes 0).
+    """
+
+    def __init__(self, mapping, default_value: int = -1):
+        if mapping is None:
+            raise ValueError('mapping is required')
+        self.mapping = {int(k): int(v) for k, v in dict(mapping).items()}
+        self.default_value = int(default_value)
+
+    def transform(self, input_dict):
+        if 'pts_semantic_mask' not in input_dict:
+            return input_dict
+
+        sem = input_dict['pts_semantic_mask']
+        if isinstance(sem, torch.Tensor):
+            remapped = torch.full_like(sem, fill_value=self.default_value)
+            for old_id, new_id in self.mapping.items():
+                remapped[sem == old_id] = new_id
+            input_dict['pts_semantic_mask'] = remapped
+            return input_dict
+
+        sem_np = np.asarray(sem)
+        remapped = np.full_like(sem_np, fill_value=self.default_value)
+        for old_id, new_id in self.mapping.items():
+            remapped[sem_np == old_id] = new_id
+        input_dict['pts_semantic_mask'] = remapped
+        return input_dict
+
+
+@TRANSFORMS.register_module()
 class ElasticTransfrom(BaseTransform):
     """Apply elastic augmentation to a 3D scene. Required Keys:
 
