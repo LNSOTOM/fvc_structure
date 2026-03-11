@@ -28,7 +28,8 @@ All experiments below use:
 - Config: `/workspace/configs/oneformer3d_qs_radius16_qp300_2many.py`
 - Checkpoint: `/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth`
 
-## Experiment 1.1 — Baseline ForAINetV2 (forest)
+# Experiment 1: Zero-shot transfer performance of ForestFormer3D from forest training data to unseen forest and semi-arid rangeland ecosystem test sets
+## Experiment 1.1 — Baseline ForAINetV2 (Forest domain (in-domain))
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -47,7 +48,7 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
-## Experiment 1.2 — Calperum low_L1 (forest)
+## Experiment 1.2 — Calperum low_L1 (Cross-domain transfer)
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -66,7 +67,7 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
-## Experiment 1.3 — Calperum low_L2 (forest)
+## Experiment 1.3 — Calperum low_L2 (Cross-domain transfer)
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -85,7 +86,7 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
-## Experiment 1.4 — Calperum medium_L1 (forest)
+## Experiment 1.4 — Calperum medium_L1 (Cross-domain transfer)
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -104,7 +105,7 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
-## Experiment 1.5 — Calperum medium_L2 (forest)
+## Experiment 1.5 — Calperum medium_L2 (Cross-domain transfer)
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
