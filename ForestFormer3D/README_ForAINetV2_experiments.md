@@ -1,4 +1,4 @@
-# ForestFormer3D — ForAINetV2 experiments (baseline + calperum)
+# ForestFormer3D - ForAINetV2 experiments (baseline + calperum)
 
 This README collects the **exact commands** used to run ForestFormer3D zero-shot inference on:
 - **Baseline ForAINetV2**
