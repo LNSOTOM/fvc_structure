@@ -58,7 +58,11 @@ def pandas_to_las(csv, csv_file_provided=False, output_file_path=None, do_compre
         'Reflectance': 'float64',
         'Deviation': 'int32',
         'PredSemantic' : 'uint8',
+        'PredSemantic_ff' : 'uint8',
+        'PredSemantic_treeins': 'int16',
         'PredInstance' : 'uint16',
+        'gt_semantic_segmentation_ff': 'uint8',
+        'gt_semantic_segmentation_treeins': 'int16',
     }
 
     # Standardize column names to match LAS format

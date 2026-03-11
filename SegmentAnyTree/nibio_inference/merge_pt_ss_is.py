@@ -115,6 +115,42 @@ class MergePtSsIs(object):
         # rename column 'preds_instance_segmentation' to 'predInstance'
         merged_df.rename(columns={'preds_instance_segmentation': 'PredInstance'}, inplace=True)
 
+        # Export both semantic label conventions side-by-side.
+        # SegmentAnyTree / Treeins convention (native): {-1,0,1} where -1 means ignore.
+        # ForestFormer-style convention (contiguous): {0,1,2}.
+        # We compute *_ff columns by shifting the native labels by +1 when needed.
+        def _has_negative(series):
+            try:
+                return (series.dropna() < 0).any()
+            except Exception:
+                return False
+
+        needs_shift = False
+        if 'gt_semantic_segmentation' in merged_df.columns:
+            needs_shift = _has_negative(merged_df['gt_semantic_segmentation'])
+        if not needs_shift and 'PredSemantic' in merged_df.columns:
+            needs_shift = _has_negative(merged_df['PredSemantic'])
+
+        if 'gt_semantic_segmentation' in merged_df.columns:
+            merged_df['gt_semantic_segmentation_ff'] = merged_df['gt_semantic_segmentation'] + (1 if needs_shift else 0)
+        if 'PredSemantic' in merged_df.columns:
+            merged_df['PredSemantic_ff'] = merged_df['PredSemantic'] + (1 if needs_shift else 0)
+
+        # Backward-compatible behavior: if explicitly requested, shift the primary
+        # columns in-place while keeping copies of the native (Treeins) labels.
+        export_semantic_as_012 = str(os.environ.get('EXPORT_TREEINS_SEMANTIC_AS_012', '0')).strip().lower() in {
+            '1', 'true', 'yes'
+        }
+        if export_semantic_as_012 and needs_shift:
+            if 'gt_semantic_segmentation' in merged_df.columns and 'gt_semantic_segmentation_treeins' not in merged_df.columns:
+                merged_df['gt_semantic_segmentation_treeins'] = merged_df['gt_semantic_segmentation']
+            if 'PredSemantic' in merged_df.columns and 'PredSemantic_treeins' not in merged_df.columns:
+                merged_df['PredSemantic_treeins'] = merged_df['PredSemantic']
+            if 'gt_semantic_segmentation_ff' in merged_df.columns:
+                merged_df['gt_semantic_segmentation'] = merged_df['gt_semantic_segmentation_ff']
+            if 'PredSemantic_ff' in merged_df.columns:
+                merged_df['PredSemantic'] = merged_df['PredSemantic_ff']
+
 
         # Post-process merged data
         min_values_path = self.point_cloud.replace('.ply', '_min_values.json')

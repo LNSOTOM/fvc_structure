@@ -193,22 +193,29 @@ class PanopticTracker(SegmentationTracker):
 
         if clusters:
             if torch.max(labels.instance_labels) > 0:
+                def _to_meter_value(v):
+                    if isinstance(v, torch.Tensor):
+                        # torchnet AverageValueMeter internally converts to numpy;
+                        # ensure we provide a CPU scalar.
+                        return float(v.detach().cpu().item()) if v.numel() == 1 else float(v.detach().cpu().mean().item())
+                    return float(v)
+
                 tp, fp, acc = self._compute_acc(
                     clusters, predicted_labels, labels, data.batch, labels.num_instances, iou_threshold
                 )
-                self._pos.add(tp)
-                self._neg.add(fp)
-                self._acc_meter.add(acc)
+                self._pos.add(_to_meter_value(tp))
+                self._neg.add(_to_meter_value(fp))
+                self._acc_meter.add(_to_meter_value(acc))
 
                 cov, wcov, mPre, mRec, F1 = self._compute_eval(
                     clusters, predicted_labels, labels, data.batch, labels.num_instances, self._num_classes,
                     iou_threshold
                 )
-                self._cov.add(cov)
-                self._wcov.add(wcov)
-                self._mIPre.add(mPre)
-                self._mIRec.add(mRec)
-                self._F1.add(F1)
+                self._cov.add(_to_meter_value(cov))
+                self._wcov.add(_to_meter_value(wcov))
+                self._mIPre.add(_to_meter_value(mPre))
+                self._mIRec.add(_to_meter_value(mRec))
+                self._F1.add(_to_meter_value(F1))
 
             # Track instances for AP
             if track_instances:
