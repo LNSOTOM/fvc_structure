@@ -103,17 +103,17 @@ After inference completes, you can compute instance-level metrics **directly fro
 ### 1) Export metrics to CSV
 
 This reads `${OUTPUT_BASE}/final_results/${RUN_ID}/results/*.laz` and writes two CSVs:
-- `outputs/<name>_per_file.csv`
-- `outputs/<name>_per_region.csv`
+- `SegmentAnyTree/metrics/outputs/<name>_per_file.csv`
+- `SegmentAnyTree/metrics/outputs/<name>_per_region.csv`
 
-Example (matches the run id used above):
+Example:
 
 ```bash
 python SegmentAnyTree/metrics/instance_metrics_from_laz.py \
-  --input /data/calperumResearch/segmentanytree/output/ForAINetV2/final_results/20260310_052457/results \
+  --input /data/calperumResearch/segmentanytree/output/ForAINetV2/final_results/20260311_230657/results \
   --iou 0.5 \
   --matching per_pred \
-  --out-csv outputs/metrics_20260310_iou0p5.csv
+  --out-csv /home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/metrics_forest_20260311_iou0p5.csv
 ```
 
 Optional: include height error metrics (adds extra columns to the per-file CSV), including:
@@ -131,8 +131,8 @@ python SegmentAnyTree/metrics/instance_metrics_from_laz.py \
 ```
 
 Outputs:
-- `outputs/metrics_20260310_iou0p5_per_file.csv`
-- `outputs/metrics_20260310_iou0p5_per_region.csv`
+- `/home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/metrics_forest_20260311_iou0p5_per_file.csv`
+- `/home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/metrics_forest_20260311_iou0p5_per_region.csv`
 
 ### 2) Plot the CSV metrics
 
@@ -142,15 +142,15 @@ This generates paper-ready PNGs:
 
 ```bash
 python plot_instance_metrics_from_csv.py \
-  --per-file-csv outputs/metrics_20260310_iou0p5_per_file.csv \
-  --per-region-csv outputs/metrics_20260310_iou0p5_per_region.csv \
-  --out-dir outputs/plots_iou0p5 \
+  --per-file-csv /home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/metrics_forest_20260311_iou0p5_per_file.csv \
+  --per-region-csv /home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/metrics_forest_20260311_iou0p5_per_region.csv \
+  --out-dir /home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/plots_forest_20260311_iou0p5 \
   --region-sort-by macro_f1
 ```
 
 Outputs:
-- `outputs/plots_iou0p5/region_metrics.png`
-- `outputs/plots_iou0p5/file_scatter_f1_cov.png`
+- `/home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/plots_forest_20260311_iou0p5/region_metrics.png`
+- `/home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/plots_forest_20260311_iou0p5/file_scatter_f1_cov.png`
 
 ## Monitoring progress
 
