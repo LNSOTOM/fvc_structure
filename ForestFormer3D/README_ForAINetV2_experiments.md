@@ -136,6 +136,10 @@ Not used in Experiment 2:
 - `medium_L2`
 - `low_L2`
 
+Helper scripts used by Experiment 2 (included in this repo):
+- `/workspace/tools/make_ply_subset_dir.py` (stages/symlinks the selected PLYs into one `train_val_data_exp2A/` folder)
+- `/workspace/tools/create_forainetv2_train_val_from_lists.py` (creates `*_train_L1.pkl` and `*_val_L1.pkl` from explicit scene-id lists)
+
 ### Common settings (Experiment 2)
 
 All Experiment 2 steps below assume these env vars are set consistently:
