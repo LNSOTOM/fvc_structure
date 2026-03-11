@@ -10,8 +10,7 @@ These commands are intended to be run **inside the ForestFormer3D Docker contain
 
 All commands in this file are for:
 
-**Experiment 1: Zero-shot transfer performance of ForestFormer3D from forest
-training data to unseen forest and semi-arid rangeland ecosystem test sets**
+**Experiment 1: Zero-shot transfer performance of ForestFormer3D from forest training data to unseen forest and semi-arid rangeland ecosystem test sets**
 
 ## Notes (important)
 
