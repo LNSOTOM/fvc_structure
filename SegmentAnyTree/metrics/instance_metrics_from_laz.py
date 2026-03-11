@@ -43,6 +43,16 @@ def _safe_div(num: float, den: float) -> Optional[float]:
     return num / den
 
 
+def _safe_f1(precision: Optional[float], recall: Optional[float]) -> Optional[float]:
+    if precision is None or recall is None:
+        return None
+    den = precision + recall
+    if den == 0:
+        # Defined corner case: precision=0 and recall=0 -> F1=0.
+        return 0.0
+    return 2 * precision * recall / den
+
+
 def _pair_key(pred_id: np.ndarray, gt_id: np.ndarray) -> np.ndarray:
     return (pred_id.astype(np.int64) << 32) | (gt_id.astype(np.int64) & 0xFFFFFFFF)
 
@@ -341,9 +351,7 @@ def compute_instance_metrics_from_overlap(
 
     precision = _safe_div(tp, tp + fp)
     recall = _safe_div(tp, tp + fn)
-    f1 = None
-    if precision is not None and recall is not None and (precision + recall) > 0:
-        f1 = 2 * precision * recall / (precision + recall)
+    f1 = _safe_f1(precision, recall)
 
     return InstanceMetrics(
         tp=tp,
@@ -603,9 +611,7 @@ def main():
 
             micro_p = _safe_div(tp, tp + fp)
             micro_r = _safe_div(tp, tp + fn)
-            micro_f1 = None
-            if micro_p is not None and micro_r is not None and (micro_p + micro_r) > 0:
-                micro_f1 = 2 * micro_p * micro_r / (micro_p + micro_r)
+            micro_f1 = _safe_f1(micro_p, micro_r)
 
             macro_f1 = mean([m.f1 for m in ms if m.f1 is not None])
             macro_cov = mean([m.coverage for m in ms if m.coverage is not None])
