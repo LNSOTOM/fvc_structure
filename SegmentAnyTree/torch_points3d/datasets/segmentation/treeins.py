@@ -77,30 +77,45 @@ def read_treeins_format(train_file, label_out=True, verbose=False, debug=False):
     # set all semantic labels to 0 if there are no semantic labels in the data
     if 'semantic_seg' in data.dtype.names:
         raw_semantic = data['semantic_seg'].astype(np.int64)
+        unique_vals = set(np.unique(raw_semantic).tolist())
+
         # Treeins expects semantic labels in {-1, 0, 1} where:
         # -1 = unclassified/ignore, 0 = non-tree, 1 = tree.
-        # Common source encodings observed in PLYs:
-        # - {0,1,2}: 0=unclassified, 1=non-tree, 2=tree  -> subtract 1
-        # - {1,2,3}: 1=unclassified, 2=non-tree, 3=tree  -> subtract 2
-        # - {0,1}:   0=non-tree, 1=tree                  -> no shift
-        # - {1,2}:   1=non-tree, 2=tree                  -> subtract 1
-        max_val = int(np.max(raw_semantic)) if raw_semantic.size else 0
-        min_val = int(np.min(raw_semantic)) if raw_semantic.size else 0
-        if max_val <= 1:
+        # We support multiple dataset encodings and collapse to the Treeins binary
+        # classes (non-tree vs tree). For ForAINetV2-derived tiles (medium_L1/low_L1),
+        # semantic ids can be site-specific: {3,4,5} or {1,4,5} (ForestFormer-style).
+
+        # Already Treeins-native
+        if unique_vals.issubset({-1, 0, 1}):
             semantic_labels = raw_semantic
-        elif max_val == 2:
-            if min_val == 0:
-                semantic_labels = raw_semantic - 1
-            else:
-                semantic_labels = raw_semantic - 1
-        elif max_val == 3 and min_val >= 1:
+
+        # Binary encodings
+        elif unique_vals.issubset({0, 1}):
+            semantic_labels = raw_semantic
+        elif unique_vals.issubset({1, 2}):
+            semantic_labels = raw_semantic - 1
+
+        # 3-class encodings with an explicit "unclassified" / ignore
+        # {0,1,2}: 0=unclassified, 1=non-tree, 2=tree  -> {-1,0,1}
+        elif unique_vals.issubset({0, 1, 2}):
+            semantic_labels = raw_semantic - 1
+        # {1,2,3}: 1=unclassified, 2=non-tree, 3=tree  -> {-1,0,1}
+        elif unique_vals.issubset({1, 2, 3}):
             semantic_labels = raw_semantic - 2
+        # {2,3,4}: 2=unclassified, 3=non-tree, 4=tree  -> {-1,0,1}
+        elif unique_vals.issubset({2, 3, 4}):
+            semantic_labels = raw_semantic - 3
+
+        # ForAINetV2 / ForestFormer-style site ids (3 classes), collapse to Treeins binary:
+        # {1,4,5}->{0,1,2} and {3,4,5}->{0,1,2}, then map (wood/leaf)->tree, ground->non-tree.
+        elif unique_vals.issubset({0, 1, 3, 4, 5}):
+            # tree if id is 4 or 5 (wood/leaf), else non-tree (ground)
+            semantic_labels = np.isin(raw_semantic, [4, 5]).astype(np.int64)
+
         else:
-            unique_vals = np.unique(raw_semantic)
             raise ValueError(
                 f"Unsupported semantic_seg encoding in '{train_file}'. "
-                f"Expected values like {{0,1}}, {{1,2}}, {{0,1,2}} or {{1,2,3}}; "
-                f"got min={min_val}, max={max_val}, unique(sample)={unique_vals[:20]} (n={unique_vals.size})."
+                f"Got unique values {sorted(list(unique_vals))[:20]} (n={len(unique_vals)})."
             )
     else:
         semantic_labels = np.zeros((xyz.shape[0],), dtype=np.int64)

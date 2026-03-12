@@ -115,41 +115,64 @@ class MergePtSsIs(object):
         # rename column 'preds_instance_segmentation' to 'predInstance'
         merged_df.rename(columns={'preds_instance_segmentation': 'PredInstance'}, inplace=True)
 
-        # Export both semantic label conventions side-by-side.
-        # SegmentAnyTree / Treeins convention (native): {-1,0,1} where -1 means ignore.
-        # ForestFormer-style convention (contiguous): {0,1,2}.
-        # We compute *_ff columns by shifting the native labels by +1 when needed.
-        def _has_negative(series):
-            try:
-                return (series.dropna() < 0).any()
-            except Exception:
-                return False
+        # Normalize semantic ids to contiguous {0,1,2} when we detect a constant offset.
+        # Medium_L1 ForestFormer tiles often have semantic ids {3,4,5}; some paths subtract 1
+        # yielding {2,3,4}. We remap back to {0,1,2} here for merged exports.
+        def _remap_semantic_to_012(series: pd.Series) -> pd.Series:
+            sem = pd.to_numeric(series, errors='coerce')
+            if sem.dropna().empty:
+                return sem
 
-        needs_shift = False
-        if 'gt_semantic_segmentation' in merged_df.columns:
-            needs_shift = _has_negative(merged_df['gt_semantic_segmentation'])
-        if not needs_shift and 'PredSemantic' in merged_df.columns:
-            needs_shift = _has_negative(merged_df['PredSemantic'])
+            # Work on integer view when possible
+            sem_int = sem.dropna().astype(int)
+            uniq = set(sem_int.unique().tolist())
+
+            # Handle ignore label -1 (do not shift it)
+            has_ignore = (-1 in uniq)
+            uniq_nonneg = {v for v in uniq if v >= 0}
+
+            # Handle ForestFormer/ForAINetV2 site-specific encodings with gaps.
+            # - low_L1 commonly uses {1,4,5} (ground/wood/leaf)
+            # - depending on earlier preprocessing, it may appear as {0,3,4} (i.e. minus 1)
+            # Map to contiguous {0,1,2}.
+            mapping = None
+            if uniq_nonneg and uniq_nonneg.issubset({1, 4, 5}):
+                mapping = {1: 0, 4: 1, 5: 2}
+            elif uniq_nonneg and uniq_nonneg.issubset({0, 3, 4}):
+                mapping = {0: 0, 3: 1, 4: 2}
+
+            if mapping is not None:
+                sem_out = sem.copy()
+                mask = sem_out.notna() & (sem_out >= 0)
+                sem_out.loc[mask] = sem_out.loc[mask].astype(int).map(mapping)
+                if not has_ignore:
+                    sem_out = sem_out.fillna(0)
+                return sem_out
+
+            offset = None
+            if uniq_nonneg and uniq_nonneg.issubset({0, 1, 2}):
+                offset = 0
+            elif uniq_nonneg and uniq_nonneg.issubset({1, 2, 3}):
+                offset = 1
+            elif uniq_nonneg and uniq_nonneg.issubset({2, 3, 4}):
+                offset = 2
+            elif uniq_nonneg and uniq_nonneg.issubset({3, 4, 5}):
+                offset = 3
+
+            if offset is None or offset == 0:
+                return sem
+
+            sem_out = sem.copy()
+            mask = sem_out.notna() & (sem_out >= 0)
+            sem_out.loc[mask] = sem_out.loc[mask] - offset
+            if not has_ignore:
+                sem_out = sem_out.fillna(0)
+            return sem_out
 
         if 'gt_semantic_segmentation' in merged_df.columns:
-            merged_df['gt_semantic_segmentation_ff'] = merged_df['gt_semantic_segmentation'] + (1 if needs_shift else 0)
+            merged_df['gt_semantic_segmentation'] = _remap_semantic_to_012(merged_df['gt_semantic_segmentation'])
         if 'PredSemantic' in merged_df.columns:
-            merged_df['PredSemantic_ff'] = merged_df['PredSemantic'] + (1 if needs_shift else 0)
-
-        # Backward-compatible behavior: if explicitly requested, shift the primary
-        # columns in-place while keeping copies of the native (Treeins) labels.
-        export_semantic_as_012 = str(os.environ.get('EXPORT_TREEINS_SEMANTIC_AS_012', '0')).strip().lower() in {
-            '1', 'true', 'yes'
-        }
-        if export_semantic_as_012 and needs_shift:
-            if 'gt_semantic_segmentation' in merged_df.columns and 'gt_semantic_segmentation_treeins' not in merged_df.columns:
-                merged_df['gt_semantic_segmentation_treeins'] = merged_df['gt_semantic_segmentation']
-            if 'PredSemantic' in merged_df.columns and 'PredSemantic_treeins' not in merged_df.columns:
-                merged_df['PredSemantic_treeins'] = merged_df['PredSemantic']
-            if 'gt_semantic_segmentation_ff' in merged_df.columns:
-                merged_df['gt_semantic_segmentation'] = merged_df['gt_semantic_segmentation_ff']
-            if 'PredSemantic_ff' in merged_df.columns:
-                merged_df['PredSemantic'] = merged_df['PredSemantic_ff']
+            merged_df['PredSemantic'] = _remap_semantic_to_012(merged_df['PredSemantic'])
 
 
         # Post-process merged data
@@ -163,14 +186,34 @@ class MergePtSsIs(object):
         merged_df['z'] = merged_df['z'].astype(float) + min_z
 
         # add 1 to PredInstance column
-        merged_df['PredInstance'] = merged_df['PredInstance'] + 1
+        if 'PredInstance' in merged_df.columns:
+            merged_df['PredInstance'] = merged_df['PredInstance'] + 1
 
         # Assign NaNs in PredInstance to 0. This is because the instance segmentation
         # may not have been able to assign an instance ID to every point, so after the
         # outer join, it is possible to have missing values in PredInstance. This causes
         # an issue when saving the data to a .las file, as we want to cast the column to
         # an unsigned integer type, which does not support NaNs.
-        merged_df['PredInstance'] = merged_df['PredInstance'].fillna(0)
+        if 'PredInstance' in merged_df.columns:
+            merged_df['PredInstance'] = merged_df['PredInstance'].fillna(0)
+
+        # Keep only the user-requested output attributes (plus coordinates required for LAS).
+        # Requested: semantic_seg, treeID, PredSemantic, gt_semantic_segmentation, PredInstance
+        keep_cols = ['x', 'y', 'z', 'semantic_seg', 'treeID', 'PredSemantic', 'gt_semantic_segmentation', 'PredInstance']
+        keep_present = [c for c in keep_cols if c in merged_df.columns]
+        merged_df = merged_df[keep_present].copy()
+
+        # Coerce to numeric dtypes for stable LAS extra-dim creation.
+        if 'semantic_seg' in merged_df.columns:
+            merged_df['semantic_seg'] = pd.to_numeric(merged_df['semantic_seg'], errors='coerce').fillna(0).astype('uint8')
+        if 'treeID' in merged_df.columns:
+            merged_df['treeID'] = pd.to_numeric(merged_df['treeID'], errors='coerce').fillna(0).astype('uint32')
+        if 'PredSemantic' in merged_df.columns:
+            merged_df['PredSemantic'] = pd.to_numeric(merged_df['PredSemantic'], errors='coerce').fillna(-1).astype('int16')
+        if 'gt_semantic_segmentation' in merged_df.columns:
+            merged_df['gt_semantic_segmentation'] = pd.to_numeric(merged_df['gt_semantic_segmentation'], errors='coerce').fillna(-1).astype('int16')
+        if 'PredInstance' in merged_df.columns:
+            merged_df['PredInstance'] = pd.to_numeric(merged_df['PredInstance'], errors='coerce').fillna(0).astype('uint16')
 
         return merged_df
     

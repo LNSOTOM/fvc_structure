@@ -152,6 +152,43 @@ Outputs:
 - `/home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/plots_forest_20260311_iou0p5/region_metrics.png`
 - `/home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/plots_forest_20260311_iou0p5/file_scatter_f1_cov.png`
 
+## Label remapping for Medium/Low L1 (ForAINetV2)
+
+Some ForAINetV2 tiles use **site-specific semantic ids** (ForestFormer-style) that are not contiguous:
+
+- **medium_L1** tiles commonly contain `{3,4,5}`
+- **low_L1** tiles commonly contain `{1,4,5}`
+
+For downstream evaluation/plots we want `gt_semantic_segmentation` (and `PredSemantic` when applicable) to be
+contiguous `{0,1,2}`.
+
+Implementation notes (SegmentAnyTree-side only):
+
+1) **Dataset loader remap (training/eval GT `y`)**
+  - `SegmentAnyTree/torch_points3d/datasets/segmentation/treeins.py`
+  - `SegmentAnyTree/torch_points3d/datasets/segmentation/treeins_set1.py`
+
+  These loaders auto-detect the input `semantic_seg` encoding and convert it to the internal Treeins convention.
+
+2) **Merge/export-time remap (merged LAZ fields)**
+  - `SegmentAnyTree/nibio_inference/merge_pt_ss_is.py`
+
+  The merge step normalizes `gt_semantic_segmentation` (and `PredSemantic`) to `{0,1,2}` for the following observed
+  encodings:
+  - `{3,4,5} -> {0,1,2}` (medium_L1)
+  - `{2,3,4} -> {0,1,2}` (common “minus 1” variant)
+  - `{1,4,5} -> {0,1,2}` (low_L1)
+  - `{0,3,4} -> {0,1,2}` (common “minus 1” variant)
+
+3) **LAS extra-dim dtypes (kept output columns)**
+  - `SegmentAnyTree/nibio_inference/pandas_to_las.py`
+
+  The LAZ writer explicitly defines dtypes for the kept output fields so the exported extra bytes are stable.
+
+Important:
+- These remaps affect **newly generated** merged outputs. Existing `.laz` files on disk are not modified unless you
+  re-run the merge/export step.
+
 ## Monitoring progress
 
 In another terminal:
