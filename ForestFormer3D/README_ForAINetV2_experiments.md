@@ -140,6 +140,19 @@ Helper scripts used by Experiment 2 (included in this repo):
 - `/workspace/tools/make_ply_subset_dir.py` (stages/symlinks the selected PLYs into one `train_val_data_exp2A/` folder)
 - `/workspace/tools/create_forainetv2_train_val_from_lists.py` (creates `*_train_L1.pkl` and `*_val_L1.pkl` from explicit scene-id lists)
 
+### Strict held-out test split (recommended)
+
+The total Calperum L1 pool here is **30 tiles** = **15 medium_L1** + **15 low_L1**.
+
+To get a strictly held-out test set, we use:
+- Train: **20 tiles**
+- Val: **5 tiles**
+- Held-out Test: **5 tiles**
+
+Stratified by site (so both sites appear in all splits):
+- `medium_L1`: 10 train / 3 val / 2 test
+- `low_L1`: 10 train / 2 val / 3 test
+
 ### Common settings (Experiment 2)
 
 All Experiment 2 steps below assume these env vars are set consistently:
@@ -154,6 +167,9 @@ If you already have the three files below, you can skip this step.
 This writes:
 - `train_list_exp2_mediumL1_lowL1_fewshot.txt`
 - `val_list_exp2_mediumL1_lowL1_fewshot.txt`
+- `test_list_exp2_holdout_medium_L1.txt`
+- `test_list_exp2_holdout_low_L1.txt`
+- `test_list_exp2_holdout_mediumL1_lowL1.txt`
 - `test_list_exp2_mediumL1_lowL1.txt` (kept empty to skip test export in Step 3)
 
 ```bash
@@ -172,26 +188,47 @@ def read_ids(p: Path) -> list[str]:
 medium = read_ids(meta / 'test_list_medium_L1.txt')
 low = read_ids(meta / 'test_list_low_L1.txt')
 
-pool = medium + low
-random.seed(0)
-random.shuffle(pool)
+assert len(medium) == 15, f"Expected 15 medium_L1 tiles, got {len(medium)}"
+assert len(low) == 15, f"Expected 15 low_L1 tiles, got {len(low)}"
 
-# Few-shot split sizes (edit if needed)
-n_train = 20
-n_val = 10
+seed = 0
 
-train_ids = pool[:n_train]
-val_ids = pool[n_train:n_train + n_val]
+def split_site(ids: list[str], n_train: int, n_val: int, n_test: int) -> tuple[list[str], list[str], list[str]]:
+  ids = list(ids)
+  random.Random(seed).shuffle(ids)
+  train = ids[:n_train]
+  val = ids[n_train:n_train + n_val]
+  test = ids[n_train + n_val:n_train + n_val + n_test]
+  assert len(train) == n_train and len(val) == n_val and len(test) == n_test
+  return train, val, test
+
+# Strict held-out split (stratified by site)
+# medium_L1: 10 train / 3 val / 2 test
+# low_L1   : 10 train / 2 val / 3 test
+med_train, med_val, med_test = split_site(medium, n_train=10, n_val=3, n_test=2)
+low_train, low_val, low_test = split_site(low, n_train=10, n_val=2, n_test=3)
+
+train_ids = med_train + low_train
+val_ids = med_val + low_val
+test_med = med_test
+test_low = low_test
+test_all = test_med + test_low
 
 (meta / 'train_list_exp2_mediumL1_lowL1_fewshot.txt').write_text('\n'.join(train_ids) + '\n', encoding='utf-8')
 (meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').write_text('\n'.join(val_ids) + '\n', encoding='utf-8')
+(meta / 'test_list_exp2_holdout_medium_L1.txt').write_text('\n'.join(test_med) + '\n', encoding='utf-8')
+(meta / 'test_list_exp2_holdout_low_L1.txt').write_text('\n'.join(test_low) + '\n', encoding='utf-8')
+(meta / 'test_list_exp2_holdout_mediumL1_lowL1.txt').write_text('\n'.join(test_all) + '\n', encoding='utf-8')
 
 # Keep this empty on purpose for training-only cache export
 (meta / 'test_list_exp2_mediumL1_lowL1.txt').write_text('', encoding='utf-8')
 
-print('Wrote:')
+print('Wrote (strict held-out):')
 print('- train_list_exp2_mediumL1_lowL1_fewshot.txt', len(train_ids))
 print('- val_list_exp2_mediumL1_lowL1_fewshot.txt', len(val_ids))
+print('- test_list_exp2_holdout_medium_L1.txt', len(test_med))
+print('- test_list_exp2_holdout_low_L1.txt', len(test_low))
+print('- test_list_exp2_holdout_mediumL1_lowL1.txt', len(test_all))
 print('- test_list_exp2_mediumL1_lowL1.txt (empty)')
 PY
 ```
@@ -272,12 +309,9 @@ FORAINETV2_PROTOCOL=forest \
 FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
 FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash /workspace/tools/dist_train.sh /workspace/configs/exp2_finetune_l1_eval_gt.py 7 \
-  --work-dir /workspace/work_dirs/exp2A_harmonized_fewshot \
+bash tools/dist_train.sh configs/exp2_finetune_l1_eval_gt.py 7 \
+  --work-dir work_dirs/exp2_variantA_joint_ft \
   --cfg-options \
-    model.prepare_epoch=0 \
-    train_dataloader.dataset.ann_file=/workspace/data/ForAINetV2/forainetv2_oneformer3d_infos_train_L1.pkl \
-    val_dataloader.dataset.ann_file=/workspace/data/ForAINetV2/forainetv2_oneformer3d_infos_val_L1.pkl \
     train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
     train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
     train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
@@ -294,7 +328,7 @@ The older names `*_mediumL1L2lowL1_*` do not exist here and would re-introduce `
 Run `tools/zero_shot_infer_split.py` but point `--checkpoint` to your fine-tuned checkpoint.
 Keep `FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A` so test exports land in the same cache.
 
-Medium L1 test:
+Medium L1 held-out test:
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -303,7 +337,7 @@ FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
 python /workspace/tools/zero_shot_infer_split.py \
   --split forest \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_medium_L1.txt \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
   --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
   --extra-tag exp2_variantA_ft_medium_L1 \
   --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
@@ -313,7 +347,7 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
-Low L1 test:
+Low L1 held-out test:
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -322,7 +356,7 @@ FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
 python /workspace/tools/zero_shot_infer_split.py \
   --split forest \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_low_L1.txt \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
   --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
   --extra-tag exp2_variantA_ft_low_L1 \
   --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
