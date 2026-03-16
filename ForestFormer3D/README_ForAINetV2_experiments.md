@@ -578,12 +578,12 @@ cat /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000
 > **Interpretation:** For balanced medium_L1 performance, `epoch_3000` and `best_harmonic_epoch_2000` are very close; `epoch_3000` is higher in F1 and harmonic, while `best_harmonic_epoch_2000` is higher in recall and coverage.
 > Low_L1 instance metrics are not directly comparable because GT instances are absent (`Scenes with any GT instances: 0/3`).
 
-## Variant B — Curriculum fine-tuning (medium-only → medium+low)
+## Variant B — Curriculum fine-tuning (medium-only → low-only)
 
 This variant uses a two-stage curriculum with strict held-out testing:
 
 - **Stage 1 (medium-only):** start from forest-pretrained checkpoint, train on medium-only train/val.
-- **Stage 2 (medium+low):** initialize from Stage-1 best checkpoint, then train on medium+low train/val.
+- **Stage 2 (low-only):** initialize from Stage-1 best checkpoint, then train on low-only train/val.
 
 Key rules:
 
@@ -674,7 +674,27 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
-### Variant B.5 — Create Stage-2 medium+low PKLs
+### Variant B.5 — Build low-only lists and create Stage-2 low-only PKLs
+
+```bash
+python - <<'PY'
+from pathlib import Path
+
+meta = Path('/workspace/data/ForAINetV2/meta_data')
+train_all = (meta / 'train_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
+val_all = (meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
+
+train_low = [x for x in train_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
+val_low = [x for x in val_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
+
+(meta / 'train_list_exp2_lowL1_only.txt').write_text('\n'.join(train_low) + '\n', encoding='utf-8')
+(meta / 'val_list_exp2_lowL1_only.txt').write_text('\n'.join(val_low) + '\n', encoding='utf-8')
+
+print('Wrote low-only lists:')
+print('- train_list_exp2_lowL1_only.txt', len(train_low))
+print('- val_list_exp2_lowL1_only.txt', len(val_low))
+PY
+```
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -683,14 +703,14 @@ FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 python /workspace/tools/create_forainetv2_train_val_from_lists.py \
   --root-path /workspace/data/ForAINetV2 \
   --out-dir /workspace/data/ForAINetV2 \
-  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2_mediumL1_lowL1_fewshot.txt \
-  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2_mediumL1_lowL1_fewshot.txt \
-  --train-out forainetv2_oneformer3d_infos_train_exp2B_stage2_mix.pkl \
-  --val-out forainetv2_oneformer3d_infos_val_exp2B_stage2_mix.pkl \
+  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2_lowL1_only.txt \
+  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2_lowL1_only.txt \
+  --train-out forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
+  --val-out forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl \
   --overwrite
 ```
 
-### Variant B.6 — Stage-2 training (medium+low, MUST initialize from B.3 output)
+### Variant B.6 — Stage-2 training (low-only, MUST initialize from B.3 output)
 
 ```bash
 # Use the pretrained checkpoint produced by Variant B.3 (Stage-1 medium-only run),
@@ -705,11 +725,11 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
 bash /workspace/tools/dist_train.sh \
   /workspace/configs/exp2_finetune_l1_eval_gt.py \
   7 \
-  --work-dir /workspace/work_dirs/exp2B_stage2_medium_low_train \
+  --work-dir /workspace/work_dirs/exp2B_stage2_low_train \
   --cfg-options \
     load_from=${STAGE1_PRETRAIN_CKPT} \
-    train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage2_mix.pkl \
-    val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage2_mix.pkl \
+    train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
+    val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl \
     train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
     train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
     train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
@@ -718,10 +738,10 @@ bash /workspace/tools/dist_train.sh \
     val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
 ```
 
-### Variant B.7 — Stage-2 evaluation (held-out medium + held-out low)
+### Variant B.7 — Stage-2 evaluation after low-only fine-tuning (held-out medium + held-out low)
 
 ```bash
-STAGE2_BEST_CKPT=$(ls -1t /workspace/work_dirs/exp2B_stage2_medium_low_train/best_harmonic*.pth | head -n1)
+STAGE2_BEST_CKPT=$(ls -1t /workspace/work_dirs/exp2B_stage2_low_train/best_harmonic*.pth | head -n1)
 echo "Using Stage-2 checkpoint: ${STAGE2_BEST_CKPT}"
 
 # held-out medium
@@ -733,7 +753,7 @@ python /workspace/tools/zero_shot_infer_split.py \
   --split medium \
   --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
   --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp2B_stage2_medium_L1 \
+  --extra-tag exp2B_stage2_after_low_medium_L1 \
   --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
   --checkpoint ${STAGE2_BEST_CKPT} \
   --work-dir /workspace/work_dirs/exp2B_stage2_eval_medium_L1 \
@@ -749,7 +769,7 @@ python /workspace/tools/zero_shot_infer_split.py \
   --split low \
   --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
   --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
-  --extra-tag exp2B_stage2_low_L1 \
+  --extra-tag exp2B_stage2_after_low_low_L1 \
   --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
   --checkpoint ${STAGE2_BEST_CKPT} \
   --work-dir /workspace/work_dirs/exp2B_stage2_eval_low_L1 \
