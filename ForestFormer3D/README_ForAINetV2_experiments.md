@@ -373,3 +373,64 @@ python /workspace/tools/zero_shot_infer_split.py \
   --dist --gpus 7 \
   --overwrite-pkl
 ```
+
+### Step 7 — Collect test metrics from eval run dirs
+
+Run on the **host** (not inside the container) using `sudo` because the eval dirs are root-owned:
+
+```bash
+cd /home/nvidia/projects/fvc_structure/ForestFormer3D
+
+sudo /home/nvidia/micromamba/bin/python tools/dvc_collect_metrics.py \
+  --work-dir work_dirs/exp2_variantA_eval_medium_L1 \
+  --out work_dirs/exp2_variantA_eval_medium_L1/metrics_test_mediumL1.json
+
+sudo /home/nvidia/micromamba/bin/python tools/dvc_collect_metrics.py \
+  --work-dir work_dirs/exp2_variantA_eval_low_L1 \
+  --out work_dirs/exp2_variantA_eval_low_L1/metrics_test_lowL1.json
+```
+
+To print Ground / Wood / Leaf IoU directly from the MMEngine log (no JSON needed):
+
+```bash
+grep -E "Table1Row|Stage1Row|Exp1Row|IoU_ground|IoU_wood|IoU_leaf" \
+  work_dirs/exp2_variantA_eval_medium_L1/20260312_053729/20260312_053729.log
+
+grep -E "Table1Row|Stage1Row|Exp1Row|IoU_ground|IoU_wood|IoU_leaf" \
+  work_dirs/exp2_variantA_eval_low_L1/20260312_060129/20260312_060129.log
+```
+
+### Step 7 results (run: 2026-03-12)
+
+**medium_L1** (`exp2_variantA_eval_medium_L1`):
+
+| Metric | Value |
+|---|---|
+| IoU ground | 52.2% |
+| IoU wood | 1.3% |
+| IoU leaf | 80.9% |
+| mIoU | 44.8% |
+| mIoU binary (non-tree / tree) | 52.2% / 96.1% = 74.2% |
+| F1 / Precision / Recall | 54.1% / 69.4% / 44.2% |
+| mMWCov | 65.1% |
+| mMUCov | 40.6% |
+
+**low_L1** (`exp2_variantA_eval_low_L1`):
+
+| Metric | Value |
+|---|---|
+| IoU ground | 74.4% |
+| IoU wood | 31.6% |
+| IoU leaf | 0.0% |
+| mIoU | 53.0% |
+| mIoU binary (non-tree / tree) | 74.4% / 85.8% = 80.1% |
+| F1 / Precision / Recall | 0.0% / 0.0% / 0.0% |
+| mMWCov | 0.0% |
+| mMUCov | 0.0% |
+
+> **Note on low_L1 instance metrics:** All instance metrics (F1, PQ, Cov) are 0 for low_L1.
+> Semantic IoU is healthy (80.1% binary), meaning the backbone correctly classifies points,
+> but the instance segmentation head predicted zero valid instances above the threshold.
+> Likely cause: the 3 held-out low_L1 tiles contain no `leaf`-class points (`IoU_leaf=0`),
+> which breaks the multi-class instance matcher. Consider re-running with the full low_L1
+> pool (all 15 tiles) to get stable instance metrics.
