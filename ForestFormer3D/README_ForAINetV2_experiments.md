@@ -655,8 +655,13 @@ bash /workspace/tools/dist_train.sh \
 ### Variant B.4 — Stage-1 evaluation (held-out medium)
 
 ```bash
-STAGE1_BEST_CKPT=$(ls -1t /workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic*.pth | head -n1)
-echo "Using Stage-1 checkpoint: ${STAGE1_BEST_CKPT}"
+python tools/fix_spconv_checkpoint.py \
+  --in-path /workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000.pth \
+  --out-path /workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000_fix.pth
+```
+
+```bash
+STAGE1_BEST_CKPT=/workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000_fix.pth
 
 FORAINETV2_PROTOCOL=forest \
 FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
