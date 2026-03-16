@@ -299,7 +299,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
 bash /workspace/tools/dist_train.sh \
   /workspace/configs/exp2_finetune_l1_eval_gt.py \
   7 \
-  --work-dir /workspace/work_dirs/exp2_variantA_train
+  --work-dir /workspace/work_dirs/exp2A_epoch3000_train
 ```
 
 Optional: if you prefer to explicitly pin the PKLs and data-prefix paths via `--cfg-options` (as in your runs), use:
@@ -310,7 +310,7 @@ FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
 FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
 bash tools/dist_train.sh configs/exp2_finetune_l1_eval_gt.py 7 \
-  --work-dir work_dirs/exp2_variantA_train \
+  --work-dir work_dirs/exp2A_epoch3000_train \
   --cfg-options \
     train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
     train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
@@ -502,6 +502,28 @@ grep -E "Table1Row|Stage1Row|Exp1Row|IoU_ground|IoU_wood|IoU_leaf" \
   work_dirs/exp2A_epoch3000_eval_low_L1/20260316_043048/20260316_043048.log
 ```
 
+#### Val vs Test quick-check
+
+Validation metrics (from training log):
+
+```bash
+grep "Epoch(val)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_train/20260316_021318/20260316_021318.log
+```
+
+Test metrics (from held-out eval logs):
+
+```bash
+grep "Epoch(test)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_medium_L1/20260316_041848/20260316_041848.log
+grep "Epoch(test)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_low_L1/20260316_043048/20260316_043048.log
+```
+
+Test JSON summaries:
+
+```bash
+cat /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_medium_L1/metrics_test_mediumL1.json
+cat /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_low_L1/metrics_test_lowL1.json
+```
+
 ### Step 7 results (run: 2026-03-12)
 
 **medium_L1** (`exp2A_epoch3000_eval_medium_L1`):
@@ -555,3 +577,140 @@ grep -E "Table1Row|Stage1Row|Exp1Row|IoU_ground|IoU_wood|IoU_leaf" \
 
 > **Interpretation:** For balanced medium_L1 performance, `epoch_3000` and `best_harmonic_epoch_2000` are very close; `epoch_3000` is higher in F1 and harmonic, while `best_harmonic_epoch_2000` is higher in recall and coverage.
 > Low_L1 instance metrics are not directly comparable because GT instances are absent (`Scenes with any GT instances: 0/3`).
+
+# Experiment 3: Training from scratch (random initialization, same split as exp2A)
+
+Yes — this experiment trains the model **without** ForAINet forest-pretrained weights.
+It uses the **same train/val/held-out test split as Experiment 2A** to provide a fair baseline.
+
+Training from scratch here means:
+- No `clean_forestformer` checkpoint initialization.
+- Model weights are randomly initialized.
+
+### Step 3.1 — Train from scratch (same data split as exp2A)
+
+Reuse Experiment 2A data preparation (Steps 1–4) as-is.
+
+Important: `configs/exp2_finetune_l1_eval_gt.py` sets `load_from` to a forest checkpoint,
+so we explicitly override it with `load_from=None`.
+Also pin `data_prefix` to `forainetv2_instance_data_exp2A/*` to avoid fallback to
+`data/ForAINetV2/points` (which can trigger missing `.bin` errors).
+
+```bash
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+bash /workspace/tools/dist_train.sh \
+  /workspace/configs/exp2_finetune_l1_eval_gt.py \
+  7 \
+  --work-dir /workspace/work_dirs/exp3A_scratch_train \
+  --cfg-options \
+    load_from=None \
+    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
+    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
+    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
+    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
+    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
+    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
+```
+
+Equivalent relative-path form:
+
+```bash
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+bash tools/dist_train.sh configs/exp2_finetune_l1_eval_gt.py 7 \
+  --work-dir work_dirs/exp3A_scratch_train \
+  --cfg-options \
+    load_from=None \
+    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
+    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
+    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
+    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
+    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
+    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
+```
+
+### Step 3.2 — Select checkpoint (same policy as exp2A)
+
+```bash
+BEST_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_harmonic*.pth | head -n1)
+echo "Using scratch best-harmonic checkpoint: ${BEST_CKPT}"
+```
+
+Alternatives:
+
+```bash
+# Semantic-focused
+BEST_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_mIoU*.pth | head -n1)
+
+# Last-epoch baseline
+BEST_CKPT=/workspace/work_dirs/exp3A_scratch_train/epoch_3000_fix.pth
+```
+
+### Step 3.3 — Held-out test evaluation (same split files as exp2A)
+
+Medium L1:
+
+```bash
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+python /workspace/tools/zero_shot_infer_split.py \
+  --split medium \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
+  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
+  --extra-tag exp3A_scratch_medium_L1 \
+  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+  --checkpoint ${BEST_CKPT} \
+  --work-dir /workspace/work_dirs/exp3A_scratch_eval_medium_L1 \
+  --dist --gpus 7 \
+  --overwrite-pkl
+```
+
+Low L1:
+
+```bash
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+python /workspace/tools/zero_shot_infer_split.py \
+  --split low \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
+  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
+  --extra-tag exp3A_scratch_low_L1 \
+  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+  --checkpoint ${BEST_CKPT} \
+  --work-dir /workspace/work_dirs/exp3A_scratch_eval_low_L1 \
+  --dist --gpus 7 \
+  --overwrite-pkl
+```
+
+### Step 3.4 — Collect scratch test metrics
+
+Inside container:
+
+```bash
+cd /workspace
+
+python3 tools/dvc_collect_metrics.py \
+  --work-dir work_dirs/exp3A_scratch_eval_medium_L1 \
+  --out work_dirs/exp3A_scratch_eval_medium_L1/metrics_test_mediumL1.json
+
+python3 tools/dvc_collect_metrics.py \
+  --work-dir work_dirs/exp3A_scratch_eval_low_L1 \
+  --out work_dirs/exp3A_scratch_eval_low_L1/metrics_test_lowL1.json
+```
+
+Quick val vs test check for scratch run:
+
+```bash
+grep "Epoch(val)" /workspace/work_dirs/exp3A_scratch_train/*/*.log
+grep "Epoch(test)" /workspace/work_dirs/exp3A_scratch_eval_medium_L1/*/*.log
+grep "Epoch(test)" /workspace/work_dirs/exp3A_scratch_eval_low_L1/*/*.log
+```
