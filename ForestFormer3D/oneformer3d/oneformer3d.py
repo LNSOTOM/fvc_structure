@@ -1973,8 +1973,9 @@ class ForAINetV2OneFormer3D_XAwarequery(Base3DDetector):
         queries_inslabel = []
         queries_idx = []
 
-        if self.prepare_epoch:
-            if kwargs['epoch'] > self.prepare_epoch:
+        if self.prepare_epoch is not None and self.prepare_epoch >= 0:
+            current_epoch = int(kwargs.get('epoch', 0) or 0)
+            if current_epoch > self.prepare_epoch:
                 total_qscore_loss = 0
                 for i in range(batch_size):
                     voxel_superpoints = inverse_mapping[coordinates[:, 0][inverse_mapping] == i]
