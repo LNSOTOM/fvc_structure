@@ -1,9 +1,7 @@
-# This is an exact copy of tools/test.py from open-mmlab/mmdetection3d.
 import argparse
 import os
 import os.path as osp
 
-import torch
 from mmengine.config import Config, ConfigDict, DictAction
 from mmengine.registry import RUNNERS
 from mmengine.runner import Runner
@@ -120,7 +118,8 @@ def main():
         cfg.work_dir = osp.join('./work_dirs',
                                 osp.splitext(osp.basename(args.config))[0])
 
-    # Load checkpoint directly (use fix_spconv_checkpoint.py beforehand if needed)
+    # Load checkpoint directly. If you hit spconv kernel layout mismatches,
+    # run tools/fix_spconv_checkpoint.py to generate a *_fix.pth first.
     cfg.load_from = args.checkpoint
 
     # Modify the output_path in the function 'predict'
