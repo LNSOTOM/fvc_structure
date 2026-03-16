@@ -690,11 +690,13 @@ python /workspace/tools/create_forainetv2_train_val_from_lists.py \
   --overwrite
 ```
 
-### Variant B.6 — Stage-2 training (medium+low, initialized from Stage-1 best)
+### Variant B.6 — Stage-2 training (medium+low, MUST initialize from B.3 output)
 
 ```bash
-STAGE1_BEST_CKPT=$(ls -1t /workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic*.pth | head -n1)
-echo "Initializing Stage-2 from: ${STAGE1_BEST_CKPT}"
+# Use the pretrained checkpoint produced by Variant B.3 (Stage-1 medium-only run),
+# not the original forest checkpoint.
+STAGE1_PRETRAIN_CKPT=$(ls -1t /workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic*.pth | head -n1)
+echo "Initializing Stage-2 from B.3 checkpoint: ${STAGE1_PRETRAIN_CKPT}"
 
 FORAINETV2_PROTOCOL=forest \
 FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
@@ -705,7 +707,7 @@ bash /workspace/tools/dist_train.sh \
   7 \
   --work-dir /workspace/work_dirs/exp2B_stage2_medium_low_train \
   --cfg-options \
-    load_from=${STAGE1_BEST_CKPT} \
+    load_from=${STAGE1_PRETRAIN_CKPT} \
     train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage2_mix.pkl \
     val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage2_mix.pkl \
     train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
