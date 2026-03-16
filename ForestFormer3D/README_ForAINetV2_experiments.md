@@ -328,6 +328,14 @@ The older names `*_mediumL1L2lowL1_*` do not exist here and would re-introduce `
 Run `tools/zero_shot_infer_split.py` but point `--checkpoint` to your fine-tuned checkpoint.
 Keep `FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A` so test exports land in the same cache.
 
+Important: if you see spconv `size mismatch ... weight` errors when loading `epoch_3000.pth`, fix it once:
+
+```bash
+python /workspace/tools/fix_spconv_checkpoint.py \
+  --in-path /workspace/work_dirs/exp2_variantA_joint_ft/epoch_3000.pth \
+  --out-path /workspace/work_dirs/exp2_variantA_joint_ft/epoch_3000_fix.pth
+```
+
 Medium L1 held-out test:
 
 ```bash
@@ -336,12 +344,12 @@ FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
 FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
 python /workspace/tools/zero_shot_infer_split.py \
-  --split forest \
+  --split medium \
   --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
   --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
   --extra-tag exp2_variantA_ft_medium_L1 \
   --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint /workspace/work_dirs/exp2_variantA_joint_ft/epoch_XXXX.pth \
+  --checkpoint /workspace/work_dirs/exp2_variantA_joint_ft/epoch_3000_fix.pth \
   --work-dir /workspace/work_dirs/exp2_variantA_eval_medium_L1 \
   --dist --gpus 7 \
   --overwrite-pkl
@@ -355,12 +363,12 @@ FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
 FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
 python /workspace/tools/zero_shot_infer_split.py \
-  --split forest \
+  --split low \
   --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
   --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
   --extra-tag exp2_variantA_ft_low_L1 \
   --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint /workspace/work_dirs/exp2_variantA_joint_ft/epoch_XXXX.pth \
+  --checkpoint /workspace/work_dirs/exp2_variantA_joint_ft/epoch_3000_fix.pth \
   --work-dir /workspace/work_dirs/exp2_variantA_eval_low_L1 \
   --dist --gpus 7 \
   --overwrite-pkl
