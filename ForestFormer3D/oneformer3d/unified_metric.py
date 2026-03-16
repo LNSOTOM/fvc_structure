@@ -454,6 +454,13 @@ class UnifiedSegMetric(SegMetric):
             metrics['mSQ'] = np.mean(SQ[valid_ins_classes])
             metrics['mRQ'] = np.mean(RQ[valid_ins_classes])
 
+        # Balanced semantic-instance score for checkpoint selection.
+        # harmonic = 2 * mIoU * F1 / (mIoU + F1)
+        if 'mIoU' in metrics and 'F1' in metrics:
+            metrics['harmonic'] = (2 * metrics['mIoU'] * metrics['F1']) / (
+                metrics['mIoU'] + metrics['F1'] + 1e-8
+            )
+
         log_str = 'Evaluation Results:\n'
         if self.experiment_tag:
             log_str += f"Experiment: {self.experiment_tag}\n"
@@ -476,6 +483,8 @@ class UnifiedSegMetric(SegMetric):
                 f"F1: {metrics['F1']:.4f}\n"
             )
             log_str += f"mMUCov: {metrics['mMUCov']:.4f}, mMWCov: {metrics['mMWCov']:.4f}"
+        if 'harmonic' in metrics:
+            log_str += f"\nHarmonic(mIoU,F1): {metrics['harmonic']:.4f}"
 
         # Extra diagnostics: GT/pred label distributions
         class_names = []
