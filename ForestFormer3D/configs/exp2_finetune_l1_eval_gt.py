@@ -8,8 +8,26 @@ _base_ = [
 # Forest-trained checkpoint (out-of-domain clean supervision) used as initialization.
 load_from = 'work_dirs/clean_forestformer/epoch_3000_fix.pth'
 
+# Validation cadence is inherited from the base config train_cfg:
+#   val_interval=100  (i.e., validate every 100 epochs, not every epoch).
+
+default_hooks = dict(
+    checkpoint=dict(
+        type='CheckpointHook',
+        interval=1,
+        max_keep_ckpts=3,
+        # Save both semantic-best and instance-oriented-best checkpoints.
+        # This keeps two selection options for final test-time evaluation:
+        #   - best_mIoU*.pth  (semantic quality)
+        #   - best_F1*.pth    (instance quality / balance)
+        #   - best_harmonic*.pth (balanced score = harmonic mean of mIoU and F1)
+        save_best=['mIoU', 'F1', 'harmonic'],
+        rule=['greater', 'greater', 'greater'],
+        save_optimizer=True,
+    ))
+
 data_root_noisy = 'data/ForAINetV2/'
-data_root_gt = 'data/ForAINetV2_GT/'
+data_root_gt = 'data/ForAINetV2/'
 
 train_dataloader = dict(
     dataset=dict(
@@ -28,7 +46,10 @@ val_dataloader = dict(
 test_dataloader = dict(
     dataset=dict(
         data_root=data_root_gt,
-        ann_file='forainetv2_oneformer3d_infos_test_ML.pkl',
+        # Default fallback for direct `tools/test.py` runs with this config.
+        # For Experiment 2 Step 6, `tools/zero_shot_infer_split.py` overrides
+        # `test_dataloader.dataset.ann_file` at runtime with a generated split-specific pkl.
+        ann_file='forainetv2_oneformer3d_infos_test.pkl',
         # Expected folder layout under data_root_gt:
         #   points/ (can be a symlink to ../ForAINetV2/points)
         #   semantic_mask/ (clean GT)
