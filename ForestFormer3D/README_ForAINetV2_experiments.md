@@ -692,12 +692,12 @@ val_all = (meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding
 train_low = [x for x in train_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
 val_low = [x for x in val_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
 
-(meta / 'train_list_exp2_lowL1_only.txt').write_text('\n'.join(train_low) + '\n', encoding='utf-8')
-(meta / 'val_list_exp2_lowL1_only.txt').write_text('\n'.join(val_low) + '\n', encoding='utf-8')
+(meta / 'train_list_exp2B_lowL1_only.txt').write_text('\n'.join(train_low) + '\n', encoding='utf-8')
+(meta / 'val_list_exp2B_lowL1_only.txt').write_text('\n'.join(val_low) + '\n', encoding='utf-8')
 
 print('Wrote low-only lists:')
-print('- train_list_exp2_lowL1_only.txt', len(train_low))
-print('- val_list_exp2_lowL1_only.txt', len(val_low))
+print('- train_list_exp2B_lowL1_only.txt', len(train_low))
+print('- val_list_exp2B_lowL1_only.txt', len(val_low))
 PY
 ```
 
@@ -708,8 +708,8 @@ FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
 python /workspace/tools/create_forainetv2_train_val_from_lists.py \
   --root-path /workspace/data/ForAINetV2 \
   --out-dir /workspace/data/ForAINetV2 \
-  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2_lowL1_only.txt \
-  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2_lowL1_only.txt \
+  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2B_lowL1_only.txt \
+  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2B_lowL1_only.txt \
   --train-out forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
   --val-out forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl \
   --overwrite
@@ -720,7 +720,7 @@ python /workspace/tools/create_forainetv2_train_val_from_lists.py \
 ```bash
 # Use the pretrained checkpoint produced by Variant B.3 (Stage-1 medium-only run),
 # not the original forest checkpoint.
-STAGE1_PRETRAIN_CKPT=$(ls -1t /workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic*.pth | head -n1)
+STAGE1_PRETRAIN_CKPT=/workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000_fix.pth
 echo "Initializing Stage-2 from B.3 checkpoint: ${STAGE1_PRETRAIN_CKPT}"
 
 FORAINETV2_PROTOCOL=forest \
@@ -746,7 +746,11 @@ bash /workspace/tools/dist_train.sh \
 ### Variant B.7 — Stage-2 evaluation after low-only fine-tuning (held-out medium + held-out low)
 
 ```bash
-STAGE2_BEST_CKPT=$(ls -1t /workspace/work_dirs/exp2B_stage2_low_train/best_harmonic*.pth | head -n1)
+python tools/fix_spconv_checkpoint.py \
+  --in-path /workspace/work_dirs/exp2B_stage2_low_train/epoch_3000.pth \
+  --out-path /workspace/work_dirs/exp2B_stage2_low_train/epoch_3000_fix.pth
+
+STAGE2_BEST_CKPT=/workspace/work_dirs/exp2B_stage2_low_train/epoch_3000_fix.pth
 echo "Using Stage-2 checkpoint: ${STAGE2_BEST_CKPT}"
 
 # held-out medium
