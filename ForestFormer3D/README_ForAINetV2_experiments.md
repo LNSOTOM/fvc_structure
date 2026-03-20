@@ -338,7 +338,7 @@ echo "Using best checkpoint: ${BEST_CKPT}"
 Tiny alternative (balanced checkpoint): pick and test `best_harmonic*.pth` directly:
 
 ```bash
-BEST_HARMONIC_CKPT=$(ls -1t /workspace/work_dirs/exp2A_epoch3000_train/best_harmonic*.pth | head -n1)
+BEST_HARMONIC_CKPT=/workspace/work_dirs/exp2A_epoch3000_train/best_harmonic_epoch_2000_fix.pth
 echo "Using best harmonic checkpoint: ${BEST_HARMONIC_CKPT}"
 BEST_CKPT=${BEST_HARMONIC_CKPT}
 ```
@@ -358,7 +358,7 @@ python /workspace/tools/fix_spconv_checkpoint.py \
   --out-path /workspace/work_dirs/exp2A_epoch3000_train/epoch_3000_fix.pth
 ```
 
-Medium L1 held-out test:
+Medium L1 held-out (test 3000ep):
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -377,7 +377,26 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
-Low L1 held-out test:
+Medium L1 held-out (test on best harmonic):
+
+```bash
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+python /workspace/tools/zero_shot_infer_split.py \
+  --split medium \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
+  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
+  --extra-tag exp2A_epoch2000_medium_L1 \
+  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+  --checkpoint ${BEST_CKPT} \
+  --work-dir /workspace/work_dirs/exp2A_epoch2000_eval_medium_L1 \
+  --dist --gpus 7 \
+  --overwrite-pkl
+```
+
+Low L1 held-out (test 3000ep):
 
 ```bash
 FORAINETV2_PROTOCOL=forest \
@@ -392,6 +411,25 @@ python /workspace/tools/zero_shot_infer_split.py \
   --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
   --checkpoint ${BEST_CKPT} \
   --work-dir /workspace/work_dirs/exp2A_epoch3000_eval_low_L1 \
+  --dist --gpus 7 \
+  --overwrite-pkl
+```
+
+Low L1 held-out (test on best hamornic):
+
+```bash
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+python /workspace/tools/zero_shot_infer_split.py \
+  --split low \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
+  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
+  --extra-tag exp2A_epoch2000_low_L1 \
+  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+  --checkpoint ${BEST_CKPT} \
+  --work-dir /workspace/work_dirs/exp2A_epoch2000_eval_low_L1 \
   --dist --gpus 7 \
   --overwrite-pkl
 ```
@@ -426,6 +464,25 @@ print('Top 5 by mIoU:')
 for ep, miou, f1, _ in rows[:5]:
     print(f'  epoch={ep:4d}  mIoU={miou:.4f}  F1={f1:.4f}')
 "
+```
+
+To print a full validation summary (best harmonic + epoch 3000 + top-5 mIoU), run:
+
+```bash
+python3 /workspace/tools/print_val_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2A_epoch3000_train/*/*.log" \
+  --epoch 3000 \
+  --top-k 5
+```
+
+To print a compact **training** summary (epoch 3000 + final epoch + top-k lowest loss), run:
+
+```bash
+python3 /workspace/tools/print_train_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2A_epoch3000_train/*/*.log" \
+  --epoch 3000 \
+  --metric loss \
+  --top-k 5
 ```
 
 #### Validation results (run: 2026-03-12, best and final epochs)
@@ -515,6 +572,57 @@ Test metrics (from held-out eval logs):
 ```bash
 grep "Epoch(test)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_medium_L1/20260316_041848/20260316_041848.log
 grep "Epoch(test)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_low_L1/20260316_043048/20260316_043048.log
+```
+
+To print a full **test-medium** summary (best harmonic + target run + top-k mIoU), run:
+
+```bash
+BEST_HARMONIC_CKPT=$(ls -1t /workspace/work_dirs/exp2A_epoch3000_train/best_harmonic*.pth | head -n1)
+echo "Using best harmonic checkpoint: ${BEST_HARMONIC_CKPT}"
+
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+python /workspace/tools/zero_shot_infer_split.py \
+  --split medium \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
+  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
+  --extra-tag exp2A_best_harmonic_medium_L1 \
+  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+  --checkpoint ${BEST_HARMONIC_CKPT} \
+  --work-dir /workspace/work_dirs/exp2A_best_harmonic_eval_medium_L1 \
+  --dist --gpus 7 \
+  --overwrite-pkl
+```
+
+Then summarize test-medium metrics:
+
+```bash
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2A*_eval_medium_L1*/*/*.log" \
+  --target-substring "best_harmonic" \
+  --top-k 5
+
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2A*_eval_medium_L1*/*/*.log" \
+  --target-substring "epoch_3000_fix.pth" \
+  --top-k 5
+```
+
+
+Then summarize test-low metrics:
+
+```bash
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2A*_eval_low_L1*/*/*.log" \
+  --target-substring "best_harmonic" \
+  --top-k 5
+
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2A*_eval_low_L1*/*/*.log" \
+  --target-substring "epoch_3000_fix.pth" \
+  --top-k 5
 ```
 
 Test JSON summaries:
@@ -652,6 +760,25 @@ bash /workspace/tools/dist_train.sh \
     val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
 ```
 
+To print Stage-1 **training** metrics (epoch 3000 + final epoch + top-k lowest loss), run:
+
+```bash
+python3 /workspace/tools/print_train_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2B_stage1_medium_train/*/*.log" \
+  --epoch 3000 \
+  --metric loss \
+  --top-k 5
+```
+
+To print Stage-1 **validation** metrics (best harmonic + epoch 3000 + top-5 mIoU), run:
+
+```bash
+python3 /workspace/tools/print_val_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2B_stage1_medium_train/*/*.log" \
+  --epoch 3000 \
+  --top-k 5
+```
+
 ### Variant B.4 — Stage-1 evaluation (held-out medium)
 
 ```bash
@@ -677,6 +804,15 @@ python /workspace/tools/zero_shot_infer_split.py \
   --work-dir /workspace/work_dirs/exp2B_stage1_eval_medium_L1 \
   --dist --gpus 7 \
   --overwrite-pkl
+```
+
+Then summarize Stage-1 **test-medium** metrics (target run + top-k mIoU), run:
+
+```bash
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp2B_stage1_eval_medium_L1/*/*.log" \
+  --target-substring "epoch_3000_fix.pth" \
+  --top-k 5
 ```
 
 ### Variant B.5 — Build low-only lists and create Stage-2 low-only PKLs
@@ -877,6 +1013,27 @@ BEST_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_mIoU*.pth | hea
 BEST_CKPT=/workspace/work_dirs/exp3A_scratch_train/epoch_3000_fix.pth
 ```
 
+### Step 3.2b — Metrics summaries (train + val)
+
+Training metrics (loss etc.) for scratch run:
+
+```bash
+python3 /workspace/tools/print_train_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp3A_scratch_train/*/*.log" \
+  --epoch 3000 \
+  --metric loss \
+  --top-k 5
+```
+
+Validation metrics (best harmonic + epoch 3000 + top-k mIoU) for scratch run:
+
+```bash
+python3 /workspace/tools/print_val_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp3A_scratch_train/*/*.log" \
+  --epoch 3000 \
+  --top-k 5
+```
+
 ### Step 3.3 — Held-out test evaluation (same split files as exp2A)
 
 Medium L1:
@@ -898,6 +1055,64 @@ python /workspace/tools/zero_shot_infer_split.py \
   --overwrite-pkl
 ```
 
+#### Medium_L1 scratch checkpoint comparison (epoch_3000 vs best_harmonic)
+
+Run **two** evals (medium) so both checkpoints have their own logs:
+
+```bash
+# 1) best_harmonic (balanced)
+BEST_HARMONIC_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_harmonic*.pth | head -n1)
+echo "Using scratch best harmonic: ${BEST_HARMONIC_CKPT}"
+
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+python /workspace/tools/zero_shot_infer_split.py \
+  --split medium \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
+  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
+  --extra-tag exp3A_scratch_best_harmonic_medium_L1 \
+  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+  --checkpoint ${BEST_HARMONIC_CKPT} \
+  --work-dir /workspace/work_dirs/exp3A_scratch_best_harmonic_eval_medium_L1 \
+  --dist --gpus 7 \
+  --overwrite-pkl
+
+# 2) epoch_3000 baseline
+EPOCH_3000_CKPT=/workspace/work_dirs/exp3A_scratch_train/epoch_3000_fix.pth
+echo "Using scratch epoch 3000: ${EPOCH_3000_CKPT}"
+
+FORAINETV2_PROTOCOL=forest \
+FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
+FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
+python /workspace/tools/zero_shot_infer_split.py \
+  --split medium \
+  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
+  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
+  --extra-tag exp3A_scratch_epoch_3000_medium_L1 \
+  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+  --checkpoint ${EPOCH_3000_CKPT} \
+  --work-dir /workspace/work_dirs/exp3A_scratch_epoch_3000_eval_medium_L1 \
+  --dist --gpus 7 \
+  --overwrite-pkl
+```
+
+Then summarize scratch **test-medium** metrics for both checkpoints:
+
+```bash
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_medium_L1*/*/*.log" \
+  --target-substring "best_harmonic" \
+  --top-k 5
+
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_medium_L1*/*/*.log" \
+  --target-substring "epoch_3000_fix.pth" \
+  --top-k 5
+```
+
 Low L1:
 
 ```bash
@@ -915,6 +1130,20 @@ python /workspace/tools/zero_shot_infer_split.py \
   --work-dir /workspace/work_dirs/exp3A_scratch_eval_low_L1 \
   --dist --gpus 7 \
   --overwrite-pkl
+```
+
+Then summarize scratch **test-low** metrics for both checkpoints:
+
+```bash
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_low_L1*/*/*.log" \
+  --target-substring "best_harmonic" \
+  --top-k 5
+
+python3 /workspace/tools/print_test_metrics_summary.py \
+  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_low_L1*/*/*.log" \
+  --target-substring "epoch_3000_fix.pth" \
+  --top-k 5
 ```
 
 ### Step 3.4 — Collect scratch test metrics
