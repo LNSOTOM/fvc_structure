@@ -485,6 +485,14 @@ python3 /workspace/tools/print_train_metrics_summary.py \
   --top-k 5
 ```
 
+To generate **plots** (train loss + val metrics) for Exp2A, run:
+
+```bash
+python3 /workspace/tools/plot_train_val_curves.py \
+  --log-glob "/workspace/work_dirs/exp2A_epoch3000_train/*/*.log" \
+  --out-dir "/workspace/work_dirs/exp2A_epoch3000_train/plots"
+```
+
 #### Validation results (run: 2026-03-12, best and final epochs)
 
 **Best val epoch — epoch 1200** (highest mIoU across all 3000 epochs):
@@ -777,6 +785,14 @@ python3 /workspace/tools/print_val_metrics_summary.py \
   --log-glob "/workspace/work_dirs/exp2B_stage1_medium_train/*/*.log" \
   --epoch 3000 \
   --top-k 5
+```
+
+To generate Stage-1 **plots** (train loss + val metrics), run:
+
+```bash
+python3 /workspace/tools/plot_train_val_curves.py \
+  --log-glob "/workspace/work_dirs/exp2B_stage1_medium_train/*/*.log" \
+  --out-dir "/workspace/work_dirs/exp2B_stage1_medium_train/plots"
 ```
 
 ### Variant B.4 — Stage-1 evaluation (held-out medium)
