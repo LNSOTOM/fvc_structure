@@ -141,7 +141,7 @@ This generates paper-ready PNGs:
 - per-file scatter: F1 vs Coverage (colored by region)
 
 ```bash
-python plot_instance_metrics_from_csv.py \
+python SegmentAnyTree/python_myscripts/plot_instance_metrics_from_csv.py \
   --per-file-csv /home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/metrics_forest_20260311_iou0p5_per_file.csv \
   --per-region-csv /home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/metrics_forest_20260311_iou0p5_per_region.csv \
   --out-dir /home/nvidia/projects/fvc_structure/SegmentAnyTree/metrics/outputs/plots_forest_20260311_iou0p5 \
