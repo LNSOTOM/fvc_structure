@@ -46,8 +46,6 @@ dependencies:
       - open3d
       - tensorflow==2.17
       - tensorboard==2.17
-      - dvc>=3.0,<4
-
 
 
 # variables:

@@ -13,10 +13,6 @@ raycloudtools/
 # ForestFormer3D: keep code tracked, ignore generated artifacts/data
 ForestFormer3D/.dist_test/
 ForestFormer3D/work_dirs/
-# Allow DVC metrics JSON files (cache: false) to be tracked in git
-!ForestFormer3D/work_dirs/dvc_test/
-!ForestFormer3D/work_dirs/dvc_test/metrics_single.json
-!ForestFormer3D/work_dirs/dvc_test/metrics_dist.json
 ForestFormer3D/predictions_global/
 ForestFormer3D/data/ForAINetV2/forainetv2_instance_data/
 ForestFormer3D/data/ForAINetV2/points/
