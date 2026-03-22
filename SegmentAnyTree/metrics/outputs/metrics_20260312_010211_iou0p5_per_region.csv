@@ -1,0 +1,2 @@
+region,files,tp,fp,fn,micro_precision,micro_recall,micro_f1,macro_f1,macro_coverage,macro_weighted_coverage
+znorm,15,25,430,745,0.05494505495,0.03246753247,0.04081632653,0.04164077307,0.1322397203,0.2166175264

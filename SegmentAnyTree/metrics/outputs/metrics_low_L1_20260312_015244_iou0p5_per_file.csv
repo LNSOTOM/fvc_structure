@@ -1,0 +1,16 @@
+file,region,tp,fp,fn,precision,recall,f1,coverage,weighted_coverage,gt_instances,pred_instances,gt_detected,gt_detection_rate,pred_commission_rate,height_residual_mean,height_rmse,height_mae,height_n
+znorm_3Dlabels_l_L1_25_out.laz,znorm,0,3,0,0,,,,,0,3,0,,1,,,,0
+znorm_3Dlabels_l_L1_30_out.laz,znorm,0,31,3,0,0,0,0.0897445538,0.2684841964,3,31,0,0,1,,,,0
+znorm_3Dlabels_l_L1_31_out.laz,znorm,0,14,0,0,,,,,0,14,0,,1,,,,0
+znorm_3Dlabels_l_L1_33_out.laz,znorm,1,11,0,0.08333333333,1,0.1538461538,0.9804630307,0.9804630307,1,12,1,1,0.9166666667,-1.32,1.32,1.32,1
+znorm_3Dlabels_l_L1_39_out.laz,znorm,0,25,1,0,0,0,0.04398782344,0.04398782344,1,25,0,0,1,,,,0
+znorm_3Dlabels_l_L1_41_out.laz,znorm,0,18,0,0,,,,,0,18,0,,1,,,,0
+znorm_3Dlabels_l_L1_43_out.laz,znorm,0,15,0,0,,,,,0,15,0,,1,,,,0
+znorm_3Dlabels_l_L1_48_out.laz,znorm,0,14,0,0,,,,,0,14,0,,1,,,,0
+znorm_3Dlabels_l_L1_52_out.laz,znorm,0,20,0,0,,,,,0,20,0,,1,,,,0
+znorm_3Dlabels_l_L1_58_out.laz,znorm,0,18,0,0,,,,,0,18,0,,1,,,,0
+znorm_3Dlabels_l_L1_60_out.laz,znorm,0,8,0,0,,,,,0,8,0,,1,,,,0
+znorm_3Dlabels_l_L1_66_out.laz,znorm,0,29,0,0,,,,,0,29,0,,1,,,,0
+znorm_3Dlabels_l_L1_68_out.laz,znorm,0,7,0,0,,,,,0,7,0,,1,,,,0
+znorm_3Dlabels_l_L1_75_out.laz,znorm,0,11,0,0,,,,,0,11,0,,1,,,,0
+znorm_3Dlabels_l_L1_79_out.laz,znorm,0,4,0,0,,,,,0,4,0,,1,,,,0
