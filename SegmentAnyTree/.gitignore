@@ -179,3 +179,9 @@ check_list.info
 *.pdf
 *.png
 *.csv
+
+# Allow committing metric artifacts under metrics/outputs/
+!metrics/outputs/
+!metrics/outputs/**
+!metrics/outputs/**/*.csv
+!metrics/outputs/**/*.png
