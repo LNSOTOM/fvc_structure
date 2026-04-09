@@ -1115,6 +1115,12 @@ python /workspace/tools/zero_shot_infer_split.py \
 
 #### Medium_L1 scratch checkpoint comparison (epoch_3000 vs best_harmonic)
 
+Interpretation note:
+
+- The held-out `medium_L1` scenes do contain GT instances. If scratch reports `F1=0` here, that does **not** mean the test split has no instances; it means the model produced no usable positive instance ids at evaluation time (for example, `Pred unique ids sample: [-1]` and `Scenes with any Pred instances: 0/2`).
+- When using the base forest config (`oneformer3d_qs_radius16_qp300_2many.py`), the semantic names `ground/wood/leaf` should be read mainly as model output slots `0/1/2`. For Calperum-style rangeland data, those slots are only an approximate transfer target rather than a literal taxonomy match.
+- In practice, the forest-pretrained checkpoint can still transfer useful instance structure to `medium_L1`, while random-init scratch may learn some vegetation semantics but fail to emit valid instance masks. So for the scratch-vs-pretrained comparison, treat `F1=0` primarily as an **instance-decoder failure**, not evidence that `medium_L1` lacks tree/mallee instances.
+
 Run **two** evals (medium) so both checkpoints have their own logs:
 
 ```bash
