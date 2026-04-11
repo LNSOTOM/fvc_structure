@@ -86,7 +86,7 @@ from fvc3dstruct.pipeline import process_tile
 
 process_tile(
     z_path="/path/to/z_norm_tile.las",
-  s_path="/path/to/mask_tiles_multispectral.tileid.las",
+    s_path="/path/to/mask_tiles_multispectral.tileid.las",
     out_path="/path/to/output_struct3d_tile.las",
     config={
         # overrides (optional)
@@ -98,6 +98,23 @@ process_tile(
         "min_flip_ratio": 1.50,
     },
 )
+```
+
+### Validation figure for the 2D to 3D label transfer workflow
+
+Use the helper below to create a four-panel figure showing:
+
+- the original 2D structure mask,
+- the initial 2D to 3D label projection,
+- the refined 3D labels after voxel and polar refinement,
+- and a vertical HAG view of the refined cloud.
+
+```bash
+python phase_4_3D_lidar_prep/step_3_structure_class/make_label_transfer_validation_figure.py \
+  --mask /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/imagery/clipped/mask/mask_tiles_multispectral.109.las \
+  --projected-las /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/3d_structure_mask_malleid/mask_tiles_multispectral.109.las \
+  --refined-las /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/3d_structure_mask_malleid/znorm_3Dlabels_109.las \
+  --output //media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/validation/label_transfer_validation_tile109.png
 ```
 
 ## Notebooks
