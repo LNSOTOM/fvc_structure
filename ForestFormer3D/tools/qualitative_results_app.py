@@ -1,0 +1,993 @@
+from __future__ import annotations
+
+import argparse
+import hashlib
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+
+import laspy
+import numpy as np
+import plotly.graph_objects as go
+from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
+from plotly.colors import qualitative
+from plyfile import PlyData
+
+
+DEFAULT_WORK_DIRS_ROOT = Path(
+    "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs"
+)
+SUPPORTED_SUFFIXES = {".ply", ".las"}
+UI_COLORS = {
+    "background": "#F3EFE7",
+    "panel": "#FFFDF8",
+    "ink": "#1F2933",
+    "muted": "#5B6470",
+    "border": "#D9D1C3",
+    "accent": "#1F5C5B",
+    "accent_dark": "#15403F",
+    "chip_bg": "#EEE7DA",
+}
+OVERLAY_CLASS_COLORS = {
+    64: (1.0, 0.0, 0.0),
+    65: (0.6, 0.4, 0.2),
+    66: (0.0, 0.0, 1.0),
+    67: (0.0, 1.0, 0.0),
+    68: (0.7922, 0.1216, 0.4824),
+}
+OVERLAY_CLASS_LABELS = {
+    64: "Forb",
+    65: "Woody debris",
+    66: "Hummock",
+    67: "Shrub",
+    68: "Mallee",
+}
+SITE_SEMANTIC_OVERLAY_ALIASES = {
+    "low": {0: 64, 1: 67, 2: 68},
+    "medium": {0: 66, 1: 67, 2: 68},
+    "unknown": {0: 64, 1: 67, 2: 68},
+}
+IGNORE_COLOR = "#B8BEC7"
+INSTANCE_PALETTE = (
+    qualitative.Dark24
+    + qualitative.Light24
+    + qualitative.Alphabet
+    + qualitative.Safe
+)
+
+
+@dataclass(frozen=True)
+class SceneEntry:
+    experiment_name: str
+    scene_name: str
+    scene_path: str
+
+
+def color_tuple_to_hex(color: tuple[float, float, float]) -> str:
+    red, green, blue = color
+    return f"#{int(red * 255):02x}{int(green * 255):02x}{int(blue * 255):02x}"
+
+
+def color_tuple_to_rgba(color: tuple[float, float, float], alpha: float) -> str:
+    red, green, blue = color
+    return f"rgba({int(red * 255)}, {int(green * 255)}, {int(blue * 255)}, {alpha})"
+
+
+SEMANTIC_COLORS = {
+    class_id: color_tuple_to_hex(color)
+    for class_id, color in OVERLAY_CLASS_COLORS.items()
+}
+
+
+def infer_site_kind(scene_name: str) -> str:
+    if "_l_" in scene_name:
+        return "low"
+    if "_m_" in scene_name:
+        return "medium"
+    return "unknown"
+
+
+def semantic_overlay_id(label_id: int, site_kind: str) -> int | None:
+    if label_id == -1:
+        return None
+    return SITE_SEMANTIC_OVERLAY_ALIASES.get(site_kind, SITE_SEMANTIC_OVERLAY_ALIASES["unknown"]).get(label_id)
+
+
+def semantic_color(label_id: int, site_kind: str) -> str:
+    overlay_class_id = semantic_overlay_id(label_id, site_kind)
+    if overlay_class_id is None:
+        return IGNORE_COLOR
+    return SEMANTIC_COLORS.get(overlay_class_id, "#7F7F7F")
+
+
+def instance_base_color(semantic_id: int, site_kind: str) -> str:
+    if semantic_id == -1:
+        return IGNORE_COLOR
+    return semantic_color(semantic_id, site_kind)
+
+
+def semantic_label(label_id: int, site_kind: str) -> str:
+    overlay_class_id = semantic_overlay_id(label_id, site_kind)
+    if overlay_class_id is None:
+        return "Ignore (-1)"
+    overlay_name = OVERLAY_CLASS_LABELS.get(overlay_class_id)
+    if overlay_name is None:
+        return str(label_id)
+    if label_id in SITE_SEMANTIC_OVERLAY_ALIASES.get(site_kind, {}):
+        return f"{overlay_name} ({label_id}->{overlay_class_id})"
+    return f"{overlay_name} ({overlay_class_id})"
+
+
+def site_class_summary(site_kind: str) -> str:
+    if site_kind == "medium":
+        return "Medium site mapping: 0 = Hummock, 1 = Shrub, 2 = Mallee"
+    if site_kind == "low":
+        return "Low site mapping: 0 = Forb, 1 = Shrub, 2 = Mallee"
+    return "Site mapping: 0 = Forb/Hummock, 1 = Shrub, 2 = Mallee"
+
+
+def site_heading(site_kind: str) -> str:
+    if site_kind == "medium":
+        return "Qualitative results · Medium site"
+    if site_kind == "low":
+        return "Qualitative results · Low site"
+    return "Qualitative results"
+
+
+def make_site_banner(scene_name: str) -> html.Div:
+    site_kind = infer_site_kind(scene_name)
+    return html.Div(
+        site_class_summary(site_kind),
+        style={
+            "display": "inline-block",
+            "margin": "0 auto 16px auto",
+            "padding": "8px 14px",
+            "borderRadius": "999px",
+            "backgroundColor": UI_COLORS["chip_bg"],
+            "border": f"1px solid {UI_COLORS['border']}",
+            "color": UI_COLORS["ink"],
+            "fontSize": "14px",
+            "fontWeight": 600,
+        },
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Launch a Dash app to browse ForestFormer3D qualitative results across "
+            "evaluation experiments."
+        )
+    )
+    parser.add_argument(
+        "--work-dirs-root",
+        type=Path,
+        default=DEFAULT_WORK_DIRS_ROOT,
+        help="Root directory containing ForestFormer3D experiment work_dirs.",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host interface for the Dash server.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8051,
+        help="Port for the Dash server.",
+    )
+    parser.add_argument(
+        "--max-points",
+        type=int,
+        default=120000,
+        help="Maximum number of points to render per scene.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="Base seed for deterministic downsampling.",
+    )
+    parser.add_argument(
+        "--marker-size",
+        type=float,
+        default=2.0,
+        help="Scatter marker size for the rendered point clouds.",
+    )
+    parser.add_argument(
+        "--list-only",
+        action="store_true",
+        help="Print discovered experiments and scenes, then exit.",
+    )
+    return parser.parse_args()
+
+
+def scan_experiments(work_dirs_root: Path) -> dict[str, list[SceneEntry]]:
+    if not work_dirs_root.exists():
+        raise FileNotFoundError(f"work_dirs root does not exist: {work_dirs_root}")
+
+    experiments: dict[str, list[SceneEntry]] = {}
+    for experiment_dir in sorted(work_dirs_root.iterdir()):
+        if not experiment_dir.is_dir():
+            continue
+        scene_paths = sorted(
+            path
+            for path in experiment_dir.iterdir()
+            if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+        )
+        if not scene_paths:
+            continue
+        experiments[experiment_dir.name] = [
+            SceneEntry(
+                experiment_name=experiment_dir.name,
+                scene_name=scene_path.stem,
+                scene_path=str(scene_path),
+            )
+            for scene_path in scene_paths
+        ]
+    if not experiments:
+        raise RuntimeError(f"No scene files were found under {work_dirs_root}")
+    return experiments
+
+
+def print_experiment_summary(experiments: dict[str, list[SceneEntry]]) -> None:
+    for experiment_name, scenes in experiments.items():
+        print(f"{experiment_name}: {len(scenes)} scenes")
+        for scene in scenes:
+            print(f"  - {scene.scene_name}")
+
+
+def _read_required_columns_from_ply(scene_path: Path) -> dict[str, np.ndarray]:
+    ply = PlyData.read(scene_path)
+    vertex = ply["vertex"].data
+    names = set(vertex.dtype.names or [])
+    required = {"x", "y", "z", "semantic_pred", "instance_pred", "semantic_gt", "instance_gt"}
+    missing = sorted(required - names)
+    if missing:
+        raise ValueError(f"Missing required fields in {scene_path}: {missing}")
+    return {
+        "x": np.asarray(vertex["x"], dtype=np.float32),
+        "y": np.asarray(vertex["y"], dtype=np.float32),
+        "z": np.asarray(vertex["z"], dtype=np.float32),
+        "semantic_pred": np.asarray(vertex["semantic_pred"], dtype=np.int32),
+        "instance_pred": np.asarray(vertex["instance_pred"], dtype=np.int32),
+        "semantic_gt": np.asarray(vertex["semantic_gt"], dtype=np.int32),
+        "instance_gt": np.asarray(vertex["instance_gt"], dtype=np.int32),
+    }
+
+
+def _read_required_columns_from_las(scene_path: Path) -> dict[str, np.ndarray]:
+    las = laspy.read(scene_path)
+    names = {name.lower(): name for name in las.point_format.dimension_names}
+    required_names = {
+        "semantic_pred": "semantic_pred",
+        "instance_pred": "instance_pred",
+        "semantic_gt": "semantic_gt",
+        "instance_gt": "instance_gt",
+    }
+    missing = [key for key in required_names if key not in names]
+    if missing:
+        raise ValueError(f"Missing required LAS dimensions in {scene_path}: {missing}")
+    return {
+        "x": np.asarray(las.x, dtype=np.float32),
+        "y": np.asarray(las.y, dtype=np.float32),
+        "z": np.asarray(las.z, dtype=np.float32),
+        "semantic_pred": np.asarray(las[names["semantic_pred"]], dtype=np.int32),
+        "instance_pred": np.asarray(las[names["instance_pred"]], dtype=np.int32),
+        "semantic_gt": np.asarray(las[names["semantic_gt"]], dtype=np.int32),
+        "instance_gt": np.asarray(las[names["instance_gt"]], dtype=np.int32),
+    }
+
+
+@lru_cache(maxsize=128)
+def load_scene(scene_path_str: str) -> dict[str, np.ndarray]:
+    scene_path = Path(scene_path_str)
+    suffix = scene_path.suffix.lower()
+    if suffix == ".ply":
+        return _read_required_columns_from_ply(scene_path)
+    if suffix == ".las":
+        return _read_required_columns_from_las(scene_path)
+    raise ValueError(f"Unsupported scene suffix for {scene_path}")
+
+
+def make_sample_indices(scene_path_str: str, total_points: int, max_points: int, base_seed: int) -> np.ndarray:
+    if total_points <= max_points:
+        return np.arange(total_points, dtype=np.int64)
+    digest = hashlib.sha1(scene_path_str.encode("utf-8")).digest()
+    scene_seed = int.from_bytes(digest[:8], byteorder="big", signed=False)
+    rng = np.random.default_rng(scene_seed ^ base_seed)
+    return np.sort(rng.choice(total_points, size=max_points, replace=False))
+
+
+def semantic_colors(labels: np.ndarray, site_kind: str) -> np.ndarray:
+    return np.asarray([semantic_color(int(label), site_kind) for label in labels], dtype=object)
+
+
+def instance_colors(instance_ids: np.ndarray, semantic_ids: np.ndarray, site_kind: str) -> np.ndarray:
+    colors: list[str] = []
+    palette_len = len(INSTANCE_PALETTE)
+    for instance_id, semantic_id in zip(instance_ids, semantic_ids):
+        instance_id = int(instance_id)
+        semantic_id = int(semantic_id)
+        if instance_id > 0:
+            colors.append(INSTANCE_PALETTE[instance_id % palette_len])
+        else:
+            colors.append("rgba(0, 0, 0, 0)")
+    return np.asarray(colors, dtype=object)
+
+
+def semantic_legend_entries(label_ids: np.ndarray, site_kind: str) -> list[tuple[str, str]]:
+    entries: list[tuple[str, str]] = []
+    for label_id in sorted({int(value) for value in np.unique(label_ids)}):
+        entries.append((semantic_label(label_id, site_kind), semantic_color(label_id, site_kind)))
+    return entries
+
+
+def instance_legend_entries(semantic_ids: np.ndarray, site_kind: str) -> list[tuple[str, str]]:
+    del semantic_ids, site_kind
+    return [("Tree ID > 0", INSTANCE_PALETTE[0])]
+
+
+def build_figure(
+    x: np.ndarray,
+    y: np.ndarray,
+    z: np.ndarray,
+    colors: np.ndarray,
+    title: str,
+    marker_size: float,
+    legend_entries: list[tuple[str, str]],
+    legend_note: str | None = None,
+) -> go.Figure:
+    fig = go.Figure(
+        data=[
+            go.Scatter3d(
+                x=x,
+                y=y,
+                z=z,
+                mode="markers",
+                marker={
+                    "size": marker_size,
+                    "color": colors,
+                    "opacity": 0.95,
+                },
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        ]
+    )
+    for label, color in legend_entries:
+        fig.add_trace(
+            go.Scatter3d(
+                x=[None],
+                y=[None],
+                z=[None],
+                mode="markers",
+                marker={
+                    "size": max(marker_size * 4, 8),
+                    "color": color,
+                    "opacity": 1.0,
+                },
+                name=label,
+                showlegend=True,
+                hoverinfo="skip",
+            )
+        )
+
+    annotations = []
+    if legend_note:
+        annotations.append(
+            {
+                "xref": "paper",
+                "yref": "paper",
+                "x": 0.98,
+                "y": 0.02,
+                "xanchor": "right",
+                "yanchor": "bottom",
+                "align": "left",
+                "text": legend_note,
+                "showarrow": False,
+                "font": {"size": 11, "color": UI_COLORS["muted"]},
+                "bgcolor": "rgba(255,255,255,0.90)",
+                "bordercolor": UI_COLORS["border"],
+                "borderwidth": 1,
+                "borderpad": 6,
+            }
+        )
+
+    fig.update_layout(
+        title={"text": title, "x": 0.02, "xanchor": "left"},
+        margin={"l": 0, "r": 0, "t": 40, "b": 0},
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        showlegend=True,
+        legend={
+            "x": 0.98,
+            "y": 0.98,
+            "xanchor": "right",
+            "yanchor": "top",
+            "bgcolor": "rgba(255,255,255,0.92)",
+            "bordercolor": UI_COLORS["border"],
+            "borderwidth": 1,
+            "font": {"size": 12, "color": UI_COLORS["ink"]},
+            "itemsizing": "constant",
+        },
+        annotations=annotations,
+        scene={
+            "xaxis": {"visible": False},
+            "yaxis": {"visible": False},
+            "zaxis": {"visible": False},
+            "aspectmode": "data",
+            "camera": {
+                "eye": {"x": 1.6, "y": -1.7, "z": 0.8},
+            },
+            "bgcolor": "white",
+        },
+        uirevision=title,
+    )
+    return fig
+
+
+def build_instance_figure(
+    x: np.ndarray,
+    y: np.ndarray,
+    z: np.ndarray,
+    instance_ids: np.ndarray,
+    title: str,
+    marker_size: float,
+    legend_note: str | None = None,
+) -> go.Figure:
+    mask = instance_ids > 0
+
+    fig = go.Figure()
+    if np.any(mask):
+        visible_ids = instance_ids[mask].astype(np.int32)
+        fig.add_trace(
+            go.Scatter3d(
+                x=x[mask],
+                y=y[mask],
+                z=z[mask],
+                mode="markers",
+                marker={
+                    "size": marker_size,
+                    "color": visible_ids,
+                    "colorscale": "Turbo",
+                    "opacity": 0.95,
+                    "showscale": True,
+                    "colorbar": {
+                        "title": "Tree ID > 0",
+                        "orientation": "h",
+                        "x": 0.5,
+                        "xanchor": "center",
+                        "y": 1.0,
+                        "yanchor": "top",
+                        "len": 0.5,
+                        "thickness": 14,
+                        "bgcolor": "rgba(255,255,255,0.82)",
+                        "outlinecolor": UI_COLORS["border"],
+                        "outlinewidth": 1,
+                    },
+                },
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+    else:
+        legend_note = "No tree ids > 0 are present in this view."
+
+    annotations = []
+    if legend_note:
+        annotations.append(
+            {
+                "xref": "paper",
+                "yref": "paper",
+                "x": 0.98,
+                "y": 0.02,
+                "xanchor": "right",
+                "yanchor": "bottom",
+                "align": "left",
+                "text": legend_note,
+                "showarrow": False,
+                "font": {"size": 11, "color": UI_COLORS["muted"]},
+                "bgcolor": "rgba(255,255,255,0.90)",
+                "bordercolor": UI_COLORS["border"],
+                "borderwidth": 1,
+                "borderpad": 6,
+            }
+        )
+
+    fig.update_layout(
+        title={"text": title, "x": 0.02, "xanchor": "left"},
+        margin={"l": 0, "r": 0, "t": 40, "b": 0},
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        showlegend=False,
+        annotations=annotations,
+        scene={
+            "xaxis": {"visible": False},
+            "yaxis": {"visible": False},
+            "zaxis": {"visible": False},
+            "aspectmode": "data",
+            "camera": {
+                "eye": {"x": 1.6, "y": -1.7, "z": 0.8},
+            },
+            "bgcolor": "white",
+        },
+        uirevision=title,
+    )
+    return fig
+
+
+def tree_id_range_text(instance_ids: np.ndarray) -> str:
+    visible_ids = instance_ids[instance_ids > 0]
+    if visible_ids.size == 0:
+        return "none"
+    return f"{int(visible_ids.min())} to {int(visible_ids.max())}"
+
+
+def format_scene_summary(scene_arrays: dict[str, np.ndarray], sample_count: int, site_kind: str) -> html.Div:
+    semantic_gt = scene_arrays["semantic_gt"]
+    semantic_pred = scene_arrays["semantic_pred"]
+    instance_gt = scene_arrays["instance_gt"]
+    instance_pred = scene_arrays["instance_pred"]
+
+    gt_instances = int(np.unique(instance_gt[instance_gt > 0]).size)
+    pred_instances = int(np.unique(instance_pred[instance_pred > 0]).size)
+    gt_tree_id_range = tree_id_range_text(instance_gt)
+    pred_tree_id_range = tree_id_range_text(instance_pred)
+    gt_semantics = sorted({semantic_label(int(label), site_kind) for label in np.unique(semantic_gt)})
+    pred_semantics = sorted({semantic_label(int(label), site_kind) for label in np.unique(semantic_pred)})
+
+    items = [
+        html.Span(f"Sampled points: {sample_count:,}"),
+        html.Span(f"GT instances: {gt_instances:,}"),
+        html.Span(f"Pred instances: {pred_instances:,}"),
+        html.Span(f"GT tree IDs > 0: {gt_tree_id_range}"),
+        html.Span(f"Pred tree IDs > 0: {pred_tree_id_range}"),
+        html.Span(f"GT semantic labels: {', '.join(gt_semantics)}"),
+        html.Span(f"Pred semantic labels: {', '.join(pred_semantics)}"),
+    ]
+    return html.Div(
+        items,
+        style={
+            "display": "flex",
+            "gap": "16px",
+            "flexWrap": "wrap",
+            "justifyContent": "center",
+            "fontSize": "14px",
+            "marginBottom": "16px",
+            "color": UI_COLORS["muted"],
+        },
+    )
+
+
+def make_legend_chip(label: str, color: str) -> html.Div:
+    return html.Div(
+        [
+            html.Span(
+                style={
+                    "display": "inline-block",
+                    "width": "12px",
+                    "height": "12px",
+                    "borderRadius": "999px",
+                    "backgroundColor": color,
+                    "border": f"1px solid {UI_COLORS['border']}",
+                }
+            ),
+            html.Span(label),
+        ],
+        style={
+            "display": "inline-flex",
+            "alignItems": "center",
+            "gap": "8px",
+            "padding": "6px 10px",
+            "borderRadius": "999px",
+            "backgroundColor": UI_COLORS["chip_bg"],
+            "color": UI_COLORS["ink"],
+            "fontSize": "13px",
+        },
+    )
+
+
+def make_mode_legend(mode: str, scene_name: str) -> html.Div:
+    site_kind = infer_site_kind(scene_name)
+    if mode == "semantic":
+        items = [
+            make_legend_chip(semantic_label(0, site_kind), semantic_color(0, site_kind)),
+            make_legend_chip(semantic_label(1, site_kind), semantic_color(1, site_kind)),
+            make_legend_chip(semantic_label(2, site_kind), semantic_color(2, site_kind)),
+        ]
+    else:
+        items = [make_legend_chip("Tree ID > 0 color bar", INSTANCE_PALETTE[0])]
+
+    return html.Div(
+        items,
+        style={
+            "display": "flex",
+            "gap": "10px",
+            "justifyContent": "center",
+            "flexWrap": "wrap",
+            "marginBottom": "16px",
+        },
+    )
+
+
+def make_panel(title: str, graph_id: str) -> html.Div:
+    return html.Div(
+        [
+            html.Div(
+                title,
+                style={
+                    "position": "absolute",
+                    "top": "8px",
+                    "left": "8px",
+                    "zIndex": 1,
+                    "backgroundColor": UI_COLORS["accent_dark"],
+                    "color": "white",
+                    "fontWeight": 600,
+                    "fontSize": "14px",
+                    "padding": "4px 10px",
+                    "borderRadius": "999px",
+                    "letterSpacing": "0.02em",
+                },
+            ),
+            dcc.Graph(id=graph_id, style={"height": "520px"}, config={"displayModeBar": True}),
+        ],
+        style={
+            "position": "relative",
+            "flex": "1 1 0",
+            "minWidth": "420px",
+            "backgroundColor": UI_COLORS["panel"],
+            "border": f"1px solid {UI_COLORS['border']}",
+            "borderRadius": "12px",
+            "boxShadow": "0 10px 30px rgba(54, 46, 33, 0.08)",
+            "padding": "8px",
+        },
+    )
+
+
+def build_scene_views(
+    scene_path: str,
+    scene_name: str,
+    mode: str,
+    max_points: int,
+    seed: int,
+    marker_size: float,
+) -> tuple[go.Figure, go.Figure, html.Div]:
+    arrays = load_scene(scene_path)
+    site_kind = infer_site_kind(scene_name)
+    indices = make_sample_indices(scene_path, len(arrays["x"]), max_points=max_points, base_seed=seed)
+
+    x = arrays["x"][indices]
+    y = arrays["y"][indices]
+    z = arrays["z"][indices]
+    semantic_gt = arrays["semantic_gt"][indices]
+    semantic_pred = arrays["semantic_pred"][indices]
+    instance_gt = arrays["instance_gt"][indices]
+    instance_pred = arrays["instance_pred"][indices]
+
+    if mode == "semantic":
+        gt_colors = semantic_colors(semantic_gt, site_kind)
+        pred_colors = semantic_colors(semantic_pred, site_kind)
+        gt_title = f"GT semantic [{site_kind}] ({scene_name})"
+        pred_title = f"Prediction semantic [{site_kind}] ({scene_name})"
+        gt_legend_entries = semantic_legend_entries(semantic_gt, site_kind)
+        pred_legend_entries = semantic_legend_entries(semantic_pred, site_kind)
+        gt_legend_note = None
+        pred_legend_note = None
+    else:
+        gt_title = f"GT instance [{site_kind}] ({scene_name})"
+        pred_title = f"Prediction instance [{site_kind}] ({scene_name})"
+        gt_legend_note = None
+        pred_legend_note = None
+
+    if mode == "semantic":
+        gt_fig = build_figure(
+            x,
+            y,
+            z,
+            gt_colors,
+            gt_title,
+            marker_size,
+            gt_legend_entries,
+            gt_legend_note,
+        )
+        pred_fig = build_figure(
+            x,
+            y,
+            z,
+            pred_colors,
+            pred_title,
+            marker_size,
+            pred_legend_entries,
+            pred_legend_note,
+        )
+    else:
+        gt_fig = build_instance_figure(
+            x,
+            y,
+            z,
+            instance_gt,
+            gt_title,
+            marker_size,
+            gt_legend_note,
+        )
+        pred_fig = build_instance_figure(
+            x,
+            y,
+            z,
+            instance_pred,
+            pred_title,
+            marker_size,
+            pred_legend_note,
+        )
+    summary = format_scene_summary(arrays, len(indices), site_kind)
+    return gt_fig, pred_fig, summary
+
+
+def make_png_download(fig: go.Figure, filename: str):
+    def writer(buffer) -> None:
+        buffer.write(fig.to_image(format="png", width=1600, height=1200, scale=2))
+
+    return dcc.send_bytes(writer, filename)
+
+
+def create_app(
+    experiments: dict[str, list[SceneEntry]],
+    max_points: int,
+    seed: int,
+    marker_size: float,
+) -> Dash:
+    app = Dash(__name__)
+    experiment_names = list(experiments)
+    default_experiment = experiment_names[0]
+    default_scene = experiments[default_experiment][0].scene_name
+
+    scene_lookup = {
+        experiment_name: {scene.scene_name: scene.scene_path for scene in scenes}
+        for experiment_name, scenes in experiments.items()
+    }
+
+    app.layout = html.Div(
+        [
+            html.H1(
+                id="site-heading",
+                children="Qualitative results",
+                style={
+                    "textAlign": "center",
+                    "fontFamily": "Helvetica, Arial, sans-serif",
+                    "marginBottom": "18px",
+                    "marginTop": "12px",
+                    "color": UI_COLORS["ink"],
+                },
+            ),
+            html.Div(
+                id="site-class-banner",
+                style={"display": "flex", "justifyContent": "center"},
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Label("Experiment", style={"fontWeight": 600}),
+                            dcc.Dropdown(
+                                id="experiment-dropdown",
+                                options=[
+                                    {"label": name, "value": name}
+                                    for name in experiment_names
+                                ],
+                                value=default_experiment,
+                                clearable=False,
+                            ),
+                        ],
+                        style={"minWidth": "420px", "flex": "1 1 420px"},
+                    ),
+                    html.Div(
+                        [
+                            html.Label("Scene", style={"fontWeight": 600}),
+                            dcc.Dropdown(id="scene-dropdown", value=default_scene, clearable=False),
+                        ],
+                        style={"minWidth": "320px", "flex": "1 1 320px"},
+                    ),
+                ],
+                style={
+                    "display": "flex",
+                    "gap": "16px",
+                    "justifyContent": "center",
+                    "flexWrap": "wrap",
+                    "marginBottom": "12px",
+                },
+            ),
+            dcc.Tabs(
+                id="mode-tabs",
+                value="semantic",
+                children=[
+                    dcc.Tab(
+                        label="Instance seg.",
+                        value="instance",
+                        style={
+                            "backgroundColor": UI_COLORS["chip_bg"],
+                            "border": f"1px solid {UI_COLORS['border']}",
+                            "color": UI_COLORS["muted"],
+                        },
+                        selected_style={
+                            "backgroundColor": UI_COLORS["accent"],
+                            "border": f"1px solid {UI_COLORS['accent']}",
+                            "color": "white",
+                            "fontWeight": 700,
+                        },
+                    ),
+                    dcc.Tab(
+                        label="Semantic seg.",
+                        value="semantic",
+                        style={
+                            "backgroundColor": UI_COLORS["chip_bg"],
+                            "border": f"1px solid {UI_COLORS['border']}",
+                            "color": UI_COLORS["muted"],
+                        },
+                        selected_style={
+                            "backgroundColor": UI_COLORS["accent"],
+                            "border": f"1px solid {UI_COLORS['accent']}",
+                            "color": "white",
+                            "fontWeight": 700,
+                        },
+                    ),
+                ],
+                style={"maxWidth": "420px", "margin": "0 auto 16px auto"},
+            ),
+            html.Div(id="mode-legend"),
+            html.Div(
+                [
+                    html.Button(
+                        "Download GT snapshot",
+                        id="download-gt-button",
+                        n_clicks=0,
+                        style={
+                            "padding": "10px 16px",
+                            "border": "none",
+                            "borderRadius": "999px",
+                            "backgroundColor": UI_COLORS["accent"],
+                            "color": "white",
+                            "fontWeight": 600,
+                            "cursor": "pointer",
+                        },
+                    ),
+                    html.Button(
+                        "Download prediction snapshot",
+                        id="download-pred-button",
+                        n_clicks=0,
+                        style={
+                            "padding": "10px 16px",
+                            "border": "none",
+                            "borderRadius": "999px",
+                            "backgroundColor": UI_COLORS["accent_dark"],
+                            "color": "white",
+                            "fontWeight": 600,
+                            "cursor": "pointer",
+                        },
+                    ),
+                    dcc.Download(id="download-gt"),
+                    dcc.Download(id="download-pred"),
+                ],
+                style={
+                    "display": "flex",
+                    "gap": "12px",
+                    "justifyContent": "center",
+                    "flexWrap": "wrap",
+                    "marginBottom": "16px",
+                },
+            ),
+            html.Div(id="scene-summary"),
+            html.Div(
+                [
+                    make_panel("GT", "gt-graph"),
+                    make_panel("Prediction", "pred-graph"),
+                ],
+                style={
+                    "display": "flex",
+                    "gap": "12px",
+                    "flexWrap": "wrap",
+                    "justifyContent": "center",
+                },
+            ),
+        ],
+        style={
+            "padding": "12px 16px 24px 16px",
+            "backgroundColor": UI_COLORS["background"],
+            "minHeight": "100vh",
+            "fontFamily": "Helvetica, Arial, sans-serif",
+        },
+    )
+
+    @app.callback(
+        Output("scene-dropdown", "options"),
+        Output("scene-dropdown", "value"),
+        Input("experiment-dropdown", "value"),
+    )
+    def update_scene_options(experiment_name: str) -> tuple[list[dict[str, str]], str]:
+        scenes = experiments[experiment_name]
+        options = [{"label": scene.scene_name, "value": scene.scene_name} for scene in scenes]
+        return options, scenes[0].scene_name
+
+    @app.callback(
+        Output("site-heading", "children"),
+        Output("gt-graph", "figure"),
+        Output("pred-graph", "figure"),
+        Output("scene-summary", "children"),
+        Output("mode-legend", "children"),
+        Output("site-class-banner", "children"),
+        Input("experiment-dropdown", "value"),
+        Input("scene-dropdown", "value"),
+        Input("mode-tabs", "value"),
+    )
+    def update_graphs(
+        experiment_name: str,
+        scene_name: str,
+        mode: str,
+    ) -> tuple[str, go.Figure, go.Figure, html.Div, html.Div, html.Div]:
+        scene_path = scene_lookup[experiment_name][scene_name]
+        site_kind = infer_site_kind(scene_name)
+        gt_fig, pred_fig, summary = build_scene_views(
+            scene_path, scene_name, mode, max_points, seed, marker_size
+        )
+        return (
+            site_heading(site_kind),
+            gt_fig,
+            pred_fig,
+            summary,
+            make_mode_legend(mode, scene_name),
+            make_site_banner(scene_name),
+        )
+
+    @app.callback(
+        Output("download-gt", "data"),
+        Output("download-pred", "data"),
+        Input("download-gt-button", "n_clicks"),
+        Input("download-pred-button", "n_clicks"),
+        State("experiment-dropdown", "value"),
+        State("scene-dropdown", "value"),
+        State("mode-tabs", "value"),
+        prevent_initial_call=True,
+    )
+    def download_snapshot(
+        gt_clicks: int,
+        pred_clicks: int,
+        experiment_name: str,
+        scene_name: str,
+        mode: str,
+    ):
+        del gt_clicks, pred_clicks
+        scene_path = scene_lookup[experiment_name][scene_name]
+        gt_fig, pred_fig, _ = build_scene_views(scene_path, scene_name, mode, max_points, seed, marker_size)
+        mode_slug = "semantic" if mode == "semantic" else "instance"
+
+        if ctx.triggered_id == "download-gt-button":
+            filename = f"{experiment_name}__{scene_name}__gt_{mode_slug}.png"
+            return make_png_download(gt_fig, filename), no_update
+
+        if ctx.triggered_id == "download-pred-button":
+            filename = f"{experiment_name}__{scene_name}__prediction_{mode_slug}.png"
+            return no_update, make_png_download(pred_fig, filename)
+
+        return no_update, no_update
+
+    return app
+
+
+def main() -> None:
+    args = parse_args()
+    experiments = scan_experiments(args.work_dirs_root)
+    if args.list_only:
+        print_experiment_summary(experiments)
+        return
+
+    app = create_app(
+        experiments=experiments,
+        max_points=args.max_points,
+        seed=args.seed,
+        marker_size=args.marker_size,
+    )
+    app.run(host=args.host, port=args.port, debug=False)
+
+
+if __name__ == "__main__":
+    main()

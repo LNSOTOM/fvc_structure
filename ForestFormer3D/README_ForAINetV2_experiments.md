@@ -640,6 +640,25 @@ cat /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000
 cat /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_low_L1/metrics_test_lowL1.json
 ```
 
+Qualitative viewer across experiments:
+
+```bash
+# If your current directory is /workspace/ForestFormer3D
+python3 tools/qualitative_results_app.py \
+  --work-dirs-root /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs \
+  --host 0.0.0.0 \
+  --port 8051
+
+# If your current directory is the parent workspace root
+python3 ForestFormer3D/tools/qualitative_results_app.py \
+  --work-dirs-root /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs \
+  --host 0.0.0.0 \
+  --port 8051
+```
+
+This app scans all experiment folders under `work_dirs`, lists scenes with top-level `.ply` or `.las`
+outputs, and renders side-by-side GT and Prediction views for both semantic and instance segmentation.
+
 ### Step 7 results (run: 2026-03-12)
 
 **medium_L1** (`exp2A_epoch3000_eval_medium_L1`):
