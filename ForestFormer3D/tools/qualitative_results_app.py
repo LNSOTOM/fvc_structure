@@ -56,9 +56,11 @@ INSTANCE_PALETTE = (
     + qualitative.Alphabet
     + qualitative.Safe
 )
-EXPORT_TITLE_FONT_SIZE = 30
-EXPORT_LEGEND_FONT_SIZE = 24
-EXPORT_COMPARISON_HEADER_FONT_SIZE = 34
+EXPORT_TITLE_FONT_SIZE = 40
+EXPORT_LEGEND_FONT_SIZE = 30
+EXPORT_COMPARISON_HEADER_FONT_SIZE = 44
+CAMERA_EYE = {"x": 1.45, "y": -1.55, "z": 0.78}
+PLOT_TOP_MARGIN = 72
 
 
 @dataclass(frozen=True)
@@ -178,7 +180,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--port",
         type=int,
-        default=8051,
+        default=8052,
         help="Port for the Dash server.",
     )
     parser.add_argument(
@@ -400,8 +402,15 @@ def build_figure(
         )
 
     fig.update_layout(
-        title={"text": title, "x": 0.02, "xanchor": "left"},
-        margin={"l": 0, "r": 0, "t": 40, "b": 0},
+        title={
+            "text": title,
+            "x": 0.02,
+            "xanchor": "left",
+            "y": 0.98,
+            "yanchor": "top",
+            "pad": {"t": 10, "b": 4},
+        },
+        margin={"l": 0, "r": 0, "t": PLOT_TOP_MARGIN, "b": 0},
         paper_bgcolor="white",
         plot_bgcolor="white",
         showlegend=True,
@@ -423,7 +432,7 @@ def build_figure(
             "zaxis": {"visible": False},
             "aspectmode": "data",
             "camera": {
-                "eye": {"x": 1.6, "y": -1.7, "z": 0.8},
+                "eye": CAMERA_EYE,
             },
             "bgcolor": "white",
         },
@@ -463,7 +472,7 @@ def build_instance_figure(
                         "orientation": "h",
                         "x": 0.5,
                         "xanchor": "center",
-                        "y": 1.0,
+                        "y": 0.96,
                         "yanchor": "top",
                         "len": 0.5,
                         "thickness": 14,
@@ -501,8 +510,15 @@ def build_instance_figure(
         )
 
     fig.update_layout(
-        title={"text": title, "x": 0.02, "xanchor": "left"},
-        margin={"l": 0, "r": 0, "t": 40, "b": 0},
+        title={
+            "text": title,
+            "x": 0.02,
+            "xanchor": "left",
+            "y": 0.98,
+            "yanchor": "top",
+            "pad": {"t": 10, "b": 4},
+        },
+        margin={"l": 0, "r": 0, "t": 88, "b": 0},
         paper_bgcolor="white",
         plot_bgcolor="white",
         showlegend=False,
@@ -513,7 +529,7 @@ def build_instance_figure(
             "zaxis": {"visible": False},
             "aspectmode": "data",
             "camera": {
-                "eye": {"x": 1.6, "y": -1.7, "z": 0.8},
+                "eye": CAMERA_EYE,
             },
             "bgcolor": "white",
         },
