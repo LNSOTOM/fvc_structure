@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -10,6 +11,7 @@ import laspy
 import numpy as np
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
+from PIL import Image, ImageDraw, ImageFont
 from plotly.colors import qualitative
 from plyfile import PlyData
 
@@ -54,6 +56,9 @@ INSTANCE_PALETTE = (
     + qualitative.Alphabet
     + qualitative.Safe
 )
+EXPORT_TITLE_FONT_SIZE = 30
+EXPORT_LEGEND_FONT_SIZE = 24
+EXPORT_COMPARISON_HEADER_FONT_SIZE = 34
 
 
 @dataclass(frozen=True)
@@ -724,9 +729,85 @@ def build_scene_views(
     return gt_fig, pred_fig, summary
 
 
+def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
+    export_fig = go.Figure(fig)
+    export_fig.update_layout(
+        title={"font": {"size": EXPORT_TITLE_FONT_SIZE}},
+        legend={"font": {"size": EXPORT_LEGEND_FONT_SIZE, "color": UI_COLORS["ink"]}},
+    )
+
+    if export_fig.layout.annotations:
+        for annotation in export_fig.layout.annotations:
+            annotation.font = {
+                **(annotation.font.to_plotly_json() if annotation.font else {}),
+                "size": EXPORT_LEGEND_FONT_SIZE,
+            }
+
+    for trace in export_fig.data:
+        marker = getattr(trace, "marker", None)
+        colorbar = getattr(marker, "colorbar", None)
+        if colorbar is None:
+            continue
+        showscale = bool(getattr(marker, "showscale", False))
+        trace.update(
+            marker={
+                "showscale": showscale,
+                "colorbar": {
+                    "title": {"font": {"size": EXPORT_LEGEND_FONT_SIZE}},
+                    "tickfont": {"size": EXPORT_LEGEND_FONT_SIZE},
+                },
+            }
+        )
+
+    return export_fig
+
+
+def get_export_header_font() -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+    font_candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    ]
+    for font_path in font_candidates:
+        try:
+            return ImageFont.truetype(font_path, EXPORT_COMPARISON_HEADER_FONT_SIZE)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
 def make_png_download(fig: go.Figure, filename: str):
     def writer(buffer) -> None:
-        buffer.write(fig.to_image(format="png", width=1600, height=1200, scale=2))
+        export_fig = prepare_figure_for_export(fig)
+        buffer.write(export_fig.to_image(format="png", width=1600, height=1200, scale=2))
+
+    return dcc.send_bytes(writer, filename)
+
+
+def make_comparison_png_download(
+    gt_fig: go.Figure,
+    pred_fig: go.Figure,
+    filename: str,
+    title: str,
+):
+    def writer(buffer) -> None:
+        export_gt_fig = prepare_figure_for_export(gt_fig)
+        export_pred_fig = prepare_figure_for_export(pred_fig)
+        gt_image = Image.open(io.BytesIO(export_gt_fig.to_image(format="png", width=1400, height=1100, scale=2))).convert("RGB")
+        pred_image = Image.open(io.BytesIO(export_pred_fig.to_image(format="png", width=1400, height=1100, scale=2))).convert("RGB")
+
+        padding = 32
+        header_height = 72
+        canvas_width = gt_image.width + pred_image.width + padding * 3
+        canvas_height = max(gt_image.height, pred_image.height) + padding * 2 + header_height
+
+        canvas = Image.new("RGB", (canvas_width, canvas_height), "white")
+        draw = ImageDraw.Draw(canvas)
+        draw.text((padding, 20), title, fill=UI_COLORS["ink"], font=get_export_header_font())
+
+        top = header_height + padding // 2
+        canvas.paste(gt_image, (padding, top))
+        canvas.paste(pred_image, (padding * 2 + gt_image.width, top))
+        canvas.save(buffer, format="PNG")
 
     return dcc.send_bytes(writer, filename)
 
@@ -865,8 +946,23 @@ def create_app(
                             "cursor": "pointer",
                         },
                     ),
+                    html.Button(
+                        "Download comparison snapshot",
+                        id="download-comparison-button",
+                        n_clicks=0,
+                        style={
+                            "padding": "10px 16px",
+                            "border": "none",
+                            "borderRadius": "999px",
+                            "backgroundColor": UI_COLORS["ink"],
+                            "color": "white",
+                            "fontWeight": 600,
+                            "cursor": "pointer",
+                        },
+                    ),
                     dcc.Download(id="download-gt"),
                     dcc.Download(id="download-pred"),
+                    dcc.Download(id="download-comparison"),
                 ],
                 style={
                     "display": "flex",
@@ -941,8 +1037,10 @@ def create_app(
     @app.callback(
         Output("download-gt", "data"),
         Output("download-pred", "data"),
+        Output("download-comparison", "data"),
         Input("download-gt-button", "n_clicks"),
         Input("download-pred-button", "n_clicks"),
+        Input("download-comparison-button", "n_clicks"),
         State("experiment-dropdown", "value"),
         State("scene-dropdown", "value"),
         State("mode-tabs", "value"),
@@ -951,24 +1049,30 @@ def create_app(
     def download_snapshot(
         gt_clicks: int,
         pred_clicks: int,
+        comparison_clicks: int,
         experiment_name: str,
         scene_name: str,
         mode: str,
     ):
-        del gt_clicks, pred_clicks
+        del gt_clicks, pred_clicks, comparison_clicks
         scene_path = scene_lookup[experiment_name][scene_name]
         gt_fig, pred_fig, _ = build_scene_views(scene_path, scene_name, mode, max_points, seed, marker_size)
         mode_slug = "semantic" if mode == "semantic" else "instance"
 
         if ctx.triggered_id == "download-gt-button":
             filename = f"{experiment_name}__{scene_name}__gt_{mode_slug}.png"
-            return make_png_download(gt_fig, filename), no_update
+            return make_png_download(gt_fig, filename), no_update, no_update
 
         if ctx.triggered_id == "download-pred-button":
             filename = f"{experiment_name}__{scene_name}__prediction_{mode_slug}.png"
-            return no_update, make_png_download(pred_fig, filename)
+            return no_update, make_png_download(pred_fig, filename), no_update
 
-        return no_update, no_update
+        if ctx.triggered_id == "download-comparison-button":
+            filename = f"{experiment_name}__{scene_name}__comparison_{mode_slug}.png"
+            title = f"{experiment_name} | {scene_name} | {mode_slug}"
+            return no_update, no_update, make_comparison_png_download(gt_fig, pred_fig, filename, title)
+
+        return no_update, no_update, no_update
 
     return app
 
