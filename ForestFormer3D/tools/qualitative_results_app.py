@@ -67,8 +67,8 @@ EXPORT_TITLE_FONT_SIZE = 40
 EXPORT_LEGEND_FONT_SIZE = 30
 EXPORT_COMPARISON_HEADER_FONT_SIZE = 44
 EXPORT_MARKER_SIZE_MULTIPLIER = 2.0  # doubles point size on export
-CAMERA_EYE = {"x": 1.45, "y": -1.55, "z": 0.78}
-EXPORT_CAMERA_EYE = {"x": 1.55, "y": -1.65, "z": 1.20}
+CAMERA_EYE = {"x": 1.35, "y": -1.45, "z": 1.10}
+EXPORT_CAMERA_EYE = {"x": 1.25, "y": -1.35, "z": 1.60}
 PLOT_TOP_MARGIN = 72
 
 
@@ -556,7 +556,7 @@ def build_figure(
             "xaxis": {"visible": False}, "yaxis": {"visible": False}, "zaxis": {"visible": False},
             "aspectmode": "data", "camera": {"eye": CAMERA_EYE}, "bgcolor": "white",
         },
-        uirevision=title,
+        uirevision=None,  # always reset view on scene/experiment change
     )
     return fig
 
@@ -675,12 +675,10 @@ def build_instance_figure(
             "yaxis": {"visible": False},
             "zaxis": {"visible": False},
             "aspectmode": "data",
-            "camera": {
-                "eye": CAMERA_EYE,
-            },
+            "camera": {"eye": CAMERA_EYE},
             "bgcolor": "white",
         },
-        uirevision=title,
+        uirevision=None,  # always reset view on scene/experiment change
     )
     return fig
 
@@ -798,7 +796,12 @@ def make_panel(title: str, graph_id: str) -> html.Div:
                     "letterSpacing": "0.02em",
                 },
             ),
-            dcc.Graph(id=graph_id, style={"height": "520px"}, config={"displayModeBar": True}),
+            dcc.Graph(
+                id=graph_id,
+                style={"height": "520px"},
+                config={"displayModeBar": True},
+                responsive=True,
+            ),
         ],
         style={
             "position": "relative",
