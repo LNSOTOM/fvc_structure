@@ -32,12 +32,12 @@ UI_COLORS = {
 }
 OVERLAY_CLASS_COLORS = {
     64: (0.851, 0.706, 0.290),  # Forb      → #D9B44A (ground-like)
-    65: (0.549, 0.353, 0.169),  # Woody debris → #8C5A2B
+    65: (0.412, 0.220, 0.082),  # Woody debris → #694714
     66: (0.851, 0.706, 0.290),  # Hummock   → #D9B44A (ground-like)
-    67: (0.549, 0.353, 0.169),  # Shrub     → #8C5A2B (woody intermediate)
+    67: (0.412, 0.220, 0.082),  # Shrub     → #694714 (darker brown)
     68: (0.180, 0.545, 0.341),  # Mallee    → #2E8B57 (tree analogue)
     69: (0.851, 0.706, 0.290),  # Ground    → #D9B44A
-    70: (0.549, 0.353, 0.169),  # Wood      → #8C5A2B
+    70: (0.412, 0.220, 0.082),  # Wood      → #694714 (darker brown)
     71: (0.180, 0.545, 0.341),  # Tree      → #2E8B57
 }
 OVERLAY_CLASS_LABELS = {
@@ -68,6 +68,7 @@ EXPORT_LEGEND_FONT_SIZE = 30
 EXPORT_COMPARISON_HEADER_FONT_SIZE = 44
 EXPORT_MARKER_SIZE_MULTIPLIER = 2.0  # doubles point size on export
 CAMERA_EYE = {"x": 1.45, "y": -1.55, "z": 0.78}
+EXPORT_CAMERA_EYE = {"x": 1.55, "y": -1.65, "z": 1.20}
 PLOT_TOP_MARGIN = 72
 
 
@@ -881,6 +882,14 @@ def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
     export_fig.update_layout(
         title={"font": {"size": EXPORT_TITLE_FONT_SIZE}},
         legend={"font": {"size": EXPORT_LEGEND_FONT_SIZE, "color": UI_COLORS["ink"]}},
+        scene={
+            "xaxis": {"visible": False},
+            "yaxis": {"visible": False},
+            "zaxis": {"visible": False},
+            "aspectmode": "data",
+            "camera": {"eye": EXPORT_CAMERA_EYE},
+            "bgcolor": "white",
+        },
     )
 
     if export_fig.layout.annotations:
