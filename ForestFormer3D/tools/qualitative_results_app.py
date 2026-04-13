@@ -66,6 +66,7 @@ INSTANCE_PALETTE = (
 EXPORT_TITLE_FONT_SIZE = 40
 EXPORT_LEGEND_FONT_SIZE = 30
 EXPORT_COMPARISON_HEADER_FONT_SIZE = 44
+EXPORT_MARKER_SIZE_MULTIPLIER = 2.0  # doubles point size on export
 CAMERA_EYE = {"x": 1.45, "y": -1.55, "z": 0.78}
 PLOT_TOP_MARGIN = 72
 
@@ -464,7 +465,7 @@ def build_figure(
                             [0.65, "#3AAB68"], # mid green
                             [1.0, "#5DC98A"],  # bright canopy green (high)
                         ],
-                        "opacity": 0.95,
+                        "opacity": 1.0,
                         "showscale": False,
                     },
                     hoverinfo="skip", showlegend=False,
@@ -891,19 +892,23 @@ def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
 
     for trace in export_fig.data:
         marker = getattr(trace, "marker", None)
-        colorbar = getattr(marker, "colorbar", None)
-        if colorbar is None:
+        if marker is None:
             continue
-        showscale = bool(getattr(marker, "showscale", False))
-        trace.update(
-            marker={
-                "showscale": showscale,
-                "colorbar": {
-                    "title": {"font": {"size": EXPORT_LEGEND_FONT_SIZE}},
-                    "tickfont": {"size": EXPORT_LEGEND_FONT_SIZE},
-                },
-            }
-        )
+        current_size = getattr(marker, "size", None)
+        if isinstance(current_size, (int, float)):
+            trace.update(marker={"size": current_size * EXPORT_MARKER_SIZE_MULTIPLIER})
+        colorbar = getattr(marker, "colorbar", None)
+        if colorbar is not None:
+            showscale = bool(getattr(marker, "showscale", False))
+            trace.update(
+                marker={
+                    "showscale": showscale,
+                    "colorbar": {
+                        "title": {"font": {"size": EXPORT_LEGEND_FONT_SIZE}},
+                        "tickfont": {"size": EXPORT_LEGEND_FONT_SIZE},
+                    },
+                }
+            )
 
     return export_fig
 
