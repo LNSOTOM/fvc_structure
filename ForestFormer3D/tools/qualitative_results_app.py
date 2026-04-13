@@ -448,9 +448,17 @@ def build_instance_figure(
     instance_ids: np.ndarray,
     title: str,
     marker_size: float,
+    cmin: int = 1,
+    cmax: int = 1,
     legend_note: str | None = None,
 ) -> go.Figure:
     mask = instance_ids > 0
+
+    # Build explicit tick values: 1, 5, 10, 15, ..., cmax
+    base_ticks = [1] + list(range(5, cmax, 5))
+    if cmax not in base_ticks:
+        base_ticks.append(cmax)
+    tick_vals = sorted(set(base_ticks))
 
     fig = go.Figure()
     if np.any(mask):
@@ -467,8 +475,10 @@ def build_instance_figure(
                     "colorscale": "Turbo",
                     "opacity": 0.95,
                     "showscale": True,
+                    "cmin": cmin,
+                    "cmax": cmax,
                     "colorbar": {
-                        "title": "Tree ID > 0",
+                        "title": f"Tree ID ({cmin}→{cmax})",
                         "orientation": "h",
                         "x": 0.5,
                         "xanchor": "center",
@@ -479,6 +489,9 @@ def build_instance_figure(
                         "bgcolor": "rgba(255,255,255,0.82)",
                         "outlinecolor": UI_COLORS["border"],
                         "outlinewidth": 1,
+                        "tickmode": "array",
+                        "tickvals": tick_vals,
+                        "ticktext": [str(v) for v in tick_vals],
                     },
                 },
                 hoverinfo="skip",
@@ -703,43 +716,27 @@ def build_scene_views(
 
     if mode == "semantic":
         gt_fig = build_figure(
-            x,
-            y,
-            z,
-            gt_colors,
-            gt_title,
-            marker_size,
-            gt_legend_entries,
-            gt_legend_note,
+            x, y, z, gt_colors, gt_title, marker_size, gt_legend_entries, gt_legend_note,
         )
         pred_fig = build_figure(
-            x,
-            y,
-            z,
-            pred_colors,
-            pred_title,
-            marker_size,
-            pred_legend_entries,
-            pred_legend_note,
+            x, y, z, pred_colors, pred_title, marker_size, pred_legend_entries, pred_legend_note,
         )
     else:
+        gt_ids = instance_gt[instance_gt > 0]
+        pred_ids = instance_pred[instance_pred > 0]
+
+        gt_cmin = int(gt_ids.min()) if gt_ids.size > 0 else 1
+        gt_cmax = int(gt_ids.max()) if gt_ids.size > 0 else 1
+        pred_cmin = int(pred_ids.min()) if pred_ids.size > 0 else 1
+        pred_cmax = int(pred_ids.max()) if pred_ids.size > 0 else 1
+
         gt_fig = build_instance_figure(
-            x,
-            y,
-            z,
-            instance_gt,
-            gt_title,
-            marker_size,
-            gt_legend_note,
+            x, y, z, instance_gt, gt_title, marker_size,
+            cmin=gt_cmin, cmax=gt_cmax, legend_note=gt_legend_note,
         )
         pred_fig = build_instance_figure(
-            x,
-            y,
-            z,
-            instance_pred,
-            pred_title,
-            marker_size,
-            pred_legend_note,
+            x, y, z, instance_pred, pred_title, marker_size,
+            cmin=pred_cmin, cmax=pred_cmax, legend_note=pred_legend_note,
         )
     summary = format_scene_summary(arrays, len(indices), site_kind)
     return gt_fig, pred_fig, summary
