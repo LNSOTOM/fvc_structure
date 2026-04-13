@@ -36,6 +36,9 @@ OVERLAY_CLASS_COLORS = {
     66: (0.0, 0.0, 1.0),
     67: (0.0, 1.0, 0.0),
     68: (0.7922, 0.1216, 0.4824),
+    69: (0.937, 0.749, 0.016),  # Ground (yellow-brownish #efbf04)
+    70: (0.6, 0.4, 0.2),  # Wood (brown)
+    71: (0.13, 0.55, 0.13),  # Tree (forest green)
 }
 OVERLAY_CLASS_LABELS = {
     64: "Forb",
@@ -43,10 +46,14 @@ OVERLAY_CLASS_LABELS = {
     66: "Hummock",
     67: "Shrub",
     68: "Mallee",
+    69: "Ground",
+    70: "Wood",
+    71: "Tree",
 }
 SITE_SEMANTIC_OVERLAY_ALIASES = {
     "low": {0: 64, 1: 67, 2: 68},
     "medium": {0: 66, 1: 67, 2: 68},
+    "forest": {0: 69, 1: 70, 2: 71},
     "unknown": {0: 64, 1: 67, 2: 68},
 }
 IGNORE_COLOR = "#B8BEC7"
@@ -86,11 +93,13 @@ SEMANTIC_COLORS = {
 }
 
 
-def infer_site_kind(scene_name: str) -> str:
+def infer_site_kind(scene_name: str, experiment_name: str = "") -> str:
     if "_l_" in scene_name:
         return "low"
     if "_m_" in scene_name:
         return "medium"
+    if any(tag in experiment_name for tag in ("zero_shot_forest", "zero_shot_culs", "zero_shot_scion")):
+        return "forest"
     return "unknown"
 
 
@@ -130,6 +139,8 @@ def site_class_summary(site_kind: str) -> str:
         return "Medium site mapping: 0 = Hummock, 1 = Shrub, 2 = Mallee"
     if site_kind == "low":
         return "Low site mapping: 0 = Forb, 1 = Shrub, 2 = Mallee"
+    if site_kind == "forest":
+        return "Forest site: 0 = Ground, 1 = Wood, 2 = Tree"
     return "Site mapping: 0 = Forb/Hummock, 1 = Shrub, 2 = Mallee"
 
 
@@ -138,11 +149,13 @@ def site_heading(site_kind: str) -> str:
         return "Qualitative results · Medium site"
     if site_kind == "low":
         return "Qualitative results · Low site"
+    if site_kind == "forest":
+        return "Qualitative results · Forest site"
     return "Qualitative results"
 
 
-def make_site_banner(scene_name: str) -> html.Div:
-    site_kind = infer_site_kind(scene_name)
+def make_site_banner(scene_name: str, experiment_name: str = "") -> html.Div:
+    site_kind = infer_site_kind(scene_name, experiment_name)
     return html.Div(
         site_class_summary(site_kind),
         style={
@@ -345,23 +358,44 @@ def build_figure(
     legend_entries: list[tuple[str, str]],
     legend_note: str | None = None,
 ) -> go.Figure:
-    fig = go.Figure(
-        data=[
-            go.Scatter3d(
-                x=x,
-                y=y,
-                z=z,
-                mode="markers",
-                marker={
-                    "size": marker_size,
-                    "color": colors,
-                    "opacity": 0.95,
-                },
-                hoverinfo="skip",
-                showlegend=False,
-            )
-        ]
+    fig = go.Figure()
+    
+    # Add ground plane mesh
+    x_min, x_max = x.min(), x.max()
+    y_min, y_max = y.min(), y.max()
+    z_ground = z.min() - 0.02  # Slightly below lowest point
+    
+    fig.add_trace(
+        go.Mesh3d(
+            x=[x_min, x_max, x_max, x_min],
+            y=[y_min, y_min, y_max, y_max],
+            z=[z_ground, z_ground, z_ground, z_ground],
+            color='rgba(200, 200, 200, 0.15)',
+            opacity=0.15,
+            showlegend=False,
+            hoverinfo='skip',
+            lighting=dict(ambient=0.8, diffuse=0.5, specular=0.2),
+            lightposition=dict(x=1000, y=1000, z=1000),
+        )
     )
+    
+    # Add point cloud
+    fig.add_trace(
+        go.Scatter3d(
+            x=x,
+            y=y,
+            z=z,
+            mode="markers",
+            marker={
+                "size": marker_size,
+                "color": colors,
+                "opacity": 0.95,
+            },
+            hoverinfo="skip",
+            showlegend=False,
+        )
+    )
+    
     for label, color in legend_entries:
         fig.add_trace(
             go.Scatter3d(
@@ -454,13 +488,47 @@ def build_instance_figure(
 ) -> go.Figure:
     mask = instance_ids > 0
 
-    # Build explicit tick values: 1, 5, 10, 15, ..., cmax
-    base_ticks = [1] + list(range(5, cmax, 5))
-    if cmax not in base_ticks:
-        base_ticks.append(cmax)
-    tick_vals = sorted(set(base_ticks))
+    # Build discrete colorscale: one solid color band per integer ID
+    n_colors = max(cmax - cmin + 1, 1)
+    discrete_colorscale = []
+    for i in range(n_colors):
+        frac_start = i / n_colors
+        frac_end = (i + 1) / n_colors
+        t = i / max(n_colors - 1, 1)
+        hue = int(t * 300)
+        discrete_colorscale.append([frac_start, f"hsl({hue}, 90%, 50%)"])
+        discrete_colorscale.append([frac_end, f"hsl({hue}, 90%, 50%)"])
+
+    # Build tick values: cmin, then every 5, then cmax
+    tick_vals = [cmin]
+    current = ((cmin // 5) + 1) * 5  # Round up to next multiple of 5
+    while current < cmax:
+        tick_vals.append(current)
+        current += 5
+    if cmax not in tick_vals:
+        tick_vals.append(cmax)
 
     fig = go.Figure()
+    
+    # Add ground plane mesh
+    x_min, x_max = x.min(), x.max()
+    y_min, y_max = y.min(), y.max()
+    z_ground = z.min() - 0.02  # Slightly below lowest point
+    
+    fig.add_trace(
+        go.Mesh3d(
+            x=[x_min, x_max, x_max, x_min],
+            y=[y_min, y_min, y_max, y_max],
+            z=[z_ground, z_ground, z_ground, z_ground],
+            color='rgba(200, 200, 200, 0.15)',
+            opacity=0.15,
+            showlegend=False,
+            hoverinfo='skip',
+            lighting=dict(ambient=0.8, diffuse=0.5, specular=0.2),
+            lightposition=dict(x=1000, y=1000, z=1000),
+        )
+    )
+    
     if np.any(mask):
         visible_ids = instance_ids[mask].astype(np.int32)
         fig.add_trace(
@@ -472,11 +540,11 @@ def build_instance_figure(
                 marker={
                     "size": marker_size,
                     "color": visible_ids,
-                    "colorscale": "Turbo",
+                    "colorscale": discrete_colorscale,
                     "opacity": 0.95,
                     "showscale": True,
-                    "cmin": cmin,
-                    "cmax": cmax,
+                    "cmin": cmin - 0.5,
+                    "cmax": cmax + 0.5,
                     "colorbar": {
                         "title": f"Tree ID ({cmin}→{cmax})",
                         "orientation": "h",
@@ -622,8 +690,8 @@ def make_legend_chip(label: str, color: str) -> html.Div:
     )
 
 
-def make_mode_legend(mode: str, scene_name: str) -> html.Div:
-    site_kind = infer_site_kind(scene_name)
+def make_mode_legend(mode: str, scene_name: str, experiment_name: str = "") -> html.Div:
+    site_kind = infer_site_kind(scene_name, experiment_name)
     if mode == "semantic":
         items = [
             make_legend_chip(semantic_label(0, site_kind), semantic_color(0, site_kind)),
@@ -682,13 +750,14 @@ def make_panel(title: str, graph_id: str) -> html.Div:
 def build_scene_views(
     scene_path: str,
     scene_name: str,
+    experiment_name: str,
     mode: str,
     max_points: int,
     seed: int,
     marker_size: float,
 ) -> tuple[go.Figure, go.Figure, html.Div]:
     arrays = load_scene(scene_path)
-    site_kind = infer_site_kind(scene_name)
+    site_kind = infer_site_kind(scene_name, experiment_name)
     indices = make_sample_indices(scene_path, len(arrays["x"]), max_points=max_points, base_seed=seed)
 
     x = arrays["x"][indices]
@@ -791,7 +860,7 @@ def get_export_header_font() -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
 def make_png_download(fig: go.Figure, filename: str):
     def writer(buffer) -> None:
         export_fig = prepare_figure_for_export(fig)
-        buffer.write(export_fig.to_image(format="png", width=1600, height=1200, scale=2))
+        buffer.write(export_fig.to_image(format="png", width=1800, height=1200, scale=2))
 
     return dcc.send_bytes(writer, filename)
 
@@ -805,8 +874,8 @@ def make_comparison_png_download(
     def writer(buffer) -> None:
         export_gt_fig = prepare_figure_for_export(gt_fig)
         export_pred_fig = prepare_figure_for_export(pred_fig)
-        gt_image = Image.open(io.BytesIO(export_gt_fig.to_image(format="png", width=1400, height=1100, scale=2))).convert("RGB")
-        pred_image = Image.open(io.BytesIO(export_pred_fig.to_image(format="png", width=1400, height=1100, scale=2))).convert("RGB")
+        gt_image = Image.open(io.BytesIO(export_gt_fig.to_image(format="png", width=1600, height=1100, scale=2))).convert("RGB")
+        pred_image = Image.open(io.BytesIO(export_pred_fig.to_image(format="png", width=1600, height=1100, scale=2))).convert("RGB")
 
         padding = 32
         header_height = 72
@@ -1034,17 +1103,17 @@ def create_app(
         mode: str,
     ) -> tuple[str, go.Figure, go.Figure, html.Div, html.Div, html.Div]:
         scene_path = scene_lookup[experiment_name][scene_name]
-        site_kind = infer_site_kind(scene_name)
+        site_kind = infer_site_kind(scene_name, experiment_name)
         gt_fig, pred_fig, summary = build_scene_views(
-            scene_path, scene_name, mode, max_points, seed, marker_size
+            scene_path, scene_name, experiment_name, mode, max_points, seed, marker_size
         )
         return (
             site_heading(site_kind),
             gt_fig,
             pred_fig,
             summary,
-            make_mode_legend(mode, scene_name),
-            make_site_banner(scene_name),
+            make_mode_legend(mode, scene_name, experiment_name),
+            make_site_banner(scene_name, experiment_name),
         )
 
     @app.callback(
@@ -1069,7 +1138,9 @@ def create_app(
     ):
         del gt_clicks, pred_clicks, comparison_clicks
         scene_path = scene_lookup[experiment_name][scene_name]
-        gt_fig, pred_fig, _ = build_scene_views(scene_path, scene_name, mode, max_points, seed, marker_size)
+        gt_fig, pred_fig, _ = build_scene_views(
+            scene_path, scene_name, experiment_name, mode, max_points, seed, marker_size
+        )
         mode_slug = "semantic" if mode == "semantic" else "instance"
 
         if ctx.triggered_id == "download-gt-button":
