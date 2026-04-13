@@ -31,14 +31,14 @@ UI_COLORS = {
     "chip_bg": "#EEE7DA",
 }
 OVERLAY_CLASS_COLORS = {
-    64: (1.0, 0.0, 0.0),
-    65: (0.6, 0.4, 0.2),
-    66: (0.0, 0.0, 1.0),
-    67: (0.0, 1.0, 0.0),
-    68: (0.7922, 0.1216, 0.4824),
-    69: (0.937, 0.749, 0.016),  # Ground (yellow-brownish #efbf04)
-    70: (0.6, 0.4, 0.2),  # Wood (brown)
-    71: (0.13, 0.55, 0.13),  # Tree (forest green)
+    64: (0.851, 0.706, 0.290),  # Forb      → #D9B44A (ground-like)
+    65: (0.549, 0.353, 0.169),  # Woody debris → #8C5A2B
+    66: (0.851, 0.706, 0.290),  # Hummock   → #D9B44A (ground-like)
+    67: (0.549, 0.353, 0.169),  # Shrub     → #8C5A2B (woody intermediate)
+    68: (0.180, 0.545, 0.341),  # Mallee    → #2E8B57 (tree analogue)
+    69: (0.851, 0.706, 0.290),  # Ground    → #D9B44A
+    70: (0.549, 0.353, 0.169),  # Wood      → #8C5A2B
+    71: (0.180, 0.545, 0.341),  # Tree      → #2E8B57
 }
 OVERLAY_CLASS_LABELS = {
     64: "Forb",
@@ -348,6 +348,56 @@ def instance_legend_entries(semantic_ids: np.ndarray, site_kind: str) -> list[tu
     return [("Tree ID > 0", INSTANCE_PALETTE[0])]
 
 
+def create_ground_mesh(
+    x: np.ndarray,
+    y: np.ndarray,
+    z: np.ndarray,
+    semantic_labels: np.ndarray | None = None,
+    ground_label: int = 0,
+    grid_resolution: int = 30,
+):
+    """Create a triangulated terrain mesh from ground-labelled points."""
+    from scipy.interpolate import griddata
+    from scipy.spatial import Delaunay
+
+    # Use semantic ground points if available, else bottom 5%
+    if semantic_labels is not None:
+        ground_mask = semantic_labels == ground_label
+    else:
+        ground_mask = z <= np.percentile(z, 5)
+
+    if not np.any(ground_mask):
+        ground_mask = z <= np.percentile(z, 5)
+
+    x_ground = x[ground_mask]
+    y_ground = y[ground_mask]
+    z_ground = z[ground_mask]
+
+    x_min, x_max = x.min(), x.max()
+    y_min, y_max = y.min(), y.max()
+    xi = np.linspace(x_min, x_max, grid_resolution)
+    yi = np.linspace(y_min, y_max, grid_resolution)
+    xi_grid, yi_grid = np.meshgrid(xi, yi)
+
+    points = np.column_stack([x_ground, y_ground])
+    zi_grid = griddata(points, z_ground, (xi_grid, yi_grid), method="linear")
+
+    # Fill NaN edges with nearest
+    if np.any(np.isnan(zi_grid)):
+        zi_grid_nearest = griddata(points, z_ground, (xi_grid, yi_grid), method="nearest")
+        zi_grid = np.where(np.isnan(zi_grid), zi_grid_nearest, zi_grid)
+
+    # Slightly below to avoid z-fighting with ground points
+    zi_grid -= 0.05
+
+    x_flat = xi_grid.flatten()
+    y_flat = yi_grid.flatten()
+    z_flat = zi_grid.flatten()
+
+    tri = Delaunay(np.column_stack([x_flat, y_flat]))
+    return x_flat, y_flat, z_flat, tri.simplices
+
+
 def build_figure(
     x: np.ndarray,
     y: np.ndarray,
@@ -357,60 +407,116 @@ def build_figure(
     marker_size: float,
     legend_entries: list[tuple[str, str]],
     legend_note: str | None = None,
+    semantic_labels: np.ndarray | None = None,
+    site_kind: str = "unknown",
 ) -> go.Figure:
     fig = go.Figure()
-    
-    # Add ground plane mesh
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
-    z_ground = z.min() - 0.02  # Slightly below lowest point
-    
-    fig.add_trace(
-        go.Mesh3d(
-            x=[x_min, x_max, x_max, x_min],
-            y=[y_min, y_min, y_max, y_max],
-            z=[z_ground, z_ground, z_ground, z_ground],
-            color='rgba(200, 200, 200, 0.15)',
-            opacity=0.15,
-            showlegend=False,
-            hoverinfo='skip',
-            lighting=dict(ambient=0.8, diffuse=0.5, specular=0.2),
-            lightposition=dict(x=1000, y=1000, z=1000),
+
+    # Apply z-gradient for forest sites (ground + tree), and for low/medium (forb/hummock + mallee)
+    if semantic_labels is not None:
+        # Ground-like class = 0 (Forb / Hummock / Ground)
+        ground_mask = semantic_labels == 0
+        # Tree-like class = 2 (Mallee / Tree)
+        tree_mask = semantic_labels == 2
+        # Mid class = 1 (Shrub / Wood)
+        mid_mask = semantic_labels == 1
+        # Ignore = -1
+        ignore_mask = ~(ground_mask | tree_mask | mid_mask)
+
+        # --- Ground / Forb / Hummock: warm golden-yellow gradient ---
+        if np.any(ground_mask):
+            z_g = z[ground_mask]
+            z_norm = (z_g - z_g.min()) / (z_g.max() - z_g.min() + 1e-6)
+            fig.add_trace(
+                go.Scatter3d(
+                    x=x[ground_mask], y=y[ground_mask], z=z_g,
+                    mode="markers",
+                    marker={
+                        "size": marker_size,
+                        "color": z_norm,
+                        "colorscale": [
+                            [0.0, "#A07820"],  # deep golden-brown (low)
+                            [0.35, "#C9973A"], # warm amber
+                            [0.65, "#D9B44A"], # golden yellow (mid)
+                            [1.0, "#EDD87A"],  # pale yellow (high)
+                        ],
+                        "opacity": 0.95,
+                        "showscale": False,
+                    },
+                    hoverinfo="skip", showlegend=False,
+                )
+            )
+
+        # --- Tree / Mallee: forest green gradient ---
+        if np.any(tree_mask):
+            z_t = z[tree_mask]
+            z_norm = (z_t - z_t.min()) / (z_t.max() - z_t.min() + 1e-6)
+            fig.add_trace(
+                go.Scatter3d(
+                    x=x[tree_mask], y=y[tree_mask], z=z_t,
+                    mode="markers",
+                    marker={
+                        "size": marker_size,
+                        "color": z_norm,
+                        "colorscale": [
+                            [0.0, "#1A5C35"],  # deep forest green (low/trunk)
+                            [0.35, "#2E8B57"], # forest green
+                            [0.65, "#3AAB68"], # mid green
+                            [1.0, "#5DC98A"],  # bright canopy green (high)
+                        ],
+                        "opacity": 0.95,
+                        "showscale": False,
+                    },
+                    hoverinfo="skip", showlegend=False,
+                )
+            )
+
+        # --- Shrub / Wood: flat brown ---
+        if np.any(mid_mask):
+            fig.add_trace(
+                go.Scatter3d(
+                    x=x[mid_mask], y=y[mid_mask], z=z[mid_mask],
+                    mode="markers",
+                    marker={
+                        "size": marker_size,
+                        "color": colors[mid_mask],
+                        "opacity": 0.95,
+                    },
+                    hoverinfo="skip", showlegend=False,
+                )
+            )
+
+        # --- Ignore points ---
+        if np.any(ignore_mask):
+            fig.add_trace(
+                go.Scatter3d(
+                    x=x[ignore_mask], y=y[ignore_mask], z=z[ignore_mask],
+                    mode="markers",
+                    marker={
+                        "size": marker_size,
+                        "color": colors[ignore_mask],
+                        "opacity": 0.95,
+                    },
+                    hoverinfo="skip", showlegend=False,
+                )
+            )
+    else:
+        fig.add_trace(
+            go.Scatter3d(
+                x=x, y=y, z=z,
+                mode="markers",
+                marker={"size": marker_size, "color": colors, "opacity": 0.95},
+                hoverinfo="skip", showlegend=False,
+            )
         )
-    )
-    
-    # Add point cloud
-    fig.add_trace(
-        go.Scatter3d(
-            x=x,
-            y=y,
-            z=z,
-            mode="markers",
-            marker={
-                "size": marker_size,
-                "color": colors,
-                "opacity": 0.95,
-            },
-            hoverinfo="skip",
-            showlegend=False,
-        )
-    )
-    
+
     for label, color in legend_entries:
         fig.add_trace(
             go.Scatter3d(
-                x=[None],
-                y=[None],
-                z=[None],
+                x=[None], y=[None], z=[None],
                 mode="markers",
-                marker={
-                    "size": max(marker_size * 4, 8),
-                    "color": color,
-                    "opacity": 1.0,
-                },
-                name=label,
-                showlegend=True,
-                hoverinfo="skip",
+                marker={"size": max(marker_size * 4, 8), "color": color, "opacity": 1.0},
+                name=label, showlegend=True, hoverinfo="skip",
             )
         )
 
@@ -418,57 +524,35 @@ def build_figure(
     if legend_note:
         annotations.append(
             {
-                "xref": "paper",
-                "yref": "paper",
-                "x": 0.98,
-                "y": 0.02,
-                "xanchor": "right",
-                "yanchor": "bottom",
+                "xref": "paper", "yref": "paper",
+                "x": 0.98, "y": 0.02,
+                "xanchor": "right", "yanchor": "bottom",
                 "align": "left",
                 "text": legend_note,
                 "showarrow": False,
                 "font": {"size": 11, "color": UI_COLORS["muted"]},
                 "bgcolor": "rgba(255,255,255,0.90)",
                 "bordercolor": UI_COLORS["border"],
-                "borderwidth": 1,
-                "borderpad": 6,
+                "borderwidth": 1, "borderpad": 6,
             }
         )
 
     fig.update_layout(
-        title={
-            "text": title,
-            "x": 0.02,
-            "xanchor": "left",
-            "y": 0.98,
-            "yanchor": "top",
-            "pad": {"t": 10, "b": 4},
-        },
+        title={"text": title, "x": 0.02, "xanchor": "left", "y": 0.98, "yanchor": "top", "pad": {"t": 10, "b": 4}},
         margin={"l": 0, "r": 0, "t": PLOT_TOP_MARGIN, "b": 0},
-        paper_bgcolor="white",
-        plot_bgcolor="white",
+        paper_bgcolor="white", plot_bgcolor="white",
         showlegend=True,
         legend={
-            "x": 0.98,
-            "y": 0.98,
-            "xanchor": "right",
-            "yanchor": "top",
+            "x": 0.98, "y": 0.98, "xanchor": "right", "yanchor": "top",
             "bgcolor": "rgba(255,255,255,0.92)",
-            "bordercolor": UI_COLORS["border"],
-            "borderwidth": 1,
+            "bordercolor": UI_COLORS["border"], "borderwidth": 1,
             "font": {"size": 12, "color": UI_COLORS["ink"]},
             "itemsizing": "constant",
         },
         annotations=annotations,
         scene={
-            "xaxis": {"visible": False},
-            "yaxis": {"visible": False},
-            "zaxis": {"visible": False},
-            "aspectmode": "data",
-            "camera": {
-                "eye": CAMERA_EYE,
-            },
-            "bgcolor": "white",
+            "xaxis": {"visible": False}, "yaxis": {"visible": False}, "zaxis": {"visible": False},
+            "aspectmode": "data", "camera": {"eye": CAMERA_EYE}, "bgcolor": "white",
         },
         uirevision=title,
     )
@@ -485,10 +569,10 @@ def build_instance_figure(
     cmin: int = 1,
     cmax: int = 1,
     legend_note: str | None = None,
+    semantic_labels: np.ndarray | None = None,
 ) -> go.Figure:
     mask = instance_ids > 0
 
-    # Build discrete colorscale: one solid color band per integer ID
     n_colors = max(cmax - cmin + 1, 1)
     discrete_colorscale = []
     for i in range(n_colors):
@@ -499,9 +583,8 @@ def build_instance_figure(
         discrete_colorscale.append([frac_start, f"hsl({hue}, 90%, 50%)"])
         discrete_colorscale.append([frac_end, f"hsl({hue}, 90%, 50%)"])
 
-    # Build tick values: cmin, then every 5, then cmax
     tick_vals = [cmin]
-    current = ((cmin // 5) + 1) * 5  # Round up to next multiple of 5
+    current = ((cmin // 5) + 1) * 5
     while current < cmax:
         tick_vals.append(current)
         current += 5
@@ -509,26 +592,7 @@ def build_instance_figure(
         tick_vals.append(cmax)
 
     fig = go.Figure()
-    
-    # Add ground plane mesh
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
-    z_ground = z.min() - 0.02  # Slightly below lowest point
-    
-    fig.add_trace(
-        go.Mesh3d(
-            x=[x_min, x_max, x_max, x_min],
-            y=[y_min, y_min, y_max, y_max],
-            z=[z_ground, z_ground, z_ground, z_ground],
-            color='rgba(200, 200, 200, 0.15)',
-            opacity=0.15,
-            showlegend=False,
-            hoverinfo='skip',
-            lighting=dict(ambient=0.8, diffuse=0.5, specular=0.2),
-            lightposition=dict(x=1000, y=1000, z=1000),
-        )
-    )
-    
+
     if np.any(mask):
         visible_ids = instance_ids[mask].astype(np.int32)
         fig.add_trace(
@@ -768,27 +832,24 @@ def build_scene_views(
     instance_gt = arrays["instance_gt"][indices]
     instance_pred = arrays["instance_pred"][indices]
 
+    gt_title = f"GT {mode} [{site_kind}] ({scene_name})"
+    pred_title = f"Prediction {mode} [{site_kind}] ({scene_name})"
+    gt_legend_note = None
+    pred_legend_note = None
+
     if mode == "semantic":
         gt_colors = semantic_colors(semantic_gt, site_kind)
         pred_colors = semantic_colors(semantic_pred, site_kind)
-        gt_title = f"GT semantic [{site_kind}] ({scene_name})"
-        pred_title = f"Prediction semantic [{site_kind}] ({scene_name})"
         gt_legend_entries = semantic_legend_entries(semantic_gt, site_kind)
         pred_legend_entries = semantic_legend_entries(semantic_pred, site_kind)
-        gt_legend_note = None
-        pred_legend_note = None
-    else:
-        gt_title = f"GT instance [{site_kind}] ({scene_name})"
-        pred_title = f"Prediction instance [{site_kind}] ({scene_name})"
-        gt_legend_note = None
-        pred_legend_note = None
 
-    if mode == "semantic":
         gt_fig = build_figure(
             x, y, z, gt_colors, gt_title, marker_size, gt_legend_entries, gt_legend_note,
+            semantic_labels=semantic_gt, site_kind=site_kind,
         )
         pred_fig = build_figure(
             x, y, z, pred_colors, pred_title, marker_size, pred_legend_entries, pred_legend_note,
+            semantic_labels=semantic_pred, site_kind=site_kind,
         )
     else:
         gt_ids = instance_gt[instance_gt > 0]
@@ -802,11 +863,14 @@ def build_scene_views(
         gt_fig = build_instance_figure(
             x, y, z, instance_gt, gt_title, marker_size,
             cmin=gt_cmin, cmax=gt_cmax, legend_note=gt_legend_note,
+            semantic_labels=semantic_gt,
         )
         pred_fig = build_instance_figure(
             x, y, z, instance_pred, pred_title, marker_size,
             cmin=pred_cmin, cmax=pred_cmax, legend_note=pred_legend_note,
+            semantic_labels=semantic_pred,
         )
+
     summary = format_scene_summary(arrays, len(indices), site_kind)
     return gt_fig, pred_fig, summary
 
