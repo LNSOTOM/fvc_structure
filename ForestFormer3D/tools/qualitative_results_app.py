@@ -19,7 +19,24 @@ from plyfile import PlyData
 DEFAULT_WORK_DIRS_ROOT = Path(
     "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs"
 )
-SUPPORTED_SUFFIXES = {".ply", ".las"}
+DEFAULT_SEGMENT_ANY_TREE_EXPERIMENTS = {
+    "low_L1": Path(
+        "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/SegmentAnyTree/calperum/low_L1_20260312_013732/results"
+    ),
+    "low_L2": Path(
+        "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/SegmentAnyTree/calperum/low_L2_20260312_020346/results"
+    ),
+    "medium_L1": Path(
+        "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/SegmentAnyTree/calperum/medium_L1_20260312_010211/results"
+    ),
+    "medium_L2": Path(
+        "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/SegmentAnyTree/calperum/medium_L2_20260312_012138/results"
+    ),
+    "forest": Path(
+        "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/SegmentAnyTree/ForAINetV2/forest/results"
+    ),
+}
+SUPPORTED_SUFFIXES = {".ply", ".las", ".laz"}
 UI_COLORS = {
     "background": "#F3EFE7",
     "panel": "#FFFDF8",
@@ -95,62 +112,58 @@ SEMANTIC_COLORS = {
 }
 
 
-def infer_site_kind(scene_name: str, experiment_name: str = "") -> str:
-    if "_l_" in scene_name:
-        return "low"
-    if "_m_" in scene_name:
-        return "medium"
-    if any(tag in experiment_name for tag in ("zero_shot_forest", "zero_shot_culs", "zero_shot_scion")):
-        return "forest"
-    return "unknown"
-
-
-def semantic_overlay_id(label_id: int, site_kind: str) -> int | None:
-    if label_id == -1:
+def semantic_overlay_class_id(label_id: int, site_kind: str) -> int | None:
+    if label_id < 0:
         return None
-    return SITE_SEMANTIC_OVERLAY_ALIASES.get(site_kind, SITE_SEMANTIC_OVERLAY_ALIASES["unknown"]).get(label_id)
+    aliases = SITE_SEMANTIC_OVERLAY_ALIASES.get(site_kind, SITE_SEMANTIC_OVERLAY_ALIASES["unknown"])
+    return aliases.get(label_id)
 
 
 def semantic_color(label_id: int, site_kind: str) -> str:
-    overlay_class_id = semantic_overlay_id(label_id, site_kind)
-    if overlay_class_id is None:
+    overlay_id = semantic_overlay_class_id(label_id, site_kind)
+    if overlay_id is None:
         return IGNORE_COLOR
-    return SEMANTIC_COLORS.get(overlay_class_id, "#7F7F7F")
-
-
-def instance_base_color(semantic_id: int, site_kind: str) -> str:
-    if semantic_id == -1:
-        return IGNORE_COLOR
-    return semantic_color(semantic_id, site_kind)
+    return SEMANTIC_COLORS.get(overlay_id, IGNORE_COLOR)
 
 
 def semantic_label(label_id: int, site_kind: str) -> str:
-    overlay_class_id = semantic_overlay_id(label_id, site_kind)
-    if overlay_class_id is None:
-        return "Ignore (-1)"
-    overlay_name = OVERLAY_CLASS_LABELS.get(overlay_class_id)
-    if overlay_name is None:
-        return str(label_id)
-    if label_id in SITE_SEMANTIC_OVERLAY_ALIASES.get(site_kind, {}):
-        return f"{overlay_name} ({label_id}->{overlay_class_id})"
-    return f"{overlay_name} ({overlay_class_id})"
+    if label_id < 0:
+        return "Ignore"
+    overlay_id = semantic_overlay_class_id(label_id, site_kind)
+    if overlay_id is None:
+        return f"Unknown ({label_id})"
+    class_name = OVERLAY_CLASS_LABELS.get(overlay_id, f"Class {overlay_id}")
+    return f"{class_name} ({label_id}->{overlay_id})"
 
 
 def site_class_summary(site_kind: str) -> str:
-    if site_kind == "medium":
-        return "Medium site mapping: 0 = Hummock, 1 = Shrub, 2 = Mallee"
     if site_kind == "low":
         return "Low site mapping: 0 = Forb, 1 = Shrub, 2 = Mallee"
+    if site_kind == "medium":
+        return "Medium site mapping: 0 = Hummock, 1 = Shrub, 2 = Mallee"
     if site_kind == "forest":
-        return "Forest site: 0 = Ground, 1 = Wood, 2 = Tree"
-    return "Site mapping: 0 = Forb/Hummock, 1 = Shrub, 2 = Mallee"
+        return "Forest site mapping: 0 = Ground, 1 = Wood, 2 = Tree"
+    return "Semantic mapping unavailable"
+
+
+def infer_site_kind(scene_name: str, experiment_name: str = "") -> str:
+    scene_name_lower = scene_name.lower()
+    experiment_name_lower = experiment_name.lower()
+
+    if "forest" in scene_name_lower or "forest" in experiment_name_lower:
+        return "forest"
+    if "medium" in scene_name_lower or "medium" in experiment_name_lower or "_m_" in scene_name_lower:
+        return "medium"
+    if "low" in scene_name_lower or "low" in experiment_name_lower or "_l_" in scene_name_lower:
+        return "low"
+    return "unknown"
 
 
 def site_heading(site_kind: str) -> str:
-    if site_kind == "medium":
-        return "Qualitative results · Medium site"
     if site_kind == "low":
         return "Qualitative results · Low site"
+    if site_kind == "medium":
+        return "Qualitative results · Medium site"
     if site_kind == "forest":
         return "Qualitative results · Forest site"
     return "Qualitative results"
@@ -252,6 +265,33 @@ def scan_experiments(work_dirs_root: Path) -> dict[str, list[SceneEntry]]:
     return experiments
 
 
+def scan_named_experiments(experiment_dirs: dict[str, Path]) -> dict[str, list[SceneEntry]]:
+    experiments: dict[str, list[SceneEntry]] = {}
+
+    for experiment_name, experiment_dir in experiment_dirs.items():
+        if not experiment_dir.exists():
+            continue
+
+        scene_paths = sorted(
+            path
+            for path in experiment_dir.rglob("*")
+            if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+        )
+        if not scene_paths:
+            continue
+
+        experiments[experiment_name] = [
+            SceneEntry(
+                experiment_name=experiment_name,
+                scene_name=scene_path.stem,
+                scene_path=str(scene_path),
+            )
+            for scene_path in scene_paths
+        ]
+
+    return experiments
+
+
 def print_experiment_summary(experiments: dict[str, list[SceneEntry]]) -> None:
     for experiment_name, scenes in experiments.items():
         print(f"{experiment_name}: {len(scenes)} scenes")
@@ -259,45 +299,100 @@ def print_experiment_summary(experiments: dict[str, list[SceneEntry]]) -> None:
             print(f"  - {scene.scene_name}")
 
 
+def _first_available_ply_field(vertex, candidates: tuple[str, ...]) -> np.ndarray | None:
+    names = set(vertex.dtype.names or [])
+    for candidate in candidates:
+        if candidate in names:
+            return np.asarray(vertex[candidate])
+    lower_map = {name.lower(): name for name in names}
+    for candidate in candidates:
+        matched = lower_map.get(candidate.lower())
+        if matched is not None:
+            return np.asarray(vertex[matched])
+    return None
+
+
+def _first_available_las_field(las, candidates: tuple[str, ...]) -> np.ndarray | None:
+    names = {name.lower(): name for name in las.point_format.dimension_names}
+    for candidate in candidates:
+        matched = names.get(candidate.lower())
+        if matched is not None:
+            return np.asarray(las[matched])
+    return None
+
+
 def _read_required_columns_from_ply(scene_path: Path) -> dict[str, np.ndarray]:
     ply = PlyData.read(scene_path)
     vertex = ply["vertex"].data
     names = set(vertex.dtype.names or [])
-    required = {"x", "y", "z", "semantic_pred", "instance_pred", "semantic_gt", "instance_gt"}
-    missing = sorted(required - names)
-    if missing:
-        raise ValueError(f"Missing required fields in {scene_path}: {missing}")
+
+    required_xyz = {"x", "y", "z"}
+    missing_xyz = sorted(required_xyz - names)
+    if missing_xyz:
+        raise ValueError(f"Missing required fields in {scene_path}: {missing_xyz}")
+
+    x = np.asarray(vertex["x"], dtype=np.float32)
+    y = np.asarray(vertex["y"], dtype=np.float32)
+    z = np.asarray(vertex["z"], dtype=np.float32)
+    total = len(x)
+
+    semantic_pred = _first_available_ply_field(vertex, ("semantic_pred", "pred_semantic", "semantic"))
+    semantic_gt = _first_available_ply_field(vertex, ("semantic_gt", "gt_semantic"))
+    instance_pred = _first_available_ply_field(vertex, ("instance_pred", "PredInstance", "pred_instance", "predinstance"))
+    instance_gt = _first_available_ply_field(vertex, ("instance_gt", "treeID", "tree_id", "TreeID", "gt_tree_id"))
+
+    if instance_pred is None:
+        raise ValueError(f"Missing prediction instance field in {scene_path}. Expected one of: instance_pred, PredInstance")
+    if instance_gt is None:
+        raise ValueError(f"Missing GT instance field in {scene_path}. Expected one of: instance_gt, treeID")
+
+    if semantic_pred is None:
+        semantic_pred = np.full(total, -1, dtype=np.int32)
+    if semantic_gt is None:
+        semantic_gt = np.full(total, -1, dtype=np.int32)
+
     return {
-        "x": np.asarray(vertex["x"], dtype=np.float32),
-        "y": np.asarray(vertex["y"], dtype=np.float32),
-        "z": np.asarray(vertex["z"], dtype=np.float32),
-        "semantic_pred": np.asarray(vertex["semantic_pred"], dtype=np.int32),
-        "instance_pred": np.asarray(vertex["instance_pred"], dtype=np.int32),
-        "semantic_gt": np.asarray(vertex["semantic_gt"], dtype=np.int32),
-        "instance_gt": np.asarray(vertex["instance_gt"], dtype=np.int32),
+        "x": x,
+        "y": y,
+        "z": z,
+        "semantic_pred": np.asarray(semantic_pred, dtype=np.int32),
+        "instance_pred": np.asarray(instance_pred, dtype=np.int32),
+        "semantic_gt": np.asarray(semantic_gt, dtype=np.int32),
+        "instance_gt": np.asarray(instance_gt, dtype=np.int32),
     }
 
 
 def _read_required_columns_from_las(scene_path: Path) -> dict[str, np.ndarray]:
     las = laspy.read(scene_path)
-    names = {name.lower(): name for name in las.point_format.dimension_names}
-    required_names = {
-        "semantic_pred": "semantic_pred",
-        "instance_pred": "instance_pred",
-        "semantic_gt": "semantic_gt",
-        "instance_gt": "instance_gt",
-    }
-    missing = [key for key in required_names if key not in names]
-    if missing:
-        raise ValueError(f"Missing required LAS dimensions in {scene_path}: {missing}")
+
+    x = np.asarray(las.x, dtype=np.float32)
+    y = np.asarray(las.y, dtype=np.float32)
+    z = np.asarray(las.z, dtype=np.float32)
+    total = len(x)
+
+    semantic_pred = _first_available_las_field(las, ("semantic_pred", "pred_semantic", "semantic"))
+    semantic_gt = _first_available_las_field(las, ("semantic_gt", "gt_semantic"))
+    instance_pred = _first_available_las_field(las, ("instance_pred", "PredInstance", "pred_instance", "predinstance"))
+    instance_gt = _first_available_las_field(las, ("instance_gt", "treeID", "tree_id", "TreeID", "gt_tree_id"))
+
+    if instance_pred is None:
+        raise ValueError(f"Missing prediction instance LAS dimension in {scene_path}. Expected one of: instance_pred, PredInstance")
+    if instance_gt is None:
+        raise ValueError(f"Missing GT instance LAS dimension in {scene_path}. Expected one of: instance_gt, treeID")
+
+    if semantic_pred is None:
+        semantic_pred = np.full(total, -1, dtype=np.int32)
+    if semantic_gt is None:
+        semantic_gt = np.full(total, -1, dtype=np.int32)
+
     return {
-        "x": np.asarray(las.x, dtype=np.float32),
-        "y": np.asarray(las.y, dtype=np.float32),
-        "z": np.asarray(las.z, dtype=np.float32),
-        "semantic_pred": np.asarray(las[names["semantic_pred"]], dtype=np.int32),
-        "instance_pred": np.asarray(las[names["instance_pred"]], dtype=np.int32),
-        "semantic_gt": np.asarray(las[names["semantic_gt"]], dtype=np.int32),
-        "instance_gt": np.asarray(las[names["instance_gt"]], dtype=np.int32),
+        "x": x,
+        "y": y,
+        "z": z,
+        "semantic_pred": np.asarray(semantic_pred, dtype=np.int32),
+        "instance_pred": np.asarray(instance_pred, dtype=np.int32),
+        "semantic_gt": np.asarray(semantic_gt, dtype=np.int32),
+        "instance_gt": np.asarray(instance_gt, dtype=np.int32),
     }
 
 
@@ -307,7 +402,7 @@ def load_scene(scene_path_str: str) -> dict[str, np.ndarray]:
     suffix = scene_path.suffix.lower()
     if suffix == ".ply":
         return _read_required_columns_from_ply(scene_path)
-    if suffix == ".las":
+    if suffix in {".las", ".laz"}:
         return _read_required_columns_from_las(scene_path)
     raise ValueError(f"Unsupported scene suffix for {scene_path}")
 
@@ -348,6 +443,17 @@ def semantic_legend_entries(label_ids: np.ndarray, site_kind: str) -> list[tuple
 def instance_legend_entries(semantic_ids: np.ndarray, site_kind: str) -> list[tuple[str, str]]:
     del semantic_ids, site_kind
     return [("Tree ID > 0", INSTANCE_PALETTE[0])]
+
+
+def remap_instance_ids(instance_ids: np.ndarray, reference_ids: np.ndarray) -> tuple[np.ndarray, int]:
+    unique_ids = np.sort(np.unique(reference_ids[reference_ids > 0]))
+    if unique_ids.size == 0:
+        return np.zeros_like(instance_ids, dtype=np.int32), 0
+
+    mapped_ids = np.zeros_like(instance_ids, dtype=np.int32)
+    mask = instance_ids > 0
+    mapped_ids[mask] = np.searchsorted(unique_ids, instance_ids[mask]) + 1
+    return mapped_ids, int(unique_ids.size)
 
 
 def create_ground_mesh(
@@ -580,7 +686,7 @@ def build_instance_figure(
     for i in range(n_colors):
         frac_start = i / n_colors
         frac_end = (i + 1) / n_colors
-        t = i / max(n_colors - 1, 1)
+        t = 1 - (i / max(n_colors - 1, 1))
         hue = int(t * 300)
         discrete_colorscale.append([frac_start, f"hsl({hue}, 90%, 50%)"])
         discrete_colorscale.append([frac_end, f"hsl({hue}, 90%, 50%)"])
@@ -687,7 +793,14 @@ def tree_id_range_text(instance_ids: np.ndarray) -> str:
     visible_ids = instance_ids[instance_ids > 0]
     if visible_ids.size == 0:
         return "none"
-    return f"{int(visible_ids.min())} to {int(visible_ids.max())}"
+    return f"{int(visible_ids.min())}→{int(visible_ids.max())}"
+
+
+def tree_id_gap_count(instance_ids: np.ndarray) -> int:
+    visible_ids = instance_ids[instance_ids > 0]
+    if visible_ids.size == 0:
+        return 0
+    return max(0, int(visible_ids.max()) - int(visible_ids.min()) + 1 - np.unique(visible_ids).size)
 
 
 def format_scene_summary(scene_arrays: dict[str, np.ndarray], sample_count: int, site_kind: str) -> html.Div:
@@ -700,15 +813,15 @@ def format_scene_summary(scene_arrays: dict[str, np.ndarray], sample_count: int,
     pred_instances = int(np.unique(instance_pred[instance_pred > 0]).size)
     gt_tree_id_range = tree_id_range_text(instance_gt)
     pred_tree_id_range = tree_id_range_text(instance_pred)
+    gt_tree_id_gaps = tree_id_gap_count(instance_gt)
+    pred_tree_id_gaps = tree_id_gap_count(instance_pred)
     gt_semantics = sorted({semantic_label(int(label), site_kind) for label in np.unique(semantic_gt)})
     pred_semantics = sorted({semantic_label(int(label), site_kind) for label in np.unique(semantic_pred)})
 
     items = [
         html.Span(f"Sampled points: {sample_count:,}"),
-        html.Span(f"GT instances: {gt_instances:,}"),
-        html.Span(f"Pred instances: {pred_instances:,}"),
-        html.Span(f"GT tree IDs > 0: {gt_tree_id_range}"),
-        html.Span(f"Pred tree IDs > 0: {pred_tree_id_range}"),
+        html.Span(f"GT unique instances: {gt_instances:,} | Original Tree ID range: {gt_tree_id_range} | gaps: {gt_tree_id_gaps}"),
+        html.Span(f"Pred unique instances: {pred_instances:,} | Original Tree ID range: {pred_tree_id_range} | gaps: {pred_tree_id_gaps}"),
         html.Span(f"GT semantic labels: {', '.join(gt_semantics)}"),
         html.Span(f"Pred semantic labels: {', '.join(pred_semantics)}"),
     ]
@@ -724,7 +837,6 @@ def format_scene_summary(scene_arrays: dict[str, np.ndarray], sample_count: int,
             "color": UI_COLORS["muted"],
         },
     )
-
 
 def make_legend_chip(label: str, color: str) -> html.Div:
     return html.Div(
@@ -857,21 +969,21 @@ def build_scene_views(
             semantic_labels=semantic_pred, site_kind=site_kind,
         )
     else:
-        gt_ids = instance_gt[instance_gt > 0]
-        pred_ids = instance_pred[instance_pred > 0]
+        gt_display_ids, gt_count = remap_instance_ids(instance_gt, arrays["instance_gt"])
+        pred_display_ids, pred_count = remap_instance_ids(instance_pred, arrays["instance_pred"])
 
-        gt_cmin = int(gt_ids.min()) if gt_ids.size > 0 else 1
-        gt_cmax = int(gt_ids.max()) if gt_ids.size > 0 else 1
-        pred_cmin = int(pred_ids.min()) if pred_ids.size > 0 else 1
-        pred_cmax = int(pred_ids.max()) if pred_ids.size > 0 else 1
+        gt_cmin = 1
+        gt_cmax = gt_count if gt_count > 0 else 1
+        pred_cmin = 1
+        pred_cmax = pred_count if pred_count > 0 else 1
 
         gt_fig = build_instance_figure(
-            x, y, z, instance_gt, gt_title, marker_size,
+            x, y, z, gt_display_ids, gt_title, marker_size,
             cmin=gt_cmin, cmax=gt_cmax, legend_note=gt_legend_note,
             semantic_labels=semantic_gt,
         )
         pred_fig = build_instance_figure(
-            x, y, z, instance_pred, pred_title, marker_size,
+            x, y, z, pred_display_ids, pred_title, marker_size,
             cmin=pred_cmin, cmax=pred_cmax, legend_note=pred_legend_note,
             semantic_labels=semantic_pred,
         )
@@ -976,23 +1088,51 @@ def make_comparison_png_download(
 
 
 def create_app(
-    experiments: dict[str, list[SceneEntry]],
+    experiment_families: dict[str, dict[str, list[SceneEntry]]],
     max_points: int,
     seed: int,
     marker_size: float,
 ) -> Dash:
     app = Dash(__name__)
-    experiment_names = list(experiments)
-    default_experiment = experiment_names[0]
-    default_scene = experiments[default_experiment][0].scene_name
+
+    family_names = list(experiment_families)
+    default_family = family_names[0]
+    default_experiment = list(experiment_families[default_family])[0]
+    default_scene = experiment_families[default_family][default_experiment][0].scene_name
 
     scene_lookup = {
-        experiment_name: {scene.scene_name: scene.scene_path for scene in scenes}
-        for experiment_name, scenes in experiments.items()
+        family_name: {
+            experiment_name: {scene.scene_name: scene.scene_path for scene in scenes}
+            for experiment_name, scenes in experiments.items()
+        }
+        for family_name, experiments in experiment_families.items()
     }
 
     app.layout = html.Div(
         [
+            dcc.Tabs(
+                id="family-tabs",
+                value=default_family,
+                children=[
+                    dcc.Tab(
+                        label=family_name,
+                        value=family_name,
+                        style={
+                            "backgroundColor": UI_COLORS["chip_bg"],
+                            "border": f"1px solid {UI_COLORS['border']}",
+                            "color": UI_COLORS["muted"],
+                        },
+                        selected_style={
+                            "backgroundColor": UI_COLORS["ink"],
+                            "border": f"1px solid {UI_COLORS['ink']}",
+                            "color": "white",
+                            "fontWeight": 700,
+                        },
+                    )
+                    for family_name in family_names
+                ],
+                style={"maxWidth": "620px", "margin": "0 auto 16px auto"},
+            ),
             html.H1(
                 id="site-heading",
                 children="Qualitative results",
@@ -1015,10 +1155,6 @@ def create_app(
                             html.Label("Experiment", style={"fontWeight": 600}),
                             dcc.Dropdown(
                                 id="experiment-dropdown",
-                                options=[
-                                    {"label": name, "value": name}
-                                    for name in experiment_names
-                                ],
                                 value=default_experiment,
                                 clearable=False,
                             ),
@@ -1158,12 +1294,23 @@ def create_app(
     )
 
     @app.callback(
+        Output("experiment-dropdown", "options"),
+        Output("experiment-dropdown", "value"),
+        Input("family-tabs", "value"),
+    )
+    def update_experiment_options(family_name: str) -> tuple[list[dict[str, str]], str]:
+        experiment_names = list(experiment_families[family_name])
+        options = [{"label": name, "value": name} for name in experiment_names]
+        return options, experiment_names[0]
+
+    @app.callback(
         Output("scene-dropdown", "options"),
         Output("scene-dropdown", "value"),
+        Input("family-tabs", "value"),
         Input("experiment-dropdown", "value"),
     )
-    def update_scene_options(experiment_name: str) -> tuple[list[dict[str, str]], str]:
-        scenes = experiments[experiment_name]
+    def update_scene_options(family_name: str, experiment_name: str) -> tuple[list[dict[str, str]], str]:
+        scenes = experiment_families[family_name][experiment_name]
         options = [{"label": scene.scene_name, "value": scene.scene_name} for scene in scenes]
         return options, scenes[0].scene_name
 
@@ -1174,16 +1321,18 @@ def create_app(
         Output("scene-summary", "children"),
         Output("mode-legend", "children"),
         Output("site-class-banner", "children"),
+        Input("family-tabs", "value"),
         Input("experiment-dropdown", "value"),
         Input("scene-dropdown", "value"),
         Input("mode-tabs", "value"),
     )
     def update_graphs(
+        family_name: str,
         experiment_name: str,
         scene_name: str,
         mode: str,
     ) -> tuple[str, go.Figure, go.Figure, html.Div, html.Div, html.Div]:
-        scene_path = scene_lookup[experiment_name][scene_name]
+        scene_path = scene_lookup[family_name][experiment_name][scene_name]
         site_kind = infer_site_kind(scene_name, experiment_name)
         gt_fig, pred_fig, summary = build_scene_views(
             scene_path, scene_name, experiment_name, mode, max_points, seed, marker_size
@@ -1204,6 +1353,7 @@ def create_app(
         Input("download-gt-button", "n_clicks"),
         Input("download-pred-button", "n_clicks"),
         Input("download-comparison-button", "n_clicks"),
+        State("family-tabs", "value"),
         State("experiment-dropdown", "value"),
         State("scene-dropdown", "value"),
         State("mode-tabs", "value"),
@@ -1213,12 +1363,13 @@ def create_app(
         gt_clicks: int,
         pred_clicks: int,
         comparison_clicks: int,
+        family_name: str,
         experiment_name: str,
         scene_name: str,
         mode: str,
     ):
         del gt_clicks, pred_clicks, comparison_clicks
-        scene_path = scene_lookup[experiment_name][scene_name]
+        scene_path = scene_lookup[family_name][experiment_name][scene_name]
         gt_fig, pred_fig, _ = build_scene_views(
             scene_path, scene_name, experiment_name, mode, max_points, seed, marker_size
         )
@@ -1244,13 +1395,27 @@ def create_app(
 
 def main() -> None:
     args = parse_args()
-    experiments = scan_experiments(args.work_dirs_root)
+
+    segment_any_tree_experiments = scan_named_experiments(DEFAULT_SEGMENT_ANY_TREE_EXPERIMENTS)
+    forestformer_experiments = scan_experiments(args.work_dirs_root)
+
+    experiment_families: dict[str, dict[str, list[SceneEntry]]] = {}
+    if segment_any_tree_experiments:
+        experiment_families["SegmentAnyTree"] = segment_any_tree_experiments
+    if forestformer_experiments:
+        experiment_families["ForestFormer3D"] = forestformer_experiments
+
+    if not experiment_families:
+        raise RuntimeError("No experiments were found.")
+
     if args.list_only:
-        print_experiment_summary(experiments)
+        for family_name, experiments in experiment_families.items():
+            print(f"\n[{family_name}]")
+            print_experiment_summary(experiments)
         return
 
     app = create_app(
-        experiments=experiments,
+        experiment_families=experiment_families,
         max_points=args.max_points,
         seed=args.seed,
         marker_size=args.marker_size,
