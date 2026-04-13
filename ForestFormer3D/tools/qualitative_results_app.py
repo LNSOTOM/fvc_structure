@@ -150,12 +150,12 @@ def infer_site_kind(scene_name: str, experiment_name: str = "") -> str:
     scene_name_lower = scene_name.lower()
     experiment_name_lower = experiment_name.lower()
 
-    if "forest" in scene_name_lower or "forest" in experiment_name_lower:
-        return "forest"
     if "medium" in scene_name_lower or "medium" in experiment_name_lower or "_m_" in scene_name_lower:
         return "medium"
     if "low" in scene_name_lower or "low" in experiment_name_lower or "_l_" in scene_name_lower:
         return "low"
+    if "forest" in scene_name_lower or "forest" in experiment_name_lower:
+        return "forest"
     return "unknown"
 
 
