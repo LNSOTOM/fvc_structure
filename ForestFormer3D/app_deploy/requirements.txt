@@ -1,0 +1,9 @@
+dash==3.1.0
+plotly==6.2.0
+numpy==1.26.4
+laspy[lazrs]==2.5.4
+plyfile==1.1.2
+Pillow==10.4.0
+scipy==1.13.1
+gunicorn==23.0.0
+kaleido==0.2.1
