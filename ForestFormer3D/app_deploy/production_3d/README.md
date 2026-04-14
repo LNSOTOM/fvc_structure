@@ -35,6 +35,7 @@ Requirements:
 
 - PDAL must be installed and available as `pdal`
 - The PDAL build must include `writers.copc`
+- The converter writes `extra_dims=all` so PLY attributes such as predictions, scores, and GT labels are preserved as LAS extra dimensions in the COPC output
 
 ## 2. Generate STAC Metadata
 

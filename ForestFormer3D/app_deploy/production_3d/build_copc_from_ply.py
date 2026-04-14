@@ -84,6 +84,7 @@ def build_pipeline(scene_path: Path, output_path: Path) -> dict:
                 "type": "writers.copc",
                 "filename": str(output_path),
                 "forward": "all",
+                "extra_dims": "all",
             },
         ]
     }
