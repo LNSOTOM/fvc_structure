@@ -124,6 +124,8 @@ ipython_config.py
 
 # pyenv
 .python-version
+!ForestFormer3D/.python-version
+!ForestFormer3D/app_deploy/.python-version
 
 # pipenv
 #   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
