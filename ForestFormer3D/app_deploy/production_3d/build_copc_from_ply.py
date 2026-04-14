@@ -41,6 +41,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the planned conversions without executing PDAL.",
     )
+    parser.add_argument(
+        "--a-srs",
+        default="",
+        help="Assign an output CRS to the COPC files, for example EPSG:7854.",
+    )
     return parser.parse_args()
 
 
@@ -72,20 +77,24 @@ def build_output_path(scene_path: Path, input_root: Path, output_root: Path) -> 
     return (output_root / relative_path).with_suffix(".copc.laz")
 
 
-def build_pipeline(scene_path: Path, output_path: Path) -> dict:
+def build_pipeline(scene_path: Path, output_path: Path, a_srs: str) -> dict:
     suffix = scene_path.suffix.lower()
+    writer = {
+        "type": "writers.copc",
+        "filename": str(output_path),
+        "forward": "all",
+        "extra_dims": "all",
+    }
+    if a_srs:
+        writer["a_srs"] = a_srs
+
     return {
         "pipeline": [
             {
                 "type": PDAL_READER_TYPES[suffix],
                 "filename": str(scene_path),
             },
-            {
-                "type": "writers.copc",
-                "filename": str(output_path),
-                "forward": "all",
-                "extra_dims": "all",
-            },
+            writer,
         ]
     }
 
@@ -110,7 +119,7 @@ def main() -> None:
             continue
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        pipeline = build_pipeline(scene_path, output_path)
+        pipeline = build_pipeline(scene_path, output_path, args.a_srs)
         print(f"build {scene_path} -> {output_path}")
         if not args.dry_run:
             run_pipeline(pdal_path, pipeline)

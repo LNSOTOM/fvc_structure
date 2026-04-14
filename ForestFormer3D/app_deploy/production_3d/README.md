@@ -28,7 +28,8 @@ The conversion helper preserves experiment folders and writes `.copc.laz` output
 ```bash
 python ForestFormer3D/app_deploy/production_3d/build_copc_from_ply.py \
   --input-root /path/to/dev-scenes \
-  --output-root /path/to/prod-bundle/copc
+  --output-root /path/to/prod-bundle/copc \
+  --a-srs EPSG:7854
 ```
 
 Requirements:
@@ -36,6 +37,9 @@ Requirements:
 - PDAL must be installed and available as `pdal`
 - The PDAL build must include `writers.copc`
 - The converter writes `extra_dims=all` so PLY attributes such as predictions, scores, and GT labels are preserved as LAS extra dimensions in the COPC output
+- Use `--a-srs` when the source files do not already carry CRS metadata and you need the COPC output stamped explicitly, for example `--a-srs EPSG:7854`
+
+For the current Calperum production bundle, use `EPSG:7854` unless you later decide to write a compound horizontal+vertical CRS explicitly.
 
 ## 2. Generate STAC Metadata
 
