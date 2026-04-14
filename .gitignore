@@ -188,6 +188,7 @@ dmypy.json
 !ForestFormer3D/requirements.txt
 !ForestFormer3D/runtime.txt
 !docs/index.html
+!docs/forest-qualitative-viewer.html
 
 *.npy*
 *.ply*

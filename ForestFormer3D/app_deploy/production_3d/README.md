@@ -14,12 +14,15 @@ The production 3D route should use public COPC assets and STAC metadata.
 
 Use a separate production layout inside the bucket so the existing `.ply` development uploads stay untouched:
 
-- `terrascientia/fvc_structure-viewer/<experiment>/<scene>.ply` for the current development summary viewer
-- `terrascientia/fvc_structure-viewer/copc/<experiment>/<scene>.copc.laz` for the production viewer
-- `terrascientia/fvc_structure-viewer/stac/catalog.json`
-- `terrascientia/fvc_structure-viewer/stac/collections/<collection>/collection.json`
-- `terrascientia/fvc_structure-viewer/stac/items/<collection>/<item>.json`
-- `terrascientia/fvc_structure-viewer/stac/summaries/<collection>/<item>-summary.json`
+- `terrascientia/fvc_structure-viewer/lidar/raw/<experiment>/<scene>.ply` for the current development summary viewer
+- `terrascientia/fvc_structure-viewer/lidar/copc/<experiment>/<scene>.copc.laz` for the production viewer
+- `terrascientia/fvc_structure-viewer/lidar/stac/catalog.json`
+- `terrascientia/fvc_structure-viewer/lidar/stac/collections/<collection>/collection.json`
+- `terrascientia/fvc_structure-viewer/lidar/stac/items/<collection>/<item>.json`
+- `terrascientia/fvc_structure-viewer/lidar/stac/summaries/<collection>/<item>-summary.json`
+- `terrascientia/fvc_structure-viewer/imagery/rgb/...` for future RGB imagery products
+- `terrascientia/fvc_structure-viewer/imagery/multispec/...` for future multispectral imagery products
+- `terrascientia/fvc_structure-viewer/imagery/hyspec/...` for future hyperspectral imagery products
 
 ## 1. Convert Development Scenes to COPC
 
@@ -60,7 +63,7 @@ python ForestFormer3D/app_deploy/production_3d/generate_stac_for_copc.py \
   --copc-root /path/to/prod-bundle/copc \
   --stac-root /path/to/prod-bundle/stac \
   --asset-href-mode absolute \
-  --public-base-url https://<public-r2-domain>/fvc_structure-viewer
+  --public-base-url https://<public-r2-domain>/fvc_structure-viewer/lidar
 ```
 
 This writes:
@@ -83,7 +86,13 @@ export R2_ACCOUNT_ID=<cloudflare-account-id>
 export AWS_ACCESS_KEY_ID=<r2-access-key-id>
 export AWS_SECRET_ACCESS_KEY=<r2-secret-access-key>
 
-bash ForestFormer3D/app_deploy/production_3d/sync_copc_to_r2.sh /path/to/prod-bundle terrascientia fvc_structure-viewer
+bash ForestFormer3D/app_deploy/production_3d/sync_copc_to_r2.sh /path/to/prod-bundle terrascientia fvc_structure-viewer/lidar
+```
+
+To sync the raw scenes for the development viewer into `lidar/raw`, use:
+
+```bash
+bash ForestFormer3D/app_deploy/production_3d/sync_raw_to_r2.sh /path/to/dev-scenes terrascientia fvc_structure-viewer/lidar/raw
 ```
 
 ## 4. Make Production Assets Public
@@ -99,7 +108,7 @@ Use one of these:
 Set this in the website deployment:
 
 ```bash
-FVC_STRUCTURE_STAC_CATALOG_URL=https://<public-r2-domain>/fvc_structure-viewer/stac/catalog.json
+FVC_STRUCTURE_STAC_CATALOG_URL=https://<public-r2-domain>/fvc_structure-viewer/lidar/stac/catalog.json
 ```
 
 Then `/fvc_structure-viewer/3d` will open the production STAC catalog and hand the selected COPC asset to the dedicated viewer.

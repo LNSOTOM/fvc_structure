@@ -3,7 +3,7 @@ set -euo pipefail
 
 bundle_root=${1:?Usage: sync_copc_to_r2.sh <bundle-root> [bucket] [prefix]}
 bucket=${2:-terrascientia}
-prefix=${3:-fvc_structure-viewer}
+prefix=${3:-fvc_structure-viewer/lidar}
 
 : "${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID in the environment}"
 : "${AWS_ACCESS_KEY_ID:?Set AWS_ACCESS_KEY_ID in the environment}"
