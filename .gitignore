@@ -183,6 +183,8 @@ dmypy.json
 !ForestFormer3D/app_deploy/requirements.txt
 !ForestFormer3D/app_deploy/runtime.txt
 !ForestFormer3D/app_deploy/index.html
+!ForestFormer3D/requirements.txt
+!ForestFormer3D/runtime.txt
 !docs/index.html
 
 *.npy*
