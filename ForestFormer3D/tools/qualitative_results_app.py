@@ -87,6 +87,10 @@ EXPORT_MARKER_SIZE_MULTIPLIER = 2.0  # doubles point size on export
 CAMERA_EYE = {"x": 1.35, "y": -1.45, "z": 1.10}
 EXPORT_CAMERA_EYE = {"x": 1.25, "y": -1.35, "z": 1.60}
 PLOT_TOP_MARGIN = 72
+DEFAULT_PREFERRED_SCENE = "SCION_SCION_plot_61_annotated_test_out"
+PREFERRED_DEFAULT_SCENES = {
+    "ForestFormer3D": "SCION_SCION_plot_31_annotated_test",
+}
 
 
 @dataclass(frozen=True)
@@ -1096,10 +1100,28 @@ def create_app(
 ) -> Dash:
     app = Dash(__name__)
 
+    def preferred_default_scene_for_family(family_name: str) -> str:
+        return PREFERRED_DEFAULT_SCENES.get(family_name, DEFAULT_PREFERRED_SCENE)
+
+    def preferred_experiment_name(family_name: str) -> str:
+        experiments = experiment_families[family_name]
+        preferred_scene = preferred_default_scene_for_family(family_name)
+        for experiment_name, scenes in experiments.items():
+            if any(scene.scene_name == preferred_scene for scene in scenes):
+                return experiment_name
+        return next(iter(experiments))
+
+    def preferred_scene_name(family_name: str, experiment_name: str) -> str:
+        preferred_scene = preferred_default_scene_for_family(family_name)
+        for scene in experiment_families[family_name][experiment_name]:
+            if scene.scene_name == preferred_scene:
+                return scene.scene_name
+        return experiment_families[family_name][experiment_name][0].scene_name
+
     family_names = list(experiment_families)
     default_family = family_names[0]
-    default_experiment = list(experiment_families[default_family])[0]
-    default_scene = experiment_families[default_family][default_experiment][0].scene_name
+    default_experiment = preferred_experiment_name(default_family)
+    default_scene = preferred_scene_name(default_family, default_experiment)
 
     scene_lookup = {
         family_name: {
@@ -1302,7 +1324,7 @@ def create_app(
     def update_experiment_options(family_name: str) -> tuple[list[dict[str, str]], str]:
         experiment_names = list(experiment_families[family_name])
         options = [{"label": name, "value": name} for name in experiment_names]
-        return options, experiment_names[0]
+        return options, preferred_experiment_name(family_name)
 
     @app.callback(
         Output("scene-dropdown", "options"),
@@ -1313,7 +1335,7 @@ def create_app(
     def update_scene_options(family_name: str, experiment_name: str) -> tuple[list[dict[str, str]], str]:
         scenes = experiment_families[family_name][experiment_name]
         options = [{"label": scene.scene_name, "value": scene.scene_name} for scene in scenes]
-        return options, scenes[0].scene_name
+        return options, preferred_scene_name(family_name, experiment_name)
 
     @app.callback(
         Output("site-heading", "children"),
