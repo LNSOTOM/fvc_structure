@@ -928,6 +928,7 @@ def make_panel(title: str, graph_id: str) -> html.Div:
     )
 
 
+@lru_cache(maxsize=24)
 def build_scene_views(
     scene_path: str,
     scene_name: str,
