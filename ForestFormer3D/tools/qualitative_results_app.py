@@ -55,7 +55,7 @@ OVERLAY_CLASS_COLORS = {
     68: (0.180, 0.545, 0.341),  # Mallee    → #2E8B57 (tree analogue)
     69: (0.851, 0.706, 0.290),  # Ground    → #D9B44A
     70: (0.412, 0.220, 0.082),  # Wood      → #694714 (darker brown)
-    71: (0.180, 0.545, 0.341),  # Tree      → #2E8B57
+    71: (0.180, 0.545, 0.341),  # Leaf      → #2E8B57
 }
 OVERLAY_CLASS_LABELS = {
     64: "Forb",
@@ -65,7 +65,7 @@ OVERLAY_CLASS_LABELS = {
     68: "Mallee",
     69: "Ground",
     70: "Wood",
-    71: "Tree",
+    71: "Leaf",
 }
 SITE_SEMANTIC_OVERLAY_ALIASES = {
     "low": {0: 64, 1: 67, 2: 68},
@@ -142,7 +142,7 @@ def site_class_summary(site_kind: str) -> str:
     if site_kind == "medium":
         return "Medium site mapping: 0 = Hummock, 1 = Shrub, 2 = Mallee"
     if site_kind == "forest":
-        return "Forest site mapping: 0 = Ground, 1 = Wood, 2 = Tree"
+        return "Forest site mapping: 0 = Ground, 1 = Wood, 2 = Leaf"
     return "Semantic mapping unavailable"
 
 
@@ -520,16 +520,16 @@ def build_figure(
 ) -> go.Figure:
     fig = go.Figure()
 
-    # Apply z-gradient for forest sites (ground + tree), and for low/medium (forb/hummock + mallee)
+    # Apply z-gradient for forest sites (ground + leaf), and for low/medium (forb/hummock + mallee)
     if semantic_labels is not None:
         # Ground-like class = 0 (Forb / Hummock / Ground)
         ground_mask = semantic_labels == 0
-        # Tree-like class = 2 (Mallee / Tree)
-        tree_mask = semantic_labels == 2
+        # Canopy-like class = 2 (Mallee / Leaf)
+        canopy_mask = semantic_labels == 2
         # Mid class = 1 (Shrub / Wood)
         mid_mask = semantic_labels == 1
         # Ignore = -1
-        ignore_mask = ~(ground_mask | tree_mask | mid_mask)
+        ignore_mask = ~(ground_mask | canopy_mask | mid_mask)
 
         # --- Ground / Forb / Hummock: warm golden-yellow gradient ---
         if np.any(ground_mask):
@@ -555,13 +555,13 @@ def build_figure(
                 )
             )
 
-        # --- Tree / Mallee: forest green gradient ---
-        if np.any(tree_mask):
-            z_t = z[tree_mask]
+        # --- Leaf / Mallee: forest green gradient ---
+        if np.any(canopy_mask):
+            z_t = z[canopy_mask]
             z_norm = (z_t - z_t.min()) / (z_t.max() - z_t.min() + 1e-6)
             fig.add_trace(
                 go.Scatter3d(
-                    x=x[tree_mask], y=y[tree_mask], z=z_t,
+                    x=x[canopy_mask], y=y[canopy_mask], z=z_t,
                     mode="markers",
                     marker={
                         "size": marker_size,
