@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +19,13 @@ from plyfile import PlyData
 
 DEFAULT_WORK_DIRS_ROOT = Path(
     "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs"
+)
+DEFAULT_NORMALIZED_HEIGHT_ROOT = Path(
+    "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/raster/z_norm/csf"
+)
+NORMALIZED_HEIGHT_PREFIXES = (
+    "z_norm_csf_tiles_multispectral.",
+    "tiles_multispectral.",
 )
 DEFAULT_SEGMENT_ANY_TREE_EXPERIMENTS = {
     "low_L1": Path(
@@ -97,6 +105,12 @@ PREFERRED_DEFAULT_SCENES = {
 class SceneEntry:
     experiment_name: str
     scene_name: str
+    scene_path: str
+
+
+@dataclass(frozen=True)
+class HeightSceneEntry:
+    tile_id: str
     scene_path: str
 
 
@@ -205,6 +219,15 @@ def parse_args() -> argparse.Namespace:
         help="Root directory containing ForestFormer3D experiment work_dirs.",
     )
     parser.add_argument(
+        "--normalized-height-root",
+        type=Path,
+        default=DEFAULT_NORMALIZED_HEIGHT_ROOT,
+        help=(
+            "Root directory containing normalized-height LAS/LAZ/PLY tiles named like "
+            "'z_norm_csf_tiles_multispectral.<tile_id>.*'."
+        ),
+    )
+    parser.add_argument(
         "--host",
         default="127.0.0.1",
         help="Host interface for the Dash server.",
@@ -294,6 +317,46 @@ def scan_named_experiments(experiment_dirs: dict[str, Path]) -> dict[str, list[S
         ]
 
     return experiments
+
+
+def _normalized_height_priority(scene_path: Path) -> tuple[int, str]:
+    path_lower = str(scene_path).lower()
+    if "/z_norm/csf/" in path_lower or path_lower.endswith("/z_norm/csf"):
+        return (0, path_lower)
+    if "coreg/icp" in path_lower:
+        return (1, path_lower)
+    if "coreg" in path_lower:
+        return (2, path_lower)
+    if "original" in path_lower:
+        return (4, path_lower)
+    return (3, path_lower)
+
+
+def extract_scene_tile_id(scene_name: str) -> str | None:
+    matches = re.findall(r"(\d+)", scene_name)
+    if not matches:
+        return None
+    return matches[-1]
+
+
+def scan_normalized_height_tiles(root: Path) -> dict[str, HeightSceneEntry]:
+    if not root.exists():
+        return {}
+
+    tiles: dict[str, HeightSceneEntry] = {}
+    candidates = sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix.lower() in SUPPORTED_SUFFIXES
+        and path.stem.startswith(NORMALIZED_HEIGHT_PREFIXES)
+    )
+    for scene_path in candidates:
+        tile_id = scene_path.stem.split(".")[-1]
+        current = tiles.get(tile_id)
+        if current is None or _normalized_height_priority(scene_path) < _normalized_height_priority(Path(current.scene_path)):
+            tiles[tile_id] = HeightSceneEntry(tile_id=tile_id, scene_path=str(scene_path))
+    return tiles
 
 
 def print_experiment_summary(experiments: dict[str, list[SceneEntry]]) -> None:
@@ -400,6 +463,32 @@ def _read_required_columns_from_las(scene_path: Path) -> dict[str, np.ndarray]:
     }
 
 
+def _read_xyz_from_ply(scene_path: Path) -> dict[str, np.ndarray]:
+    ply = PlyData.read(scene_path)
+    vertex = ply["vertex"].data
+    names = set(vertex.dtype.names or [])
+
+    required_xyz = {"x", "y", "z"}
+    missing_xyz = sorted(required_xyz - names)
+    if missing_xyz:
+        raise ValueError(f"Missing required fields in {scene_path}: {missing_xyz}")
+
+    return {
+        "x": np.asarray(vertex["x"], dtype=np.float32),
+        "y": np.asarray(vertex["y"], dtype=np.float32),
+        "z": np.asarray(vertex["z"], dtype=np.float32),
+    }
+
+
+def _read_xyz_from_las(scene_path: Path) -> dict[str, np.ndarray]:
+    las = laspy.read(scene_path)
+    return {
+        "x": np.asarray(las.x, dtype=np.float32),
+        "y": np.asarray(las.y, dtype=np.float32),
+        "z": np.asarray(las.z, dtype=np.float32),
+    }
+
+
 @lru_cache(maxsize=128)
 def load_scene(scene_path_str: str) -> dict[str, np.ndarray]:
     scene_path = Path(scene_path_str)
@@ -408,6 +497,17 @@ def load_scene(scene_path_str: str) -> dict[str, np.ndarray]:
         return _read_required_columns_from_ply(scene_path)
     if suffix in {".las", ".laz"}:
         return _read_required_columns_from_las(scene_path)
+    raise ValueError(f"Unsupported scene suffix for {scene_path}")
+
+
+@lru_cache(maxsize=128)
+def load_xyz_scene(scene_path_str: str) -> dict[str, np.ndarray]:
+    scene_path = Path(scene_path_str)
+    suffix = scene_path.suffix.lower()
+    if suffix == ".ply":
+        return _read_xyz_from_ply(scene_path)
+    if suffix in {".las", ".laz"}:
+        return _read_xyz_from_las(scene_path)
     raise ValueError(f"Unsupported scene suffix for {scene_path}")
 
 
@@ -793,6 +893,108 @@ def build_instance_figure(
     return fig
 
 
+def build_message_figure(title: str, message: str) -> go.Figure:
+    fig = go.Figure()
+    fig.update_layout(
+        title={"text": title, "x": 0.02, "xanchor": "left"},
+        margin={"l": 0, "r": 0, "t": PLOT_TOP_MARGIN, "b": 0},
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        annotations=[
+            {
+                "xref": "paper",
+                "yref": "paper",
+                "x": 0.5,
+                "y": 0.5,
+                "text": message,
+                "showarrow": False,
+                "font": {"size": 15, "color": UI_COLORS["muted"]},
+                "align": "center",
+            }
+        ],
+        scene={
+            "xaxis": {"visible": False},
+            "yaxis": {"visible": False},
+            "zaxis": {"visible": False},
+            "aspectmode": "data",
+            "camera": {"eye": CAMERA_EYE},
+            "bgcolor": "white",
+        },
+    )
+    return fig
+
+
+def build_height_figure(
+    x: np.ndarray,
+    y: np.ndarray,
+    z: np.ndarray,
+    title: str,
+    marker_size: float,
+) -> go.Figure:
+    if z.size == 0:
+        return build_message_figure(title, "No normalized-height points are available for this tile.")
+
+    z_norm = (z - z.min()) / (z.max() - z.min() + 1e-6)
+    fig = go.Figure(
+        data=[
+            go.Scatter3d(
+                x=x,
+                y=y,
+                z=z,
+                mode="markers",
+                marker={
+                    "size": marker_size,
+                    "color": z_norm,
+                    "colorscale": [
+                        [0.0, "#5b3f2a"],
+                        [0.2, "#8f6b44"],
+                        [0.45, "#d2b46c"],
+                        [0.7, "#8ebf6a"],
+                        [1.0, "#1f5c5b"],
+                    ],
+                    "opacity": 0.95,
+                    "showscale": True,
+                    "colorbar": {
+                        "title": "Norm. height",
+                        "orientation": "h",
+                        "x": 0.5,
+                        "xanchor": "center",
+                        "y": 0.96,
+                        "yanchor": "top",
+                        "len": 0.5,
+                        "thickness": 14,
+                        "bgcolor": "rgba(255,255,255,0.82)",
+                        "outlinecolor": UI_COLORS["border"],
+                        "outlinewidth": 1,
+                        "tickmode": "array",
+                        "tickvals": [0.0, 0.5, 1.0],
+                        "ticktext": [f"{z.min():.1f}", f"{(z.min() + z.max()) / 2:.1f}", f"{z.max():.1f}"],
+                    },
+                },
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        ]
+    )
+    fig.update_layout(
+        title={"text": title, "x": 0.02, "xanchor": "left", "y": 0.98, "yanchor": "top"},
+        margin={"l": 0, "r": 0, "t": 88, "b": 0},
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        showlegend=False,
+        scene={
+            "xaxis": {"visible": False},
+            "yaxis": {"visible": False},
+            "zaxis": {"visible": False},
+            "aspectmode": "data",
+            "camera": {"eye": CAMERA_EYE},
+            "bgcolor": "white",
+        },
+        uirevision=None,
+    )
+    return fig
+
+
 def tree_id_range_text(instance_ids: np.ndarray) -> str:
     visible_ids = instance_ids[instance_ids > 0]
     if visible_ids.size == 0:
@@ -997,6 +1199,22 @@ def build_scene_views(
     return gt_fig, pred_fig, summary
 
 
+@lru_cache(maxsize=48)
+def build_normalized_height_view(
+    scene_path: str,
+    scene_label: str,
+    max_points: int,
+    seed: int,
+    marker_size: float,
+) -> go.Figure:
+    arrays = load_xyz_scene(scene_path)
+    indices = make_sample_indices(scene_path, len(arrays["x"]), max_points=max_points, base_seed=seed)
+    x = arrays["x"][indices]
+    y = arrays["y"][indices]
+    z = arrays["z"][indices]
+    return build_height_figure(x, y, z, scene_label, marker_size)
+
+
 def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
     export_fig = go.Figure(fig)
     export_fig.update_layout(
@@ -1097,8 +1315,14 @@ def create_app(
     max_points: int,
     seed: int,
     marker_size: float,
+    normalized_height_root: Path | None = DEFAULT_NORMALIZED_HEIGHT_ROOT,
 ) -> Dash:
     app = Dash(__name__)
+    normalized_height_tiles = (
+        scan_normalized_height_tiles(normalized_height_root)
+        if normalized_height_root is not None
+        else {}
+    )
 
     def preferred_default_scene_for_family(family_name: str) -> str:
         return PREFERRED_DEFAULT_SCENES.get(family_name, DEFAULT_PREFERRED_SCENE)
@@ -1307,6 +1531,23 @@ def create_app(
                     "justifyContent": "center",
                 },
             ),
+            html.Div(
+                [
+                    make_panel("Normalized Height", "height-graph"),
+                    html.Div(
+                        id="height-panel-note",
+                        style={
+                            "textAlign": "center",
+                            "color": UI_COLORS["muted"],
+                            "fontSize": "13px",
+                            "marginTop": "10px",
+                        },
+                    ),
+                ],
+                style={
+                    "marginTop": "16px",
+                },
+            ),
         ],
         style={
             "padding": "12px 16px 24px 16px",
@@ -1341,9 +1582,11 @@ def create_app(
         Output("site-heading", "children"),
         Output("gt-graph", "figure"),
         Output("pred-graph", "figure"),
+        Output("height-graph", "figure"),
         Output("scene-summary", "children"),
         Output("mode-legend", "children"),
         Output("site-class-banner", "children"),
+        Output("height-panel-note", "children"),
         Input("family-tabs", "value"),
         Input("experiment-dropdown", "value"),
         Input("scene-dropdown", "value"),
@@ -1354,19 +1597,35 @@ def create_app(
         experiment_name: str,
         scene_name: str,
         mode: str,
-    ) -> tuple[str, go.Figure, go.Figure, html.Div, html.Div, html.Div]:
+    ) -> tuple[str, go.Figure, go.Figure, go.Figure, html.Div, html.Div, html.Div, str]:
         scene_path = scene_lookup[family_name][experiment_name][scene_name]
         site_kind = infer_site_kind(scene_name, experiment_name)
         gt_fig, pred_fig, summary = build_scene_views(
             scene_path, scene_name, experiment_name, mode, max_points, seed, marker_size
         )
+        tile_id = extract_scene_tile_id(scene_name)
+        height_note = "Normalized-height tile unavailable for this scene."
+        height_fig = build_message_figure("Normalized height", height_note)
+        if tile_id is not None:
+            height_entry = normalized_height_tiles.get(tile_id)
+            if height_entry is not None:
+                height_note = f"Source: {height_entry.scene_path}"
+                height_fig = build_normalized_height_view(
+                    height_entry.scene_path,
+                    f"Normalized height [tile {tile_id}] ({scene_name})",
+                    max_points,
+                    seed,
+                    marker_size,
+                )
         return (
             site_heading(site_kind),
             gt_fig,
             pred_fig,
+            height_fig,
             summary,
             make_mode_legend(mode, scene_name, experiment_name),
             make_site_banner(scene_name, experiment_name),
+            height_note,
         )
 
     @app.callback(
@@ -1442,6 +1701,7 @@ def main() -> None:
         max_points=args.max_points,
         seed=args.seed,
         marker_size=args.marker_size,
+        normalized_height_root=args.normalized_height_root,
     )
     app.run(host=args.host, port=args.port, debug=False)
 

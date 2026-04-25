@@ -16,6 +16,12 @@ scan_experiments = qualitative_results_app.scan_experiments
 scan_named_experiments = qualitative_results_app.scan_named_experiments
 
 WORK_DIRS_ROOT = Path(os.getenv("WORK_DIRS_ROOT", "/app/data/work_dirs"))
+NORMALIZED_HEIGHT_ROOT = Path(
+    os.getenv(
+        "NORMALIZED_HEIGHT_ROOT",
+        "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/raster/z_norm/csf",
+    )
+)
 MAX_POINTS = int(os.getenv("MAX_POINTS", "120000"))
 SEED = int(os.getenv("SEED", "0"))
 MARKER_SIZE = float(os.getenv("MARKER_SIZE", "2.0"))
@@ -64,5 +70,6 @@ else:
         max_points=MAX_POINTS,
         seed=SEED,
         marker_size=MARKER_SIZE,
+        normalized_height_root=NORMALIZED_HEIGHT_ROOT,
     )
 server = app.server

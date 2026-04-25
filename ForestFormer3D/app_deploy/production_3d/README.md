@@ -112,3 +112,42 @@ FVC_STRUCTURE_STAC_CATALOG_URL=https://<public-r2-domain>/fvc_structure-viewer/l
 ```
 
 Then `/fvc_structure-viewer/3d` will open the production STAC catalog and hand the selected COPC asset to the dedicated viewer.
+
+## 6. Site 1 CSF Bundle
+
+The repo now contains a regenerated Site 1 bundle built from:
+
+```bash
+/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/raster/z_norm/csf
+```
+
+Local bundle path:
+
+```bash
+ForestFormer3D/app_deploy/production_3d/generated/site1_znorm_csf
+```
+
+Expected public URLs after R2 sync:
+
+```bash
+https://<public-r2-domain>/fvc_structure-viewer/lidar/stac/catalog.json
+https://<public-r2-domain>/fvc_structure-viewer/lidar/copc/z_norm_csf/z_norm_csf_tiles_multispectral.106.copc.laz
+```
+
+Deploy this bundle to Cloudflare R2 and update Heroku in one step:
+
+```bash
+export R2_ACCOUNT_ID=<cloudflare-account-id>
+export R2_ACCESS_KEY_ID=<r2-access-key-id>
+export R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
+
+bash ForestFormer3D/app_deploy/production_3d/deploy_site1_znorm_csf.sh \
+  https://<public-r2-domain> \
+  lauransotomayor
+```
+
+That helper will:
+
+- regenerate STAC with absolute asset hrefs
+- sync `copc/` and `stac/` to `terrascientia/fvc_structure-viewer/lidar` on R2
+- set `FVC_STRUCTURE_STAC_CATALOG_URL` on the Heroku app if the `heroku` CLI is installed

@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
 
-import laspy
+try:
+    import laspy  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - runtime fallback
+    laspy = None
 
 
 COPC_SUFFIX = ".copc.laz"
@@ -84,15 +88,33 @@ def discover_copc_files(copc_root: Path) -> dict[str, list[Path]]:
 
 
 def read_header_metadata(copc_path: Path) -> dict:
-    with laspy.open(copc_path) as reader:
-        header = reader.header
-        mins = [float(value) for value in header.mins]
-        maxs = [float(value) for value in header.maxs]
-        return {
-            "point_count": int(header.point_count),
-            "mins": mins,
-            "maxs": maxs,
-        }
+    if laspy is not None:
+        with laspy.open(copc_path) as reader:
+            header = reader.header
+            mins = [float(value) for value in header.mins]
+            maxs = [float(value) for value in header.maxs]
+            return {
+                "point_count": int(header.point_count),
+                "mins": mins,
+                "maxs": maxs,
+            }
+
+    result = subprocess.run(
+        ["pdal", "info", "--summary", str(copc_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(result.stdout)
+    summary = payload["summary"]
+    bounds = summary["bounds"]
+    mins = [float(bounds["minx"]), float(bounds["miny"]), float(bounds["minz"])]
+    maxs = [float(bounds["maxx"]), float(bounds["maxy"]), float(bounds["maxz"])]
+    return {
+        "point_count": int(summary["num_points"]),
+        "mins": mins,
+        "maxs": maxs,
+    }
 
 
 def make_collection(collection_id: str, item_paths: list[Path]) -> dict:

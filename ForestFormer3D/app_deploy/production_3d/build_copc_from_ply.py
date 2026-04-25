@@ -83,7 +83,6 @@ def build_pipeline(scene_path: Path, output_path: Path, a_srs: str) -> dict:
         "type": "writers.copc",
         "filename": str(output_path),
         "forward": "all",
-        "extra_dims": "all",
     }
     if a_srs:
         writer["a_srs"] = a_srs
