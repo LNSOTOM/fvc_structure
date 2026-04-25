@@ -15,7 +15,8 @@ The production 3D route should use public COPC assets and STAC metadata.
 Use a separate production layout inside the bucket so the existing `.ply` development uploads stay untouched:
 
 - `terrascientia/fvc_structure-viewer/lidar/raw/<experiment>/<scene>.ply` for the current development summary viewer
-- `terrascientia/fvc_structure-viewer/lidar/copc/<experiment>/<scene>.copc.laz` for the production viewer
+- `terrascientia/fvc_structure-viewer/lidar/copc/low/<scene>.copc.laz` for low scenes
+- `terrascientia/fvc_structure-viewer/lidar/copc/medium/<scene>.copc.laz` for medium scenes
 - `terrascientia/fvc_structure-viewer/lidar/stac/catalog.json`
 - `terrascientia/fvc_structure-viewer/lidar/stac/collections/<collection>/collection.json`
 - `terrascientia/fvc_structure-viewer/lidar/stac/items/<collection>/<item>.json`
@@ -75,7 +76,8 @@ This writes:
 
 With absolute href mode, the generated item assets point to:
 
-- `https://<public-r2-domain>/fvc_structure-viewer/copc/<experiment>/<scene>.copc.laz`
+- `https://<public-r2-domain>/fvc_structure-viewer/lidar/copc/medium/<scene>.copc.laz`
+- `https://<public-r2-domain>/fvc_structure-viewer/lidar/copc/low/<scene>.copc.laz`
 
 ## 3. Upload the Production Bundle to R2
 
@@ -149,5 +151,17 @@ bash ForestFormer3D/app_deploy/production_3d/deploy_site1_znorm_csf.sh \
 That helper will:
 
 - regenerate STAC with absolute asset hrefs
-- sync `copc/` and `stac/` to `terrascientia/fvc_structure-viewer/lidar` on R2
+- sync `copc/medium`, `copc/low`, and `stac/` to `terrascientia/fvc_structure-viewer/lidar` on R2
 - set `FVC_STRUCTURE_STAC_CATALOG_URL` on the Heroku app if the `heroku` CLI is installed
+
+## 7. Scene Header Probe
+
+Use the lightweight header probe when you want to inspect LAS, LAZ, or COPC metadata without relying on `laspy`:
+
+```bash
+bash ForestFormer3D/app_deploy/production_3d/probe_scene_headers.sh \
+  /path/to/file.las \
+  /path/to/file.copc.laz
+```
+
+It prints the `pdal info --summary` and `pdal info --schema` output for each file and only depends on `pdal`.
