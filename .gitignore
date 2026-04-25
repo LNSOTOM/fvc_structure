@@ -93,6 +93,8 @@ coverage.xml
 .tif
 *.tif
 
+*.copc.laz
+
 # Translations
 *.mo
 *.pot

@@ -90,8 +90,19 @@ INSTANCE_PALETTE = (
 )
 EXPORT_TITLE_FONT_SIZE = 40
 EXPORT_LEGEND_FONT_SIZE = 30
-EXPORT_COMPARISON_HEADER_FONT_SIZE = 44
+EXPORT_DOWNLOAD_TITLE_FONT_SIZE = 56
+EXPORT_COMPARISON_TITLE_FONT_SIZE = EXPORT_TITLE_FONT_SIZE * 2
+EXPORT_COMPARISON_PANEL_TITLE_FONT_SIZE = 104
+EXPORT_COMPARISON_LEGEND_FONT_SIZE = EXPORT_LEGEND_FONT_SIZE * 4
+EXPORT_COMPARISON_COLORBAR_THICKNESS = 42
+EXPORT_INSTANCE_COMPARISON_LEGEND_FONT_SIZE = 72
+EXPORT_INSTANCE_COMPARISON_COLORBAR_THICKNESS = 32
+EXPORT_INSTANCE_COMPARISON_COLORBAR_TITLE_FONT_SIZE = 96
+EXPORT_INSTANCE_COMPARISON_COLORBAR_TICK_FONT_SIZE = 88
+EXPORT_COMPARISON_HEADER_FONT_SIZE = 88
 EXPORT_MARKER_SIZE_MULTIPLIER = 2.0  # doubles point size on export
+EXPORT_LEGEND_MARKER_SIZE_MULTIPLIER = 2.0
+EXPORT_COMPARISON_CUSTOM_LEGEND_DOT_RADIUS = 54
 CAMERA_EYE = {"x": 1.35, "y": -1.45, "z": 1.10}
 EXPORT_CAMERA_EYE = {"x": 1.25, "y": -1.35, "z": 1.60}
 PLOT_TOP_MARGIN = 72
@@ -337,6 +348,15 @@ def extract_scene_tile_id(scene_name: str) -> str | None:
     if not matches:
         return None
     return matches[-1]
+
+
+def compact_experiment_label(experiment_name: str) -> str:
+    return re.sub(r"^zero_shot_", "", experiment_name)
+
+
+def compact_scene_label(scene_name: str) -> str:
+    compact_name = re.sub(r"^(?:SCION_)+(?=plot_)", "", scene_name, flags=re.IGNORECASE)
+    return compact_name
 
 
 def scan_normalized_height_tiles(root: Path) -> dict[str, HeightSceneEntry]:
@@ -795,13 +815,8 @@ def build_instance_figure(
         discrete_colorscale.append([frac_start, f"hsl({hue}, 90%, 50%)"])
         discrete_colorscale.append([frac_end, f"hsl({hue}, 90%, 50%)"])
 
-    tick_vals = [cmin]
-    current = ((cmin // 5) + 1) * 5
-    while current < cmax:
-        tick_vals.append(current)
-        current += 5
-    if cmax not in tick_vals:
-        tick_vals.append(cmax)
+    middle_value = cmin + (cmax - cmin) // 2
+    tick_vals = sorted({cmin, middle_value, cmax})
 
     fig = go.Figure()
 
@@ -1215,11 +1230,27 @@ def build_normalized_height_view(
     return build_height_figure(x, y, z, scene_label, marker_size)
 
 
-def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
+def prepare_figure_for_export(
+    fig: go.Figure,
+    title_font_size: int = EXPORT_TITLE_FONT_SIZE,
+    legend_font_size: int = EXPORT_LEGEND_FONT_SIZE,
+    legend_marker_size_multiplier: float = EXPORT_LEGEND_MARKER_SIZE_MULTIPLIER,
+    colorbar_thickness: int | None = None,
+    colorbar_len: float | None = None,
+    colorbar_xpad: int | None = None,
+    show_legend: bool = True,
+) -> go.Figure:
     export_fig = go.Figure(fig)
+    existing_margin = export_fig.layout.margin.to_plotly_json() if export_fig.layout.margin else {}
+    export_top_margin = max(int(existing_margin.get("t", 0)), title_font_size + 40)
     export_fig.update_layout(
-        title={"font": {"size": EXPORT_TITLE_FONT_SIZE}},
-        legend={"font": {"size": EXPORT_LEGEND_FONT_SIZE, "color": UI_COLORS["ink"]}},
+        title={"font": {"size": title_font_size}},
+        legend={
+            "font": {"size": legend_font_size, "color": UI_COLORS["ink"]},
+            "itemsizing": "trace",
+        },
+        showlegend=show_legend,
+        margin={**existing_margin, "t": export_top_margin},
         scene={
             "xaxis": {"visible": False},
             "yaxis": {"visible": False},
@@ -1234,8 +1265,17 @@ def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
         for annotation in export_fig.layout.annotations:
             annotation.font = {
                 **(annotation.font.to_plotly_json() if annotation.font else {}),
-                "size": EXPORT_LEGEND_FONT_SIZE,
+                "size": legend_font_size,
             }
+
+    def is_legend_only_trace(trace: go.BaseTraceType) -> bool:
+        return bool(getattr(trace, "showlegend", False)) and all(
+            values is not None and all(value is None for value in values)
+            for values in (getattr(trace, "x", None), getattr(trace, "y", None), getattr(trace, "z", None))
+        )
+
+    if not show_legend:
+        export_fig.data = tuple(trace for trace in export_fig.data if not is_legend_only_trace(trace))
 
     for trace in export_fig.data:
         marker = getattr(trace, "marker", None)
@@ -1243,16 +1283,25 @@ def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
             continue
         current_size = getattr(marker, "size", None)
         if isinstance(current_size, (int, float)):
-            trace.update(marker={"size": current_size * EXPORT_MARKER_SIZE_MULTIPLIER})
+            size_multiplier = (
+                legend_marker_size_multiplier
+                if is_legend_only_trace(trace)
+                else EXPORT_MARKER_SIZE_MULTIPLIER
+            )
+            trace.update(marker={"size": current_size * size_multiplier})
         colorbar = getattr(marker, "colorbar", None)
         if colorbar is not None:
             showscale = bool(getattr(marker, "showscale", False))
+            existing_thickness = getattr(colorbar, "thickness", None)
             trace.update(
                 marker={
                     "showscale": showscale,
                     "colorbar": {
-                        "title": {"font": {"size": EXPORT_LEGEND_FONT_SIZE}},
-                        "tickfont": {"size": EXPORT_LEGEND_FONT_SIZE},
+                        "title": {"font": {"size": legend_font_size}},
+                        "tickfont": {"size": legend_font_size},
+                        "thickness": colorbar_thickness if colorbar_thickness is not None else existing_thickness,
+                        "len": colorbar_len if colorbar_len is not None else getattr(colorbar, "len", None),
+                        "xpad": colorbar_xpad if colorbar_xpad is not None else getattr(colorbar, "xpad", None),
                     },
                 }
             )
@@ -1260,23 +1309,261 @@ def prepare_figure_for_export(fig: go.Figure) -> go.Figure:
     return export_fig
 
 
-def get_export_header_font() -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+def get_export_font(size: int, bold: bool = False) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
     font_candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
     ]
     for font_path in font_candidates:
         try:
-            return ImageFont.truetype(font_path, EXPORT_COMPARISON_HEADER_FONT_SIZE)
+            return ImageFont.truetype(font_path, size)
         except OSError:
             continue
     return ImageFont.load_default()
 
 
-def make_png_download(fig: go.Figure, filename: str):
+def get_export_header_font() -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+    return get_export_font(EXPORT_COMPARISON_HEADER_FONT_SIZE, bold=True)
+
+
+def get_export_panel_title_font() -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+    return get_export_font(EXPORT_COMPARISON_PANEL_TITLE_FONT_SIZE, bold=True)
+
+
+def normalize_export_figure_coordinates(fig: go.Figure) -> go.Figure:
+    normalized_fig = go.Figure(fig)
+    axes: list[np.ndarray] = []
+    for trace in normalized_fig.data:
+        for axis_name in ("x", "y", "z"):
+            axis_values = getattr(trace, axis_name, None)
+            if axis_values is None:
+                continue
+            axis_array = np.asarray(axis_values, dtype=float)
+            finite_values = axis_array[np.isfinite(axis_array)]
+            if finite_values.size:
+                axes.append(finite_values)
+
+    if not axes:
+        return normalized_fig
+
+    global_min = min(float(axis.min()) for axis in axes)
+    global_max = max(float(axis.max()) for axis in axes)
+    global_span = max(global_max - global_min, 1.0)
+
+    for trace in normalized_fig.data:
+        updates: dict[str, np.ndarray] = {}
+        for axis_name in ("x", "y", "z"):
+            axis_values = getattr(trace, axis_name, None)
+            if axis_values is None:
+                continue
+            axis_array = np.asarray(axis_values, dtype=float)
+            normalized_axis = np.where(
+                np.isfinite(axis_array),
+                (axis_array - global_min) / global_span,
+                axis_array,
+            )
+            updates[axis_name] = normalized_axis
+        if updates:
+            trace.update(**updates)
+
+    normalized_fig.update_layout(
+        scene={
+            "aspectmode": "cube",
+            "xaxis": {"range": [0.0, 1.0], "visible": False},
+            "yaxis": {"range": [0.0, 1.0], "visible": False},
+            "zaxis": {"range": [0.0, 1.0], "visible": False},
+        }
+    )
+    return normalized_fig
+
+
+def render_export_figure_image(
+    fig: go.Figure,
+    *,
+    width: int,
+    height: int,
+    scale: int,
+) -> bytes:
+    try:
+        return fig.to_image(format="png", width=width, height=height, scale=scale)
+    except ValueError as exc:
+        if "axis scaling" not in str(exc):
+            raise
+
+    # Older Kaleido releases sometimes fail on 3D scene axis scaling; retry with simpler aspect modes.
+    fallback_scene_updates = (
+        {"scene": {"aspectmode": "cube"}},
+        {"scene": {"aspectmode": "manual", "aspectratio": {"x": 1, "y": 1, "z": 0.6}}},
+    )
+    last_error: ValueError | None = None
+    for layout_update in fallback_scene_updates:
+        retry_fig = go.Figure(fig)
+        retry_fig.update_layout(**layout_update)
+        try:
+            return retry_fig.to_image(format="png", width=width, height=height, scale=scale)
+        except ValueError as exc:
+            last_error = exc
+            if "axis scaling" not in str(exc):
+                raise
+
+    if last_error is not None:
+        normalized_fig = normalize_export_figure_coordinates(fig)
+        return normalized_fig.to_image(format="png", width=width, height=height, scale=scale)
+    raise RuntimeError("Unreachable export fallback state")
+
+
+def extract_legend_entries(fig: go.Figure) -> list[tuple[str, str]]:
+    legend_entries: list[tuple[str, str]] = []
+    for trace in fig.data:
+        if not bool(getattr(trace, "showlegend", False)):
+            continue
+        name = getattr(trace, "name", None)
+        marker = getattr(trace, "marker", None)
+        color = getattr(marker, "color", None) if marker is not None else None
+        if not name or not isinstance(color, str):
+            continue
+        legend_entries.append((name, color))
+    return legend_entries
+
+
+def draw_custom_legend(
+    image: Image.Image,
+    legend_entries: list[tuple[str, str]],
+) -> None:
+    if not legend_entries:
+        return
+
+    draw = ImageDraw.Draw(image)
+    font = get_export_font(EXPORT_COMPARISON_LEGEND_FONT_SIZE)
+    dot_radius = EXPORT_COMPARISON_CUSTOM_LEGEND_DOT_RADIUS
+    row_gap = 18
+    text_gap = 18
+    box_padding = 18
+
+    text_sizes = [draw.textbbox((0, 0), label, font=font) for label, _ in legend_entries]
+    text_width = max((bbox[2] - bbox[0]) for bbox in text_sizes)
+    text_height = max((bbox[3] - bbox[1]) for bbox in text_sizes)
+    row_height = max(dot_radius * 2, text_height)
+    box_width = box_padding * 2 + dot_radius * 2 + text_gap + text_width
+    box_height = box_padding * 2 + len(legend_entries) * row_height + max(0, len(legend_entries) - 1) * row_gap
+    left = image.width - box_width - 48
+    top = 48
+    right = left + box_width
+    bottom = top + box_height
+
+    draw.rectangle(
+        [(left, top), (right, bottom)],
+        fill=(255, 255, 255),
+        outline=UI_COLORS["border"],
+        width=2,
+    )
+
+    for index, (label, color) in enumerate(legend_entries):
+        row_top = top + box_padding + index * (row_height + row_gap)
+        dot_center_x = left + box_padding + dot_radius
+        dot_center_y = row_top + row_height // 2
+        draw.ellipse(
+            [
+                (dot_center_x - dot_radius, dot_center_y - dot_radius),
+                (dot_center_x + dot_radius, dot_center_y + dot_radius),
+            ],
+            fill=color,
+            outline=color,
+        )
+        text_x = left + box_padding + dot_radius * 2 + text_gap
+        text_y = row_top + (row_height - text_height) // 2 - 2
+        draw.text((text_x, text_y), label, fill=UI_COLORS["ink"], font=font)
+
+
+def extract_instance_colorbar_labels(fig: go.Figure) -> tuple[int, int, int] | None:
+    for trace in fig.data:
+        marker = getattr(trace, "marker", None)
+        if marker is None or not bool(getattr(marker, "showscale", False)):
+            continue
+        cmin = getattr(marker, "cmin", None)
+        cmax = getattr(marker, "cmax", None)
+        if not isinstance(cmin, (int, float)) or not isinstance(cmax, (int, float)):
+            continue
+        min_value = int(round(cmin + 0.5))
+        max_value = int(round(cmax - 0.5))
+        middle_value = min_value + (max_value - min_value) // 2
+        return min_value, middle_value, max_value
+    return None
+
+
+def hide_export_colorbar(fig: go.Figure) -> None:
+    for trace in fig.data:
+        marker = getattr(trace, "marker", None)
+        if marker is None or not bool(getattr(marker, "showscale", False)):
+            continue
+        trace.update(marker={"showscale": False})
+
+
+def draw_custom_instance_colorbar(
+    image: Image.Image,
+    labels: tuple[int, int, int] | None,
+) -> None:
+    if labels is None:
+        return
+
+    draw = ImageDraw.Draw(image)
+    title_font = get_export_font(EXPORT_INSTANCE_COMPARISON_COLORBAR_TITLE_FONT_SIZE, bold=False)
+    tick_font = get_export_font(EXPORT_INSTANCE_COMPARISON_COLORBAR_TICK_FONT_SIZE, bold=False)
+    min_value, middle_value, max_value = labels
+
+    title = f"Tree ID ({min_value}\u2192{max_value})"
+    title_bbox = draw.textbbox((0, 0), title, font=title_font)
+    title_width = title_bbox[2] - title_bbox[0]
+    title_height = title_bbox[3] - title_bbox[1]
+
+    bar_width = 400
+    bar_height = 46
+    tick_gap = 22
+    content_width = title_width + 48 + bar_width
+    start_x = max(56, (image.width - content_width) // 2)
+    title_y = 88
+    bar_x = start_x + title_width + 48
+    bar_y = title_y + max(0, (title_height - bar_height) // 2) + 8
+
+    draw.text((start_x, title_y), title, fill=UI_COLORS["ink"], font=title_font)
+
+    for offset in range(bar_width):
+        t = offset / max(bar_width - 1, 1)
+        hue = int((1.0 - t) * 300)
+        draw.line(
+            [(bar_x + offset, bar_y), (bar_x + offset, bar_y + bar_height)],
+            fill=f"hsl({hue}, 90%, 50%)",
+            width=1,
+        )
+
+    draw.rectangle(
+        [(bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height)],
+        outline=UI_COLORS["border"],
+        width=1,
+    )
+
+    tick_positions = [bar_x, bar_x + bar_width // 2, bar_x + bar_width]
+    tick_texts = [str(min_value), str(middle_value), str(max_value)]
+    tick_y = bar_y + bar_height + tick_gap
+
+    for index, (position, text) in enumerate(zip(tick_positions, tick_texts)):
+        tick_bbox = draw.textbbox((0, 0), text, font=tick_font)
+        tick_width = tick_bbox[2] - tick_bbox[0]
+        if index == 0:
+            text_x = position
+        elif index == len(tick_positions) - 1:
+            text_x = position - tick_width
+        else:
+            text_x = position - tick_width // 2
+        draw.text((text_x, tick_y), text, fill=UI_COLORS["ink"], font=tick_font)
+
+
+def make_png_download(fig: go.Figure, filename: str, title: str | None = None):
     def writer(buffer) -> None:
-        export_fig = prepare_figure_for_export(fig)
-        buffer.write(export_fig.to_image(format="png", width=1800, height=1200, scale=2))
+        export_fig = prepare_figure_for_export(fig, title_font_size=EXPORT_DOWNLOAD_TITLE_FONT_SIZE)
+        if title is not None:
+            export_fig.update_layout(title={"text": title, "font": {"size": EXPORT_DOWNLOAD_TITLE_FONT_SIZE}})
+        buffer.write(render_export_figure_image(export_fig, width=1800, height=1200, scale=2))
 
     return dcc.send_bytes(writer, filename)
 
@@ -1285,24 +1572,80 @@ def make_comparison_png_download(
     gt_fig: go.Figure,
     pred_fig: go.Figure,
     filename: str,
-    title: str,
+    title: str | None = None,
+    gt_title: str | None = None,
+    pred_title: str | None = None,
 ):
     def writer(buffer) -> None:
-        export_gt_fig = prepare_figure_for_export(gt_fig)
-        export_pred_fig = prepare_figure_for_export(pred_fig)
-        gt_image = Image.open(io.BytesIO(export_gt_fig.to_image(format="png", width=1600, height=1100, scale=2))).convert("RGB")
-        pred_image = Image.open(io.BytesIO(export_pred_fig.to_image(format="png", width=1600, height=1100, scale=2))).convert("RGB")
+        gt_legend_entries = extract_legend_entries(gt_fig)
+        pred_legend_entries = extract_legend_entries(pred_fig)
+        has_semantic_legend = bool(gt_legend_entries or pred_legend_entries)
+        gt_instance_colorbar = None if has_semantic_legend else extract_instance_colorbar_labels(gt_fig)
+        pred_instance_colorbar = None if has_semantic_legend else extract_instance_colorbar_labels(pred_fig)
+        comparison_legend_font_size = (
+            EXPORT_COMPARISON_LEGEND_FONT_SIZE if has_semantic_legend else EXPORT_INSTANCE_COMPARISON_LEGEND_FONT_SIZE
+        )
+        comparison_colorbar_thickness = (
+            EXPORT_COMPARISON_COLORBAR_THICKNESS if has_semantic_legend else EXPORT_INSTANCE_COMPARISON_COLORBAR_THICKNESS
+        )
+        comparison_colorbar_len = None if has_semantic_legend else 0.5
+        comparison_colorbar_xpad = None if has_semantic_legend else 28
+        export_gt_fig = prepare_figure_for_export(
+            gt_fig,
+            title_font_size=EXPORT_TITLE_FONT_SIZE,
+            legend_font_size=comparison_legend_font_size,
+            legend_marker_size_multiplier=EXPORT_LEGEND_MARKER_SIZE_MULTIPLIER * 2,
+            colorbar_thickness=comparison_colorbar_thickness,
+            colorbar_len=comparison_colorbar_len,
+            colorbar_xpad=comparison_colorbar_xpad,
+            show_legend=not gt_legend_entries,
+        )
+        export_pred_fig = prepare_figure_for_export(
+            pred_fig,
+            title_font_size=EXPORT_TITLE_FONT_SIZE,
+            legend_font_size=comparison_legend_font_size,
+            legend_marker_size_multiplier=EXPORT_LEGEND_MARKER_SIZE_MULTIPLIER * 2,
+            colorbar_thickness=comparison_colorbar_thickness,
+            colorbar_len=comparison_colorbar_len,
+            colorbar_xpad=comparison_colorbar_xpad,
+            show_legend=not pred_legend_entries,
+        )
+        export_gt_fig.update_layout(title={"text": ""})
+        export_pred_fig.update_layout(title={"text": ""})
+        if not has_semantic_legend:
+            hide_export_colorbar(export_gt_fig)
+            hide_export_colorbar(export_pred_fig)
+        gt_image = Image.open(io.BytesIO(render_export_figure_image(export_gt_fig, width=1600, height=1100, scale=2))).convert("RGB")
+        pred_image = Image.open(io.BytesIO(render_export_figure_image(export_pred_fig, width=1600, height=1100, scale=2))).convert("RGB")
+
+        draw_custom_legend(gt_image, gt_legend_entries)
+        draw_custom_legend(pred_image, pred_legend_entries)
+        if not has_semantic_legend:
+            draw_custom_instance_colorbar(gt_image, gt_instance_colorbar)
+            draw_custom_instance_colorbar(pred_image, pred_instance_colorbar)
 
         padding = 32
-        header_height = 72
+        header_height = 72 if title else 0
+        panel_title_font = get_export_panel_title_font()
+        panel_title_height = 0
+        if gt_title or pred_title:
+            panel_title_bbox = ImageDraw.Draw(Image.new("RGB", (1, 1), "white")).textbbox((0, 0), gt_title or pred_title or "", font=panel_title_font)
+            panel_title_height = (panel_title_bbox[3] - panel_title_bbox[1]) + 24
         canvas_width = gt_image.width + pred_image.width + padding * 3
-        canvas_height = max(gt_image.height, pred_image.height) + padding * 2 + header_height
+        canvas_height = max(gt_image.height, pred_image.height) + padding * 2 + header_height + panel_title_height
 
         canvas = Image.new("RGB", (canvas_width, canvas_height), "white")
         draw = ImageDraw.Draw(canvas)
-        draw.text((padding, 20), title, fill=UI_COLORS["ink"], font=get_export_header_font())
+        if title:
+            draw.text((padding, 20), title, fill=UI_COLORS["ink"], font=get_export_header_font())
 
-        top = header_height + padding // 2
+        panel_title_top = header_height + padding // 2
+        top = panel_title_top + panel_title_height
+        if gt_title:
+            draw.text((padding, panel_title_top), gt_title, fill=UI_COLORS["ink"], font=panel_title_font)
+        if pred_title:
+            pred_title_x = padding * 2 + gt_image.width
+            draw.text((pred_title_x, panel_title_top), pred_title, fill=UI_COLORS["ink"], font=panel_title_font)
         canvas.paste(gt_image, (padding, top))
         canvas.paste(pred_image, (padding * 2 + gt_image.width, top))
         canvas.save(buffer, format="PNG")
@@ -1656,19 +1999,31 @@ def create_app(
             scene_path, scene_name, experiment_name, mode, max_points, seed, marker_size
         )
         mode_slug = "semantic" if mode == "semantic" else "instance"
+        gt_export_title = f"GT {mode}"
+        pred_export_title = f"Prediction {mode}"
 
         if ctx.triggered_id == "download-gt-button":
             filename = f"{experiment_name}__{scene_name}__gt_{mode_slug}.png"
-            return make_png_download(gt_fig, filename), no_update, no_update
+            return make_png_download(gt_fig, filename, title=gt_export_title), no_update, no_update
 
         if ctx.triggered_id == "download-pred-button":
             filename = f"{experiment_name}__{scene_name}__prediction_{mode_slug}.png"
-            return no_update, make_png_download(pred_fig, filename), no_update
+            return no_update, make_png_download(pred_fig, filename, title=pred_export_title), no_update
 
         if ctx.triggered_id == "download-comparison-button":
             filename = f"{experiment_name}__{scene_name}__comparison_{mode_slug}.png"
-            title = f"{experiment_name} | {scene_name} | {mode_slug}"
-            return no_update, no_update, make_comparison_png_download(gt_fig, pred_fig, filename, title)
+            return (
+                no_update,
+                no_update,
+                make_comparison_png_download(
+                    gt_fig,
+                    pred_fig,
+                    filename,
+                    None,
+                    gt_title=gt_export_title,
+                    pred_title=pred_export_title,
+                ),
+            )
 
         return no_update, no_update, no_update
 
