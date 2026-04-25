@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 from dash import Dash, html
-from flask import Flask, redirect
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -35,54 +34,42 @@ experiment_families = {}
 
 sat_experiments = scan_named_experiments(segment_dirs) if segment_dirs else {}
 ff_experiments = scan_experiments(WORK_DIRS_ROOT) if WORK_DIRS_ROOT.exists() else {}
-production_catalog_url = os.getenv("FVC_STRUCTURE_STAC_CATALOG_URL", "").strip()
 
 if sat_experiments:
     experiment_families["SegmentAnyTree"] = sat_experiments
 if ff_experiments:
     experiment_families["ForestFormer3D"] = ff_experiments
 
-if production_catalog_url:
-    app = Flask(__name__)
-
-    @app.get("/")
-    def root_redirect():
-        return redirect(production_catalog_url, code=302)
-
-    @app.get("/health")
-    def healthcheck():
-        return {"status": "ok", "mode": "production-stac"}
+if not experiment_families:
+    app = Dash(__name__)
+    app.layout = html.Div(
+        [
+            html.H1("ForestFormer3D viewer"),
+            html.P("The app is deployed, but no experiment scene files are available yet."),
+            html.P("Expected files: .ply, .las, or .laz inside experiment folders."),
+            html.Pre(
+                "\n".join(
+                    [
+                        f"WORK_DIRS_ROOT={WORK_DIRS_ROOT}",
+                        "SEGMENT_ANY_TREE_EXPERIMENTS_JSON=<optional JSON mapping>",
+                    ]
+                )
+            ),
+        ],
+        style={
+            "fontFamily": "Arial, sans-serif",
+            "maxWidth": "800px",
+            "margin": "48px auto",
+            "padding": "24px",
+            "lineHeight": 1.5,
+        },
+    )
 else:
-    if not experiment_families:
-        app = Dash(__name__)
-        app.layout = html.Div(
-            [
-                html.H1("ForestFormer3D viewer"),
-                html.P("The app is deployed, but no experiment scene files are available yet."),
-                html.P("Expected files: .ply, .las, or .laz inside experiment folders."),
-                html.Pre(
-                    "\n".join(
-                        [
-                            f"WORK_DIRS_ROOT={WORK_DIRS_ROOT}",
-                            "SEGMENT_ANY_TREE_EXPERIMENTS_JSON=<optional JSON mapping>",
-                        ]
-                    )
-                ),
-            ],
-            style={
-                "fontFamily": "Arial, sans-serif",
-                "maxWidth": "800px",
-                "margin": "48px auto",
-                "padding": "24px",
-                "lineHeight": 1.5,
-            },
-        )
-    else:
-        app = create_app(
-            experiment_families=experiment_families,
-            max_points=MAX_POINTS,
-            seed=SEED,
-            marker_size=MARKER_SIZE,
-            normalized_height_root=NORMALIZED_HEIGHT_ROOT,
-        )
+    app = create_app(
+        experiment_families=experiment_families,
+        max_points=MAX_POINTS,
+        seed=SEED,
+        marker_size=MARKER_SIZE,
+        normalized_height_root=NORMALIZED_HEIGHT_ROOT,
+    )
 server = app.server
