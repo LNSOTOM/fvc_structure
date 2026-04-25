@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
 from dash import Dash, html
+from flask import redirect
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -109,6 +110,10 @@ if production_catalog_url:
         response = server.response_class(body, status=status, mimetype=content_type)
         response.headers["Access-Control-Allow-Origin"] = "*"
         return response
+
+    @server.get("/")
+    def production_root():
+        return redirect(production_viewer_path, code=302)
 
     @server.get("/fvc_structure-viewer/api/stac/<path:subpath>")
     def production_stac_proxy(subpath: str):
