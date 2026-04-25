@@ -56,11 +56,6 @@ def parse_args() -> argparse.Namespace:
         default="Production STAC catalog for FVC Structure COPC point-cloud scenes.",
         help="Catalog description.",
     )
-    parser.add_argument(
-        "--default-asset-group",
-        default="",
-        help="Optional fallback asset group to use when low/medium cannot be inferred from the item or collection name.",
-    )
     return parser.parse_args()
 
 
@@ -73,14 +68,6 @@ def infer_site_kind(name: str) -> str:
     if "forest" in lowered:
         return "forest"
     return "unknown"
-
-
-def infer_asset_group(*names: str) -> str | None:
-    for name in names:
-        site_kind = infer_site_kind(name)
-        if site_kind in {"low", "medium"}:
-            return site_kind
-    return None
 
 
 def discover_copc_files(copc_root: Path) -> dict[str, list[Path]]:
@@ -156,20 +143,17 @@ def build_copc_href(
     copc_path: Path,
     public_base_url: str,
     asset_href_mode: str,
-    asset_group: str | None = None,
 ) -> str:
-    asset_prefix = asset_group or collection_id
     if asset_href_mode == "absolute":
         if not public_base_url:
             raise ValueError("--public-base-url is required when --asset-href-mode=absolute")
-        return f"{public_base_url}/copc/{asset_prefix}/{copc_path.name}"
-    return f"../../../copc/{asset_prefix}/{copc_path.name}"
+        return f"{public_base_url}/copc/{collection_id}/{copc_path.name}"
+    return f"../../../copc/{collection_id}/{copc_path.name}"
 
 
 def main() -> None:
     args = parse_args()
     public_base_url = args.public_base_url.rstrip("/")
-    default_asset_group = args.default_asset_group.strip()
     collections = discover_copc_files(args.copc_root)
 
     catalog_links = []
@@ -191,14 +175,12 @@ def main() -> None:
             mins = metadata["mins"]
             maxs = metadata["maxs"]
             spatial_boxes.append([mins[0], mins[1], maxs[0], maxs[1]])
-            asset_group = infer_asset_group(item_id, collection_id) or default_asset_group or None
 
             copc_href = build_copc_href(
                 collection_id,
                 copc_path,
                 public_base_url,
                 args.asset_href_mode,
-                asset_group=asset_group,
             )
             item_payload = {
                 "stac_version": "1.0.0",
@@ -218,7 +200,6 @@ def main() -> None:
                     "title": item_id,
                     "description": f"Production COPC scene for {item_id}.",
                     "site_kind": infer_site_kind(item_id + " " + collection_id),
-                    "asset_group": asset_group or collection_id,
                     "experiment_family": collection_id,
                     "point_count": metadata["point_count"],
                 },
@@ -245,7 +226,6 @@ def main() -> None:
                 "collection": collection_id,
                 "point_count": metadata["point_count"],
                 "copc_href": copc_href,
-                "asset_group": asset_group or collection_id,
                 "bbox": item_payload["bbox"],
                 "notes": "Production COPC scene generated from the local conversion pipeline.",
             }

@@ -251,7 +251,7 @@ if production_catalog_url:
     </div>
   </div>
   <script>
-    const catalogUrl = new URL("/fvc_structure-viewer/api/stac/catalog.json", window.location.href).href;
+    const catalogUrl = "/fvc_structure-viewer/api/stac/catalog.json";
     const viewerBase = {json.dumps(production_copc_viewer_base)};
     const viewer = document.getElementById("viewer");
     const sceneList = document.getElementById("sceneList");
