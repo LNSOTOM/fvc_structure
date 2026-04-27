@@ -85,6 +85,7 @@ if production_catalog_url:
     production_stac_base_url = production_catalog_url.rsplit("/", 1)[0] + "/"
     production_viewer_path = "/fvc_structure-viewer/"
     production_copc_viewer_base = "https://viewer.copc.io/?copc="
+  production_maplibre_viewer_base = "https://opengeos.org/maplibre-gl-lidar/viewer/?url="
 
     def fetch_remote_bytes(url: str) -> tuple[bytes, str, str]:
         request = Request(
@@ -246,15 +247,25 @@ if production_catalog_url:
       <div id="sceneList" class="list"><div style="padding:12px" class="muted">Loading...</div></div>
     </div>
     <div class="viewer-shell">
-      <div class="viewer-bar">Embedded COPC viewer</div>
+      <div class="viewer-bar">
+        <span>Embedded COPC viewer</span>
+        <a id="maplibreLink" href="#" target="_blank" rel="noopener noreferrer">Open in MapLibre tab</a>
+      </div>
       <iframe id="viewer" title="COPC viewer"></iframe>
     </div>
   </div>
   <script>
     const catalogUrl = "/fvc_structure-viewer/api/stac/catalog.json";
     const viewerBase = {json.dumps(production_copc_viewer_base)};
+    const maplibreBase = {json.dumps(production_maplibre_viewer_base)};
     const viewer = document.getElementById("viewer");
+    const maplibreLink = document.getElementById("maplibreLink");
     const sceneList = document.getElementById("sceneList");
+
+    function selectScene(sceneHref) {{
+      viewer.src = viewerBase + encodeURIComponent(sceneHref);
+      maplibreLink.href = maplibreBase + encodeURIComponent(sceneHref);
+    }}
 
     async function fetchJson(url) {{
       const response = await fetch(url);
@@ -304,11 +315,11 @@ if production_catalog_url:
         button.addEventListener("click", () => {{
           Array.from(sceneList.querySelectorAll("button")).forEach((el) => el.setAttribute("aria-pressed", "false"));
           button.setAttribute("aria-pressed", "true");
-          viewer.src = viewerBase + encodeURIComponent(scene.href);
+          selectScene(scene.href);
         }});
         sceneList.appendChild(button);
         if (index === 0) {{
-          viewer.src = viewerBase + encodeURIComponent(scene.href);
+          selectScene(scene.href);
         }}
       }});
     }}

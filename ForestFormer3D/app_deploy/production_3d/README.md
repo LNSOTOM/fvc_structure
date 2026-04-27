@@ -56,6 +56,39 @@ python ForestFormer3D/app_deploy/production_3d/generate_stac_for_copc.py \
   --stac-root /path/to/prod-bundle/stac
 ```
 
+To enrich items with source LAS metadata from `lidar/clipped/3d_structure_mask_malleid`
+while publishing the COPC assets under a specific public group such as `medium` or `low`, use:
+
+```bash
+python ForestFormer3D/app_deploy/production_3d/generate_stac_for_copc.py \
+  --copc-root /path/to/prod-bundle/copc \
+  --stac-root /path/to/prod-bundle/stac \
+  --asset-href-mode absolute \
+  --public-base-url https://<public-r2-domain>/fvc_structure-viewer/lidar \
+  --asset-group medium \
+  --metadata-root /media/.../lidar/clipped/3d_structure_mask_malleid
+```
+
+When `--metadata-root` is supplied, the generator matches source LAS tiles by exact stem first
+and then by trailing tile id. The added metadata excludes `classification` and `treeID` because
+those dimensions are already expected to be available in the COPC payload itself.
+
+For mixed bundles containing multiple collections, use per-collection overrides instead of a
+single metadata root:
+
+```bash
+python ForestFormer3D/app_deploy/production_3d/generate_stac_for_copc.py \
+  --copc-root /path/to/prod-bundle/copc \
+  --stac-root /path/to/prod-bundle/stac \
+  --asset-href-mode absolute \
+  --public-base-url https://<public-r2-domain>/fvc_structure-viewer/lidar \
+  --asset-group-map '{"medium":"medium","low":"low"}' \
+  --metadata-root-map '{"medium":"/media/.../site1_1_DD0001/lidar/clipped/3d_structure_mask_malleid/new","low":"/media/.../site2_1_DD0011/lidar/clipped/3d_structure_mask_malleid"}'
+```
+
+This keeps the current production viewer behavior intact while letting new `medium` and `low`
+collections publish side by side.
+
 If you already know the final public bucket URL and want absolute COPC hrefs in the STAC items, use:
 
 ```bash
@@ -112,8 +145,35 @@ FVC_STRUCTURE_STAC_CATALOG_URL=https://<public-r2-domain>/fvc_structure-viewer/l
 ```
 
 Then `/fvc_structure-viewer/3d` will open the production STAC catalog and hand the selected COPC asset to the dedicated viewer.
+The page keeps the current embedded COPC viewer and also exposes an external MapLibre tab link.
 
-## 6. Site 1 CSF Bundle
+## 6. Structure-Mask Bundle Helper
+
+Build an additive local `medium` + `low` bundle from the current structure-mask-only pipeline with:
+
+```bash
+bash ForestFormer3D/app_deploy/production_3d/build_structure_mask_bundles.sh
+```
+
+This writes a new local bundle under:
+
+```bash
+ForestFormer3D/app_deploy/production_3d/generated/structure_mask_medium_low
+```
+
+and does not modify the existing deployed viewer bundle.
+
+## 7. work_dirs Experiment Bundle Helper
+
+Publish each `work_dirs` experiment as its own STAC collection with:
+
+```bash
+bash ForestFormer3D/app_deploy/production_3d/build_workdirs_bundle.sh
+```
+
+This keeps the structure-mask-only publishing flow separate from experiment publishing.
+
+## 8. Site 1 CSF Bundle
 
 The repo now contains a regenerated Site 1 bundle built from:
 
@@ -149,5 +209,6 @@ bash ForestFormer3D/app_deploy/production_3d/deploy_site1_znorm_csf.sh \
 That helper will:
 
 - regenerate STAC with absolute asset hrefs
+- copy matching LAS metadata from `lidar/clipped/3d_structure_mask_malleid` into the STAC items and summaries
 - sync `copc/` and `stac/` to `terrascientia/fvc_structure-viewer/lidar` on R2
 - set `FVC_STRUCTURE_STAC_CATALOG_URL` on the Heroku app if the `heroku` CLI is installed

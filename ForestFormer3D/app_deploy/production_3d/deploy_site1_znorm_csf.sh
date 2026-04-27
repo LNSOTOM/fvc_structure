@@ -15,7 +15,9 @@ python "${script_dir}/generate_stac_for_copc.py" \
   --copc-root "${bundle_root}/copc" \
   --stac-root "${bundle_root}/stac" \
   --asset-href-mode absolute \
-  --public-base-url "${lidar_base_url}"
+  --public-base-url "${lidar_base_url}" \
+  --asset-group medium \
+  --metadata-root "/media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/3d_structure_mask_malleid"
 
 access_key_id=${AWS_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}
 secret_access_key=${AWS_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}

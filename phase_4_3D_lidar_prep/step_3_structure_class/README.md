@@ -117,6 +117,46 @@ python phase_4_3D_lidar_prep/step_3_structure_class/make_label_transfer_validati
   --output //media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/clipped/validation/label_transfer_validation_tile109.png
 ```
 
+### Batch validation summaries for Tables 5 and 6
+
+Use the script below to compute validation metrics across every matched tile in a
+site. It writes both per-tile tables and across-tile mean tables for:
+
+- Table 5: overall agreement and class-wise IoU between projected and refined labels
+- Table 6: class-wise height plausibility of the refined labels using `Z_norm`
+
+```bash
+python phase_4_3D_lidar_prep/step_3_structure_class/summarize_label_transfer_validation.py \
+  --site-root /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001 \
+  --site-condition Medium
+```
+
+Default directories inferred from `--site-root`:
+
+- masks: `inputs/masks/tiles_3072/raw/structure_class/annotation_raster/downsample_5cm_nearest`
+- projected LAS: `lidar/clipped/mask/coreg/icp`
+- refined LAS: `lidar/clipped/3d_structure_mask_malleid`
+- outputs: `lidar/clipped/validation`
+
+Outputs written to the validation folder:
+
+- `table5_label_agreement_per_tile.csv`
+- `table5_label_agreement_average.csv`
+- `table6_height_plausibility_per_tile.csv`
+- `table6_height_plausibility_average.csv`
+- `treeid_instance_summary_per_tile.csv`
+- `treeid_instance_summary_average.csv`
+- matching `.md` files for quick manuscript copy/paste
+
+Notes:
+
+- Tile matching is based on the trailing numeric tile ID in each filename.
+- Table 5 metrics are computed on the common occupied mask cells for each tile.
+- Average tables are simple across-tile means, not point-weighted aggregates.
+- The treeID summary table reports Step 4 watershed crown counts and Step 9 final non-zero `treeID` statistics so the last gallery row is reproducible in table form.
+- The treeID summary also includes per-tile crown-instance validation metrics, including crown-count delta, crown-retention percentage, and mean points per watershed crown / final treeID.
+- If your manuscript uses different numbering, you can rename the exported files without changing the metric logic.
+
 ## Notebooks
 
 - `notebooks/01_run_pipeline_site01_workflow.ipynb`
