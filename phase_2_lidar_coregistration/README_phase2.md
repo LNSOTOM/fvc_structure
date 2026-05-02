@@ -1,4 +1,4 @@
-# Phase 2: LiDAR Co-registration
+# Phase 2: LiDAR-RGB Co-registration
 
 Tools for co-registering multi-temporal LiDAR point clouds using optical flow (GeFolki algorithm).
 
