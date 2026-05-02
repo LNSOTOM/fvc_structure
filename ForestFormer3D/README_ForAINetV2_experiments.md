@@ -155,10 +155,13 @@ Stratified by site (so both sites appear in all splits):
 
 ### Common settings (Experiment 2)
 
-All Experiment 2 steps below assume these env vars are set consistently:
+All Experiment 2 steps below use:
 - `FORAINETV2_PROTOCOL=forest`
 - `FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A`
 - `FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A`
+- Fine-tune config: `/workspace/configs/exp2_finetune_l1_eval_gt.py`
+- Base config: `/workspace/configs/oneformer3d_qs_radius16_qp300_2many.py`
+- Initialization checkpoint: `/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth`
 
 ### Step 1 — Generate exp2 lists (python snippet)
 

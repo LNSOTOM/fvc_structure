@@ -72,6 +72,11 @@ def parse_args() -> argparse.Namespace:
         default=1e-3,
         help="Maximum absolute XYZ difference allowed when verifying row-aligned work_dirs-to-structure mapping.",
     )
+    parser.add_argument(
+        "--use-z-dimension",
+        default="",
+        help="Optional LAS/LAZ dimension name to copy into Z before writing COPC, for example Z_norm.",
+    )
     return parser.parse_args()
 
 
@@ -483,7 +488,7 @@ def merge_predictions_onto_structure(
     return output_path
 
 
-def build_pipeline(scene_path: Path, output_path: Path, a_srs: str) -> dict:
+def build_pipeline(scene_path: Path, output_path: Path, a_srs: str, use_z_dimension: str = "") -> dict:
     suffix = scene_path.suffix.lower()
     writer = {
         "type": "writers.copc",
@@ -493,14 +498,23 @@ def build_pipeline(scene_path: Path, output_path: Path, a_srs: str) -> dict:
     if a_srs:
         writer["a_srs"] = a_srs
 
-    return {
-        "pipeline": [
+    pipeline_steps: list[dict[str, str]] = [
+        {
+            "type": PDAL_READER_TYPES[suffix],
+            "filename": str(scene_path),
+        }
+    ]
+    if use_z_dimension:
+        pipeline_steps.append(
             {
-                "type": PDAL_READER_TYPES[suffix],
-                "filename": str(scene_path),
-            },
-            writer,
-        ]
+                "type": "filters.assign",
+                "value": f"Z = {use_z_dimension}",
+            }
+        )
+    pipeline_steps.append(writer)
+
+    return {
+        "pipeline": pipeline_steps
     }
 
 
@@ -547,7 +561,7 @@ def main() -> None:
                     source_path = merged_path
 
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            pipeline = build_pipeline(source_path, output_path, args.a_srs)
+            pipeline = build_pipeline(source_path, output_path, args.a_srs, args.use_z_dimension)
             print(f"build {source_path} -> {output_path}")
             if not args.dry_run:
                 run_pipeline(pdal_path, pipeline)
