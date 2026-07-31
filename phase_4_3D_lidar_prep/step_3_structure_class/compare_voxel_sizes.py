@@ -11,7 +11,7 @@ import laspy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib import gridspec
+from matplotlib import colors, gridspec
 
 from fvc3dstruct.pipeline import process_tile
 
@@ -77,6 +77,11 @@ def parse_args() -> argparse.Namespace:
         "--plot-side-view-sweep-tile-id",
         default="",
         help="Optional tile id to export side-view comparisons across the requested voxel sizes.",
+    )
+    parser.add_argument(
+        "--plot-3d-sweep-tile-id",
+        default="",
+        help="Optional tile id to export 3D voxel-volume comparisons across the requested voxel sizes.",
     )
     return parser.parse_args()
 
@@ -237,6 +242,14 @@ def sample_las_side_view_points(
     return x_values, y_values, z_values
 
 
+def sample_las_points_3d(
+    las_path: Path,
+    max_points: int = 120_000,
+    seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return sample_las_side_view_points(las_path, max_points=max_points, seed=seed)
+
+
 def plot_las_side_views(las_path: Path, output_path: Path, tile_id: str) -> None:
     x_values, y_values, z_values = sample_las_side_view_points(las_path)
 
@@ -296,6 +309,32 @@ def voxelise_side_view(
     return x_centers[order], z_centers[order], density[order]
 
 
+def voxelise_points_3d(
+    x_values: np.ndarray,
+    y_values: np.ndarray,
+    z_values: np.ndarray,
+    voxel_size: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    if len(x_values) == 0:
+        return x_values, y_values, z_values, z_values
+
+    x0 = float(x_values.min())
+    y0 = float(y_values.min())
+    z0 = float(z_values.min())
+    x_idx = np.floor((x_values - x0) / voxel_size).astype(np.int32)
+    y_idx = np.floor((y_values - y0) / voxel_size).astype(np.int32)
+    z_idx = np.floor((z_values - z0) / voxel_size).astype(np.int32)
+    voxel_idx = np.column_stack((x_idx, y_idx, z_idx))
+    unique_voxels, counts = np.unique(voxel_idx, axis=0, return_counts=True)
+
+    x_centers = x0 + (unique_voxels[:, 0].astype(np.float32) + 0.5) * voxel_size
+    y_centers = y0 + (unique_voxels[:, 1].astype(np.float32) + 0.5) * voxel_size
+    z_centers = z0 + (unique_voxels[:, 2].astype(np.float32) + 0.5) * voxel_size
+    density = counts.astype(np.float32)
+    order = np.argsort(density)
+    return x_centers[order], y_centers[order], z_centers[order], density[order]
+
+
 def plot_las_side_view_sweep(
     las_path: Path,
     output_path: Path,
@@ -337,6 +376,70 @@ def plot_las_side_view_sweep(
         cbar = fig.colorbar(last_scatter, ax=axes, shrink=0.92)
         cbar.set_label("Points per X-Z voxel")
     fig.suptitle(f"Tile {tile_id} side-view comparison across voxel sizes", fontsize=16)
+    _save(fig, output_path)
+
+
+def plot_las_3d_voxel_sweep(
+    las_path: Path,
+    output_path: Path,
+    tile_id: str,
+    sizes: list[float],
+) -> None:
+    x_values, y_values, z_values = sample_las_points_3d(las_path, max_points=180_000)
+
+    n_panels = len(sizes)
+    fig = plt.figure(figsize=(5 * n_panels, 6.5), constrained_layout=True)
+    x_limits = (float(x_values.min()), float(x_values.max())) if len(x_values) else (0.0, 1.0)
+    y_limits = (float(y_values.min()), float(y_values.max())) if len(y_values) else (0.0, 1.0)
+    z_limits = (float(z_values.min()), float(z_values.max())) if len(z_values) else (0.0, 1.0)
+    voxel_sets = [voxelise_points_3d(x_values, y_values, z_values, size) for size in sizes]
+    density_sets = [density for _, _, _, density in voxel_sets if len(density)]
+    if density_sets:
+        merged_density = np.concatenate(density_sets)
+        vmin = max(1.0, float(np.percentile(merged_density, 5)))
+        vmax = max(vmin + 1.0, float(np.percentile(merged_density, 99.5)))
+        density_norm = colors.LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        density_norm = None
+    axes = []
+    last_scatter = None
+
+    for index, (size, voxel_set) in enumerate(zip(sizes, voxel_sets), start=1):
+        ax = fig.add_subplot(1, n_panels, index, projection="3d")
+        axes.append(ax)
+        x_centers, y_centers, z_centers, density = voxel_set
+        size_cm = round(size * 100)
+        last_scatter = ax.scatter(
+            x_centers,
+            y_centers,
+            z_centers,
+            c=density,
+            s=8,
+            cmap="plasma",
+            norm=density_norm,
+            alpha=0.88,
+            linewidths=0,
+        )
+        ax.set_title(f"{size_cm} cm\n{len(density):,} occupied voxels", fontsize=13)
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        ax.set_xlim(*x_limits)
+        ax.set_ylim(*y_limits)
+        ax.set_zlim(*z_limits)
+        ax.view_init(elev=24, azim=-62)
+        ax.ticklabel_format(style="plain", axis="x", useOffset=False)
+        ax.ticklabel_format(style="plain", axis="y", useOffset=False)
+        ax.set_box_aspect((
+            max(x_limits[1] - x_limits[0], 1.0),
+            max(y_limits[1] - y_limits[0], 1.0),
+            max(z_limits[1] - z_limits[0], 1.0),
+        ))
+
+    if last_scatter is not None and axes:
+        cbar = fig.colorbar(last_scatter, ax=axes, shrink=0.84)
+        cbar.set_label("Points per 3D voxel")
+    fig.suptitle(f"Tile {tile_id} 3D voxel-volume comparison across voxel sizes", fontsize=16)
     _save(fig, output_path)
 
 
@@ -494,6 +597,14 @@ def main() -> None:
                 args.plot_side_view_sweep_tile_id,
                 sizes,
             )
+
+    if args.plot_3d_sweep_tile_id:
+        matched_by_tile = {tile_id: z_path for tile_id, z_path, _ in matched_tiles}
+        z_path = matched_by_tile.get(args.plot_3d_sweep_tile_id)
+        if z_path is None:
+            raise SystemExit(f"Tile id {args.plot_3d_sweep_tile_id} was not found in the matched Z_norm LAS inputs.")
+        volume_path = output_dir / f"tile_{args.plot_3d_sweep_tile_id}_3d_voxel_sweep.png"
+        plot_las_3d_voxel_sweep(z_path, volume_path, args.plot_3d_sweep_tile_id, sizes)
 
 
 if __name__ == "__main__":
