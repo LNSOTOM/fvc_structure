@@ -1,10 +1,11 @@
 """Cartesian voxel merge: transfer structure labels via 3D voxel grid."""
 
-import numpy as np
 from collections import Counter
 
+import numpy as np
 
-def cartesian_voxel_merge(las_z, las_s, voxel_xy=0.10, voxel_z=0.10):
+
+def cartesian_voxel_merge(las_z, las_s, voxel_xy=0.10, voxel_z=0.10, return_stats=False):
     """
     Transfer structure labels (64–68) from structure LAS to Z_norm LAS
     via a shared 3D voxel grid with majority voting within voxels.
@@ -17,6 +18,7 @@ def cartesian_voxel_merge(las_z, las_s, voxel_xy=0.10, voxel_z=0.10):
     
     Returns:
         classification: Array of transferred labels (0 or 64–68)
+        stats: Optional dict with voxel-transfer summary when return_stats=True
     """
     x_min = min(las_z.x.min(), las_s.x.min())
     y_min = min(las_z.y.min(), las_s.y.min())
@@ -63,8 +65,19 @@ def cartesian_voxel_merge(las_z, las_s, voxel_xy=0.10, voxel_z=0.10):
     for i, v in enumerate(vox_z):
         classification[i] = voxel_struct_map.get(tuple(v), 0)
     
-    n_labeled = np.count_nonzero(classification)
+    n_labeled = int(np.count_nonzero(classification))
     pct = 100.0 * n_labeled / len(classification) if len(classification) > 0 else 0.0
     print(f"  ✅ Transferred labels to {n_labeled:,}/{len(classification):,} Z_norm points ({pct:.1f}%)")
-    
-    return classification
+
+    if not return_stats:
+        return classification
+
+    stats = {
+        "voxel_size_xy": float(voxel_xy),
+        "voxel_size_z": float(voxel_z),
+        "nonzero_structure_voxels": int(len(voxel_struct_map)),
+        "labeled_points": n_labeled,
+        "total_points": int(len(classification)),
+        "labeled_pct": float(pct),
+    }
+    return classification, stats

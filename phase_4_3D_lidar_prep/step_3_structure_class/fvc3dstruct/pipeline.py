@@ -2,8 +2,9 @@
 
 from pathlib import Path
 from typing import Dict, Optional
-import numpy as np
+
 import laspy
+import numpy as np
 
 from .voxel_merge import cartesian_voxel_merge
 from .watershed import get_mallee_centroids_watershed
@@ -76,11 +77,12 @@ def process_tile(
     
     # Stage 2: Cartesian voxel-based label transfer
     print("\n2️⃣  Stage 2: Cartesian voxel-based label transfer (baseline)...")
-    classification_baseline = cartesian_voxel_merge(
+    classification_baseline, voxel_stats = cartesian_voxel_merge(
         las_z,
         las_s,
         voxel_xy=cfg["voxel_size_xy"],
         voxel_z=cfg["voxel_size_z"],
+        return_stats=True,
     )
 
     save_stages = bool(cfg.get("save_stage_outputs", False))
@@ -147,6 +149,8 @@ def process_tile(
     
     # Stage 4: Crown-centric polar refinement with height priors
     classification_refined = classification_baseline.copy()
+    stage4_changed = 0
+    stage4_changed_pct = 0.0
     if label_grid.max() > 0:
         print("\n4️⃣  Stage 4: Crown-centric polar refinement with height priors...")
         classification_refined = refine_with_polar_coords(
@@ -164,6 +168,16 @@ def process_tile(
             theta_bin_deg=cfg["theta_bin_deg"],
             min_conf=cfg["min_conf"],
             min_flip_ratio=cfg["min_flip_ratio"],
+        )
+        stage4_changed = int(np.count_nonzero(classification_refined != classification_baseline))
+        stage4_changed_pct = (
+            100.0 * stage4_changed / len(classification_refined)
+            if len(classification_refined) > 0
+            else 0.0
+        )
+        print(
+            f"  → Stage-4 label changes: {stage4_changed:,}/{len(classification_refined):,} "
+            f"({stage4_changed_pct:.1f}%)"
         )
     else:
         print("\n4️⃣  Stage 4: Skipping polar refinement (no crowns)")
@@ -193,13 +207,14 @@ def process_tile(
 
     # Promote unlabelled points above threshold (gap-aware fill)
     promote_mask = (classification_final_all == 0) & (zn_arr >= promote_unlabelled)
-    if np.any(promote_mask):
+    promoted_points = int(np.count_nonzero(promote_mask))
+    if promoted_points:
         classification_final_all[promote_mask] = 68
-        print(f"  → Promoted {int(np.count_nonzero(promote_mask)):,} high unlabelled points → 68")
+        print(f"  → Promoted {promoted_points:,} high unlabelled points → 68")
 
     # Crown-level majority voting: if crown is >50% mallee, convert all points in crown → 68.
+    n_reclassified = 0
     if instance_ids_all.max() > 0:
-        n_reclassified = 0
         max_id = int(instance_ids_all.max())
         for crown_id in range(1, max_id + 1):
             in_crown = instance_ids_all == crown_id
@@ -226,6 +241,7 @@ def process_tile(
     # This prevents tall points in crowns being kept as shrub (67) when you
     # want a strict Z_norm cutoff (e.g., 1.8 m).
     force_thr = cfg.get("mallee_force_min_znorm", None)
+    n_forced = 0
     if force_thr is not None and instance_ids_all.max() > 0:
         force_thr = float(force_thr)
         force_mask = (instance_ids_all > 0) & (zn_arr >= force_thr)
@@ -271,18 +287,22 @@ def process_tile(
     pct_kept = 100.0 * n_kept / n_original if n_original else 0.0
     print(f"  → Vegetation-only: {n_kept:,}/{n_original:,} points ({pct_kept:.1f}%)")
 
-    write_las_with_fields(
-        las_template=las_z,
-        out_path=out_path,
-        classification=classification_final_all,
-        zn_values=zn_arr,
-        tree_ids=treeID_all,
-        keep_mask=keep_veg,
-    )
-    print(f"✅ Wrote veg-only LAS: {Path(out_path).name}")
+    write_outputs = bool(cfg.get("write_outputs", True))
+    if write_outputs:
+        write_las_with_fields(
+            las_template=las_z,
+            out_path=out_path,
+            classification=classification_final_all,
+            zn_values=zn_arr,
+            tree_ids=treeID_all,
+            keep_mask=keep_veg,
+        )
+        print(f"✅ Wrote veg-only LAS: {Path(out_path).name}")
+    else:
+        print("ℹ️  Skipped LAS writing (write_outputs=False)")
 
     # Full fused point cloud (gap-aware) – optional
-    if bool(cfg.get("write_full_fused", False)):
+    if write_outputs and bool(cfg.get("write_full_fused", False)):
         out_full = Path(out_path)
         out_full = out_full.with_name(out_full.stem + "_full_fused" + out_full.suffix)
         write_las_with_fields(
@@ -296,13 +316,37 @@ def process_tile(
         print(f"✅ Wrote full fused LAS: {out_full.name}")
 
     # Vegetation-only mask product – optional (boolean mask aligned to full Z_norm LAS)
-    if bool(cfg.get("write_veg_mask_npy", False)):
+    if write_outputs and bool(cfg.get("write_veg_mask_npy", False)):
         out_mask = Path(out_path)
         out_mask = out_mask.with_name(out_mask.stem + "_veg_mask.npy")
         np.save(out_mask, keep_veg)
         print(f"✅ Wrote veg mask: {out_mask.name}")
 
     print(f"   TreeIDs (unique, non-zero): {unique_trees}\n")
+
+    n_in_crowns = int(np.count_nonzero(instance_ids_all))
+    return {
+        "tile": Path(z_path).stem,
+        "voxel_size_xy": float(cfg["voxel_size_xy"]),
+        "voxel_size_z": float(cfg["voxel_size_z"]),
+        "z_points": int(len(las_z.points)),
+        "structure_points": int(len(las_s.points)),
+        "mallee_min_znorm": float(mallee_min),
+        "stage2_nonzero_structure_voxels": int(voxel_stats["nonzero_structure_voxels"]),
+        "stage2_labeled_points": int(voxel_stats["labeled_points"]),
+        "stage2_labeled_pct": float(voxel_stats["labeled_pct"]),
+        "stage3_watershed_crowns": int(label_grid.max()),
+        "stage3_points_in_crowns": n_in_crowns,
+        "stage4_changed_points": stage4_changed,
+        "stage4_changed_pct": float(stage4_changed_pct),
+        "stage5_promoted_points": promoted_points,
+        "stage5_majority_reclassified_points": n_reclassified,
+        "stage5_forced_points": n_forced,
+        "final_veg_points": n_kept,
+        "final_veg_pct": float(pct_kept),
+        "final_treeids": unique_trees,
+        "write_outputs": write_outputs,
+    }
 
 
 def process_folder(

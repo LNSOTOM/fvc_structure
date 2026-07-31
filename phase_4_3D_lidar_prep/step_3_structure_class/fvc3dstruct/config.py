@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "merge_65_to_68_znorm": 0.5,
     "promote_unlabelled_znorm": 1.3,
     # Stage-output / product generation
+    "write_outputs": True,
     "write_full_fused": False,
     "write_veg_mask_npy": False,
     # If True, collapse any non-zero treeID to 1 in the written outputs.

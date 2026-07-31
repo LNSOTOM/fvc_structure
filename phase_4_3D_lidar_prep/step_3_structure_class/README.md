@@ -100,6 +100,37 @@ process_tile(
 )
 ```
 
+`process_tile()` now returns a summary dictionary with run metrics, including:
+
+- Stage-2 labeled-point percentage
+- non-zero structure voxel count
+- Stage-4 label-change percentage
+- final vegetation-retention percentage
+- final non-zero treeID count
+
+For analysis-only runs, set `"write_outputs": False` in the config to skip LAS writing.
+
+### Voxel-size sensitivity sweep for a supplementary figure
+
+Use the helper below to compare the active Step-3 pipeline across voxel sizes such as
+5, 10, 15, 20, and 25 cm. The script writes:
+
+- `voxel_size_sweep_per_tile.csv`
+- `voxel_size_sweep_average.csv`
+- `supplementary_voxel_size_sensitivity.png`
+
+By default it runs in summary-only mode and does not write LAS outputs.
+
+```bash
+python phase_4_3D_lidar_prep/step_3_structure_class/compare_voxel_sizes.py \
+  --z-dir /path/to/z_norm \
+  --s-dir /path/to/structure \
+  --output-dir /path/to/voxel_sweep \
+  --sizes 0.05,0.10,0.15,0.20,0.25
+```
+
+Add `--write-las` if you also want the per-run LAS products saved under size-specific folders.
+
 ### Validation figure for the 2D to 3D label transfer workflow
 
 Use the helper below to create a four-panel figure showing:
