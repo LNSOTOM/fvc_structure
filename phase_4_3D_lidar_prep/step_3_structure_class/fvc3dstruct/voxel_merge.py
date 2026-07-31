@@ -1,7 +1,5 @@
 """Cartesian voxel merge: transfer structure labels via 3D voxel grid."""
 
-from collections import Counter
-
 import numpy as np
 
 
@@ -44,18 +42,26 @@ def cartesian_voxel_merge(las_z, las_s, voxel_xy=0.10, voxel_z=0.10, return_stat
         0,
     )
     
-    uniq_vox_s, inv_s = np.unique(vox_s, axis=0, return_inverse=True)
-    voxel_class = np.zeros(len(uniq_vox_s), dtype=np.uint16)
-    
-    for k in range(len(uniq_vox_s)):
-        vals = raw_struct[inv_s == k]
-        vals = vals[vals != 0]
-        if vals.size > 0:
-            voxel_class[k] = Counter(vals).most_common(1)[0][0]
-    
-    voxel_struct_map = {
-        tuple(idx): c for idx, c in zip(uniq_vox_s, voxel_class) if c != 0
-    }
+    valid_mask = raw_struct != 0
+    voxel_struct_map = {}
+    if np.any(valid_mask):
+        vox_struct = np.column_stack((vox_s[valid_mask], raw_struct[valid_mask]))
+        uniq_vox_struct, counts = np.unique(vox_struct, axis=0, return_counts=True)
+
+        voxel_coords = uniq_vox_struct[:, :3]
+        labels = uniq_vox_struct[:, 3]
+        order = np.lexsort((labels, voxel_coords[:, 2], voxel_coords[:, 1], voxel_coords[:, 0]))
+        voxel_coords = voxel_coords[order]
+        labels = labels[order]
+        counts = counts[order]
+
+        unique_voxels, start_idx = np.unique(voxel_coords, axis=0, return_index=True)
+        boundaries = np.append(start_idx[1:], len(counts))
+
+        for voxel_idx, start, end in zip(unique_voxels, start_idx, boundaries):
+            best = start + int(np.argmax(counts[start:end]))
+            voxel_struct_map[tuple(voxel_idx)] = int(labels[best])
+
     print(f"  ✅ Voxels with non-zero structure class: {len(voxel_struct_map):,}")
     
     # Transfer to Z_norm points
