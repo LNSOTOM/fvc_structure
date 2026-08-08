@@ -105,6 +105,7 @@ process_tile(
 - Stage-2 labeled-point percentage
 - non-zero structure voxel count
 - Stage-4 label-change percentage
+- Stage-4 mean label confidence and low-confidence-point percentage
 - final vegetation-retention percentage
 - final non-zero treeID count
 

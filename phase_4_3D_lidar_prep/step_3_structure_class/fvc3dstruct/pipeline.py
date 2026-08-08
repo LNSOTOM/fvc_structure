@@ -151,9 +151,11 @@ def process_tile(
     classification_refined = classification_baseline.copy()
     stage4_changed = 0
     stage4_changed_pct = 0.0
+    stage4_mean_confidence = float("nan")
+    stage4_low_confidence_pct = 0.0
     if label_grid.max() > 0:
         print("\n4️⃣  Stage 4: Crown-centric polar refinement with height priors...")
-        classification_refined = refine_with_polar_coords(
+        classification_refined, confidence_refined = refine_with_polar_coords(
             las_z,
             las_s,
             classification_refined,
@@ -175,9 +177,19 @@ def process_tile(
             if len(classification_refined) > 0
             else 0.0
         )
+        evaluated_confidence = confidence_refined[~np.isnan(confidence_refined)]
+        if len(evaluated_confidence) > 0:
+            stage4_mean_confidence = float(np.mean(evaluated_confidence))
+            stage4_low_confidence_pct = 100.0 * float(
+                np.count_nonzero(evaluated_confidence < cfg["min_conf"])
+            ) / len(evaluated_confidence)
         print(
             f"  → Stage-4 label changes: {stage4_changed:,}/{len(classification_refined):,} "
             f"({stage4_changed_pct:.1f}%)"
+        )
+        print(
+            f"  → Stage-4 mean label confidence: {stage4_mean_confidence:.2f} "
+            f"({stage4_low_confidence_pct:.1f}% below min_conf={cfg['min_conf']})"
         )
     else:
         print("\n4️⃣  Stage 4: Skipping polar refinement (no crowns)")
@@ -325,7 +337,7 @@ def process_tile(
     print(f"   TreeIDs (unique, non-zero): {unique_trees}\n")
 
     n_in_crowns = int(np.count_nonzero(instance_ids_all))
-    return {
+    result = {
         "tile": Path(z_path).stem,
         "voxel_size_xy": float(cfg["voxel_size_xy"]),
         "voxel_size_z": float(cfg["voxel_size_z"]),
@@ -339,6 +351,8 @@ def process_tile(
         "stage3_points_in_crowns": n_in_crowns,
         "stage4_changed_points": stage4_changed,
         "stage4_changed_pct": float(stage4_changed_pct),
+        "stage4_mean_confidence": float(stage4_mean_confidence),
+        "stage4_low_confidence_pct": float(stage4_low_confidence_pct),
         "stage5_promoted_points": promoted_points,
         "stage5_majority_reclassified_points": n_reclassified,
         "stage5_forced_points": n_forced,
@@ -347,6 +361,16 @@ def process_tile(
         "final_treeids": unique_trees,
         "write_outputs": write_outputs,
     }
+
+    # Opt-in: include full per-point classification arrays (Stage-2 baseline and
+    # final consolidated) for analyses like class-transition/confusion matrices.
+    # Both arrays share the Z_norm point-cloud's indexing. Off by default since
+    # these don't belong in a flat CSV row (see compare_voxel_sizes.py).
+    if bool(cfg.get("return_classification_arrays", False)):
+        result["classification_baseline"] = classification_baseline
+        result["classification_final"] = classification_final_all
+
+    return result
 
 
 def process_folder(

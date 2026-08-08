@@ -16,6 +16,9 @@ DEFAULT_CONFIG = {
     "write_outputs": True,
     "write_full_fused": False,
     "write_veg_mask_npy": False,
+    # If True, include the full per-point Stage-2 baseline and final classification
+    # arrays in process_tile()'s return dict (for class-transition/confusion analyses).
+    "return_classification_arrays": False,
     # If True, collapse any non-zero treeID to 1 in the written outputs.
     # (This does not change crown detection; it only changes the exported IDs.)
     "collapse_treeid_to_one": False,

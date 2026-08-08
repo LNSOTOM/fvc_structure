@@ -22,6 +22,7 @@ METRICS = [
     ("stage2_labeled_pct", "Stage 2 labeled points (%)"),
     ("stage2_nonzero_structure_voxels", "Non-zero structure voxels"),
     ("stage4_changed_pct", "Stage 4 label changes (%)"),
+    ("stage4_mean_confidence", "Stage 4 mean label confidence"),
     ("final_veg_pct", "Final vegetation retention (%)"),
 ]
 
@@ -123,6 +124,17 @@ def find_matched_tiles(z_dir: Path, s_dir: Path, z_glob: str, wanted_tiles: set[
     return matched
 
 
+def _metric_grid_shape(n_metrics: int) -> tuple[int, int]:
+    cols = 2
+    rows = -(-n_metrics // cols)  # ceil division
+    return rows, cols
+
+
+def _hide_unused_axes(axes: np.ndarray, n_used: int) -> None:
+    for ax in axes[n_used:]:
+        ax.set_visible(False)
+
+
 def _save(fig: plt.Figure, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=300, bbox_inches="tight")
@@ -149,6 +161,10 @@ def write_outputs(records: list[dict], output_dir: Path) -> None:
             stage2_nonzero_structure_voxels_std=("stage2_nonzero_structure_voxels", "std"),
             stage4_changed_pct_mean=("stage4_changed_pct", "mean"),
             stage4_changed_pct_std=("stage4_changed_pct", "std"),
+            stage4_mean_confidence_mean=("stage4_mean_confidence", "mean"),
+            stage4_mean_confidence_std=("stage4_mean_confidence", "std"),
+            stage4_low_confidence_pct_mean=("stage4_low_confidence_pct", "mean"),
+            stage4_low_confidence_pct_std=("stage4_low_confidence_pct", "std"),
             final_veg_pct_mean=("final_veg_pct", "mean"),
             final_veg_pct_std=("final_veg_pct", "std"),
             final_treeids_mean=("final_treeids", "mean"),
@@ -165,8 +181,9 @@ def write_outputs(records: list[dict], output_dir: Path) -> None:
 
 
 def plot_voxel_sweep(average_df: pd.DataFrame, output_path: Path) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(16, 10), constrained_layout=True)
-    axes = axes.ravel()
+    rows, cols = _metric_grid_shape(len(METRICS))
+    fig, axes = plt.subplots(rows, cols, figsize=(8 * cols, 5 * rows), constrained_layout=True)
+    axes = np.ravel(axes)
 
     x = average_df["voxel_size_cm"].to_numpy()
     n_tiles = int(average_df["tile_count"].max()) if not average_df.empty else 0
@@ -185,6 +202,7 @@ def plot_voxel_sweep(average_df: pd.DataFrame, output_path: Path) -> None:
         for xi, yi in zip(x, y):
             ax.annotate(f"{yi:.1f}", (xi, yi), textcoords="offset points", xytext=(0, 6), ha="center", fontsize=9)
 
+    _hide_unused_axes(axes, len(METRICS))
     fig.suptitle(
         f"Voxel-size sensitivity analysis for Step-3 label fusion (n={n_tiles} tiles)",
         fontsize=16,
@@ -193,8 +211,9 @@ def plot_voxel_sweep(average_df: pd.DataFrame, output_path: Path) -> None:
 
 
 def plot_single_tile_sweep(tile_df: pd.DataFrame, output_path: Path, tile_id: str) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(16, 10), constrained_layout=True)
-    axes = axes.ravel()
+    rows, cols = _metric_grid_shape(len(METRICS))
+    fig, axes = plt.subplots(rows, cols, figsize=(8 * cols, 5 * rows), constrained_layout=True)
+    axes = np.ravel(axes)
 
     sorted_df = tile_df.sort_values("voxel_size_cm")
     x = sorted_df["voxel_size_cm"].to_numpy()
@@ -214,6 +233,7 @@ def plot_single_tile_sweep(tile_df: pd.DataFrame, output_path: Path, tile_id: st
                 text = f"{yi:.1f}"
             ax.annotate(text, (xi, yi), textcoords="offset points", xytext=(0, 6), ha="center", fontsize=9)
 
+    _hide_unused_axes(axes, len(METRICS))
     fig.suptitle(f"Voxel-size sensitivity for tile {tile_id}", fontsize=16)
     _save(fig, output_path)
 
@@ -456,13 +476,16 @@ def plot_tile_summary_with_side_view_sweep(
     x_limits = (float(las_x.min()), float(las_x.max())) if len(las_x) else (0.0, 1.0)
     z_limits = (float(las_z.min()), float(las_z.max())) if len(las_z) else (0.0, 1.0)
 
-    fig = plt.figure(figsize=(24, 12), constrained_layout=True)
-    outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.1])
-    metrics_grid = outer[0].subgridspec(2, 2)
+    rows, cols = _metric_grid_shape(len(METRICS))
+    metrics_height = 5.5 * rows
+    side_height = 6.5
+    fig = plt.figure(figsize=(24, metrics_height + side_height), constrained_layout=True)
+    outer = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[metrics_height, side_height])
+    metrics_grid = outer[0].subgridspec(rows, cols)
     side_grid = outer[1].subgridspec(1, len(sizes))
 
     for index, (metric, label) in enumerate(METRICS):
-        ax = fig.add_subplot(metrics_grid[index // 2, index % 2])
+        ax = fig.add_subplot(metrics_grid[index // cols, index % cols])
         y_values = sorted_df[metric].to_numpy()
         ax.plot(x_values, y_values, marker="o", linewidth=2.5, color="#c45b12")
         ax.set_title(label, fontsize=13)

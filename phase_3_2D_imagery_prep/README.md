@@ -10,6 +10,12 @@ Orthomosaic imagery from UAV acquisitions was processed into gridded tiles with 
 3. Converting FVC (Fractional Vegetation Cover) annotations to structure-based classification
 4. Rasterizing vector labels to match tile resolution
 
+## Label Quality Assessment
+
+The 2D reference labels are foundational for the downstream experiments, so their quality should be assessed explicitly. A practical extension is to include a Mask R-CNN-based validation workflow that evaluates the reference annotations for instance-level agreement, highlights ambiguous or noisy regions, and provides a quantitative quality report before the labels are used for training or benchmarking.
+
+This could include per-class precision/recall/F1, confusion analysis, uncertainty estimates, and a manual review of the lowest-confidence samples to document the reliability of the 2D reference labels.
+
 ## Contents
 
 ```
@@ -71,3 +77,7 @@ conda install -c conda-forge gdal rasterio geopandas
 - **Vector labels**: Structure-classified shapefiles with `structure_id` attribute
 - **Raster labels**: Binary masks and multi-class rasters matching tile dimensions
 - **Processing logs**: Classification statistics and polygon counts
+
+## Notes
+
+Related research context lives in the `second-brain` Obsidian vault, notably `wiki/concepts/label-quality-assessment.md` (this phase's proposed label validation workflow), `wiki/concepts/2d-to-3d-label-transfer.md`, and `wiki/concepts/fractional-vegetation-cover-fvc-mapping.md`.

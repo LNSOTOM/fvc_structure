@@ -100,15 +100,15 @@ def refine_with_polar_coords(
     theta_bin_deg: float = 10.0,
     min_conf: float = 0.3,
     min_flip_ratio: float = 1.5,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Refine classification using crown-centric polar bins + height priors.
-    
+
     For each (crown, r_bin, theta_bin):
     - Estimate class probabilities from structure LAS points in that bin
     - Apply height priors based on data-driven ranges
     - Update Z_norm points if confidence is sufficient
-    
+
     Args:
         las_z: Z_norm LAS (target points)
         las_s: Structure LAS (source labels)
@@ -123,9 +123,10 @@ def refine_with_polar_coords(
         theta_bin_deg: Angular bin size (degrees)
         min_conf: Minimum confidence to update label
         min_flip_ratio: Minimum ratio new_conf/old_conf to flip label
-    
+
     Returns:
-        Updated classification array
+        Tuple of (updated classification array, per-point best-class confidence
+        array; NaN where a point had no polar-bin statistics to evaluate).
     """
     # Compute polar coordinates for both clouds
     r_z, theta_z, crown_z = calculate_polar_coords(
@@ -161,8 +162,9 @@ def refine_with_polar_coords(
     
     # Refine Z_norm classifications
     classification_out = classification.copy()
+    confidence_out = np.full(len(classification), np.nan, dtype=float)
     n_updated = 0
-    
+
     valid_z = (crown_z > 0) & (ir_z >= 0) & (it_z >= 0)
     
     for i in np.where(valid_z)[0]:
@@ -200,7 +202,8 @@ def refine_with_polar_coords(
         
         best_cls = max(probs, key=probs.get)
         best_conf = probs[best_cls]
-        
+        confidence_out[i] = best_conf
+
         # Update logic
         if current_cls == 0 or current_cls not in [64, 65, 66, 67, 68]:
             # Fill empty/invalid labels if confident enough
@@ -216,5 +219,5 @@ def refine_with_polar_coords(
     
     pct_updated = 100.0 * n_updated / len(classification) if len(classification) > 0 else 0.0
     print(f"  ✅ Updated {n_updated:,}/{len(classification):,} labels ({pct_updated:.1f}%)")
-    
-    return classification_out
+
+    return classification_out, confidence_out
