@@ -1,179 +1,158 @@
-# ForestFormer3D - ForAINetV2 experiments (baseline + calperum)
+# ForestFormer3D — ForAINetV2 experiments (baseline + Calperum)
 
-This README collects the **exact commands** used to run ForestFormer3D:
-- **Experiment 1**: zero-shot inference (baseline ForAINetV2 + Calperum splits)
-- **Experiment 2**: few-shot fine-tuning (Variant A joint + Variant B curriculum)
+Exact commands for the three experiments, run **inside the ForestFormer3D Docker container**
+(repo mounted at `/workspace`).
 
-These commands are intended to be run **inside the ForestFormer3D Docker container**, where the repo is mounted at `/workspace`.
+| Experiment | What | Variants |
+|---|---|---|
+| [1](#experiment-1--zero-shot-transfer) | Zero-shot transfer of the forest-trained model to unseen forest and semi-arid rangeland test sets | baseline forest, Calperum low/medium × L1/L2 |
+| [2](#experiment-2--few-shot-fine-tuning) | Few-shot fine-tuning on Calperum L1 | A: joint (medium+low), B: curriculum (medium → low) |
+| [3](#experiment-3--training-from-scratch) | Training from scratch (random init), same splits as 2A | 3A joint, 3B medium-only, 3C low-only |
 
-## Paper experiment mapping
+## Conventions
 
-All commands in this file are for:
+- A line-continuation backslash `\` **must be the last character on the line** (no trailing spaces).
+- `CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7` exposes **7 GPUs**, so `--gpus 7` / `dist_train.sh … 7` is consistent.
+- Base config: `/workspace/configs/oneformer3d_qs_radius16_qp300_2many.py` (used for all evaluation).
+- Fine-tune config: `/workspace/configs/exp2_finetune_l1_eval_gt.py` (used for all training).
+- Forest-pretrained init: `/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth`.
+- Instance-data caches: `forainetv2_instance_data_forest` (Exp 1, already in the repo) and
+  `forainetv2_instance_data_exp2A` (Exp 2 and 3, built in [2A Step 3](#step-3--export-the-exp2a-instance-data-cache)).
+- If loading a checkpoint raises spconv `size mismatch ... weight`, fix it once:
+  ```bash
+  python /workspace/tools/fix_spconv_checkpoint.py \
+    --in-path  <run-dir>/epoch_3000.pth \
+    --out-path <run-dir>/epoch_3000_fix.pth
+  ```
+- Model selection: prefer `best_harmonic` (balanced semantic + instance); report `epoch_3000` as
+  the last-epoch baseline and `best_mIoU` as a semantic-focused reference.
 
-**Experiment 1: Zero-shot transfer performance of ForestFormer3D from forest training data to unseen forest and semi-arid rangeland ecosystem test sets**
+## Shell setup (run once per shell)
 
-## Notes (important)
-
-- In bash, a line-continuation backslash `\` **must be the last character on the line** (no trailing spaces/tabs after it).
-- `CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7` exposes **7 GPUs** to the process, so `--gpus 7` is consistent.
-- The preprocessed instance data directory referenced below already exists in this repo at:
-  - `/workspace/data/ForAINetV2/forainetv2_instance_data_forest`
-
-## Common settings
-
-All experiments below use:
-- `FORAINETV2_PROTOCOL=forest`
-- `FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_forest`
-- `FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_forest`
-- Config: `/workspace/configs/oneformer3d_qs_radius16_qp300_2many.py`
-- Checkpoint: `/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth`
-
-# Experiment 1: Zero-shot transfer performance of ForestFormer3D from forest training data to unseen forest and semi-arid rangeland ecosystem test sets
-## Experiment 1.1 — Baseline ForAINetV2 (Forest domain (in-domain))
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_forest \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_forest \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split forest \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data \
-  --extra-tag forainetv2_baseline_forest \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint /workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth \
-  --work-dir /workspace/work_dirs/zero_shot_baseline_forest \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-## Experiment 1.2 — Calperum low_L1 (Cross-domain transfer)
+Everything below assumes these helpers are defined. `use_cache` sets the environment shared by
+every command; `PREFIX_OPTS` pins `data_prefix` to the selected cache so training never falls back
+to `data/ForAINetV2/points` (which triggers missing `.bin` errors).
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_forest \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_forest \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split forest \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_low_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
-  --extra-tag forainetv2_low_L1_forest \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint /workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth \
-  --work-dir /workspace/work_dirs/zero_shot_low_L1_forest \
-  --dist --gpus 7 \
-  --overwrite-pkl
+use_cache () {   # $1 = instance-data cache dir name
+  export FORAINETV2_PROTOCOL=forest
+  export FORAINETV2_INSTANCE_DATA_DIR=$1
+  export FORAINETV2_BIN_BASE_DIR=$1
+  export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7
+  export PREFIX_OPTS="\
+train_dataloader.dataset.data_prefix.pts=$1/points \
+train_dataloader.dataset.data_prefix.pts_instance_mask=$1/instance_mask \
+train_dataloader.dataset.data_prefix.pts_semantic_mask=$1/semantic_mask \
+val_dataloader.dataset.data_prefix.pts=$1/points \
+val_dataloader.dataset.data_prefix.pts_instance_mask=$1/instance_mask \
+val_dataloader.dataset.data_prefix.pts_semantic_mask=$1/semantic_mask"
+}
+
+ff_eval () {     # SPLIT SCENE_LIST PLY_DIR TAG WORK_DIR CKPT   (paths relative to data/work dirs)
+  python /workspace/tools/zero_shot_infer_split.py \
+    --split "$1" \
+    --scene-list "/workspace/data/ForAINetV2/meta_data/$2" \
+    --ply-dir "/workspace/data/ForAINetV2/$3" \
+    --extra-tag "$4" \
+    --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
+    --checkpoint "$6" \
+    --work-dir "/workspace/work_dirs/$5" \
+    --dist --gpus 7 \
+    --overwrite-pkl
+}
+
+ff_train () {    # WORK_DIR [extra --cfg-options ...]
+  local wd=$1; shift
+  bash /workspace/tools/dist_train.sh \
+    /workspace/configs/exp2_finetune_l1_eval_gt.py \
+    7 \
+    --work-dir "/workspace/work_dirs/$wd" \
+    --cfg-options "$@" $PREFIX_OPTS
+}
+
+ff_pkls () {     # TRAIN_LIST VAL_LIST TRAIN_PKL VAL_PKL   (lists relative to meta_data/)
+  python /workspace/tools/create_forainetv2_train_val_from_lists.py \
+    --root-path /workspace/data/ForAINetV2 \
+    --out-dir /workspace/data/ForAINetV2 \
+    --train-list "/workspace/data/ForAINetV2/meta_data/$1" \
+    --val-list "/workspace/data/ForAINetV2/meta_data/$2" \
+    ${3:+--train-out "$3"} ${4:+--val-out "$4"} \
+    --overwrite
+}
+
+ff_summarize () {  # WORK_DIR — train summary + val summary + curves
+  local g="/workspace/work_dirs/$1/*/*.log"
+  python3 /workspace/tools/print_train_metrics_summary.py --log-glob "$g" --epoch 3000 --metric loss --top-k 5
+  python3 /workspace/tools/print_val_metrics_summary.py   --log-glob "$g" --epoch 3000 --top-k 5
+  python3 /workspace/tools/plot_train_val_curves.py       --log-glob "$g" \
+    --out-dir "/workspace/work_dirs/$1/plots" --title "$1"
+}
+
+ff_test_summary () {  # WORK_DIR_GLOB TARGET_SUBSTRING
+  python3 /workspace/tools/print_test_metrics_summary.py \
+    --log-glob "/workspace/work_dirs/$1/*/*.log" \
+    --target-substring "$2" \
+    --top-k 5
+}
 ```
 
-## Experiment 1.3 — Calperum low_L2 (Cross-domain transfer)
+`ff_pkls` with only two arguments writes the default `*_train_L1.pkl` / `*_val_L1.pkl` that the
+fine-tune config expects; pass the third and fourth to name them explicitly.
+
+---
+
+# Experiment 1 — Zero-shot transfer
+
+Forest-trained model, no fine-tuning, evaluated in-domain (forest) and cross-domain (Calperum
+rangeland). All five runs use `--split forest` and the forest instance-data cache.
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_forest \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_forest \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split forest \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_low_L2.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_low_L2 \
-  --extra-tag forainetv2_low_L2_forest \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint /workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth \
-  --work-dir /workspace/work_dirs/zero_shot_low_L2_forest \
-  --dist --gpus 7 \
-  --overwrite-pkl
+use_cache forainetv2_instance_data_forest
+CKPT=/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth
+
+# 1.1 Baseline ForAINetV2 — forest (in-domain)
+ff_eval forest test_list.txt           test_data           forainetv2_baseline_forest  zero_shot_baseline_forest  "$CKPT"
+# 1.2 Calperum low_L1     (cross-domain)
+ff_eval forest test_list_low_L1.txt    test_data_low_L1    forainetv2_low_L1_forest    zero_shot_low_L1_forest    "$CKPT"
+# 1.3 Calperum low_L2     (cross-domain)
+ff_eval forest test_list_low_L2.txt    test_data_low_L2    forainetv2_low_L2_forest    zero_shot_low_L2_forest    "$CKPT"
+# 1.4 Calperum medium_L1  (cross-domain)
+ff_eval forest test_list_medium_L1.txt test_data_medium_L1 forainetv2_medium_L1_forest zero_shot_medium_L1_forest "$CKPT"
+# 1.5 Calperum medium_L2  (cross-domain)
+ff_eval forest test_list_medium_L2.txt test_data_medium_L2 forainetv2_medium_L2_forest zero_shot_medium_L2_forest "$CKPT"
 ```
 
-## Experiment 1.4 — Calperum medium_L1 (Cross-domain transfer)
+---
+
+# Experiment 2 — Few-shot fine-tuning
+
+Adapts the forest-pretrained model to Calperum **L1 only** (`medium_L2` and `low_L2` are not used).
+
+### Strict held-out split
+
+Pool: **30 L1 tiles** = 15 `medium_L1` + 15 `low_L1`, stratified by site so both appear everywhere.
+
+| Site | Train | Val | Held-out test |
+|---|---:|---:|---:|
+| `medium_L1` | 10 | 3 | 2 |
+| `low_L1` | 10 | 2 | 3 |
+| **Total** | **20** | **5** | **5** |
+
+Helper scripts used here (in this repo):
+`tools/make_ply_subset_dir.py` (symlinks the selected PLYs into one folder) and
+`tools/create_forainetv2_train_val_from_lists.py` (PKLs from explicit scene-id lists).
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_forest \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_forest \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split forest \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag forainetv2_medium_L1_forest \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint /workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth \
-  --work-dir /workspace/work_dirs/zero_shot_medium_L1_forest \
-  --dist --gpus 7 \
-  --overwrite-pkl
+use_cache forainetv2_instance_data_exp2A
 ```
 
-## Experiment 1.5 — Calperum medium_L2 (Cross-domain transfer)
+## Variant A — Joint fine-tuning (medium_L1 + low_L1)
 
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_forest \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_forest \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split forest \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_medium_L2.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L2 \
-  --extra-tag forainetv2_medium_L2_forest \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint /workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth \
-  --work-dir /workspace/work_dirs/zero_shot_medium_L2_forest \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
+### Step 1 — Generate the exp2 lists
 
-# Experiment 2: Few-shot fine-tuning (Variant A — Joint fine-tuning)
-
-## Variant A — Joint fine-tuning (medium_L1 + low_L1 only)
-
-The model is adapted simultaneously using samples from **both** rangeland sites:
-- Calperum `medium_L1`
-- Calperum `low_L1`
-
-Not used in Experiment 2:
-- `medium_L2`
-- `low_L2`
-
-Helper scripts used by Experiment 2 (included in this repo):
-- `/workspace/tools/make_ply_subset_dir.py` (stages/symlinks the selected PLYs into one `train_val_data_exp2A/` folder)
-- `/workspace/tools/create_forainetv2_train_val_from_lists.py` (creates `*_train_L1.pkl` and `*_val_L1.pkl` from explicit scene-id lists)
-
-### Strict held-out test split (recommended)
-
-The total Calperum L1 pool here is **30 tiles** = **15 medium_L1** + **15 low_L1**.
-
-To get a strictly held-out test set, we use:
-- Train: **20 tiles**
-- Val: **5 tiles**
-- Held-out Test: **5 tiles**
-
-Stratified by site (so both sites appear in all splits):
-- `medium_L1`: 10 train / 3 val / 2 test
-- `low_L1`: 10 train / 2 val / 3 test
-
-### Common settings (Experiment 2)
-
-All Experiment 2 steps below use:
-- `FORAINETV2_PROTOCOL=forest`
-- `FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A`
-- `FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A`
-- Fine-tune config: `/workspace/configs/exp2_finetune_l1_eval_gt.py`
-- Base config: `/workspace/configs/oneformer3d_qs_radius16_qp300_2many.py`
-- Initialization checkpoint: `/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth`
-
-### Step 1 — Generate exp2 lists (python snippet)
-
-If you already have the three files below, you can skip this step.
-
-This writes:
-- `train_list_exp2_mediumL1_lowL1_fewshot.txt`
-- `val_list_exp2_mediumL1_lowL1_fewshot.txt`
-- `test_list_exp2_holdout_medium_L1.txt`
-- `test_list_exp2_holdout_low_L1.txt`
-- `test_list_exp2_holdout_mediumL1_lowL1.txt`
-- `test_list_exp2_mediumL1_lowL1.txt` (kept empty to skip test export in Step 3)
+Skip if the list files already exist. Writes `train_list_exp2_mediumL1_lowL1_fewshot.txt`,
+`val_list_exp2_mediumL1_lowL1_fewshot.txt`, the three `test_list_exp2_holdout_*` files, and
+`test_list_exp2_mediumL1_lowL1.txt` (**deliberately empty**, so Step 3 exports train/val only).
 
 ```bash
 python - <<'PY'
@@ -183,62 +162,44 @@ import random
 meta = Path('/workspace/data/ForAINetV2/meta_data')
 meta.mkdir(parents=True, exist_ok=True)
 
-def read_ids(p: Path) -> list[str]:
-    ids = [ln.strip() for ln in p.read_text(encoding='utf-8').splitlines() if ln.strip()]
-    return ids
+def read_ids(p): return [ln.strip() for ln in p.read_text(encoding='utf-8').splitlines() if ln.strip()]
 
-# Source pools (L1 only)
 medium = read_ids(meta / 'test_list_medium_L1.txt')
 low = read_ids(meta / 'test_list_low_L1.txt')
-
 assert len(medium) == 15, f"Expected 15 medium_L1 tiles, got {len(medium)}"
 assert len(low) == 15, f"Expected 15 low_L1 tiles, got {len(low)}"
 
 seed = 0
 
-def split_site(ids: list[str], n_train: int, n_val: int, n_test: int) -> tuple[list[str], list[str], list[str]]:
-  ids = list(ids)
-  random.Random(seed).shuffle(ids)
-  train = ids[:n_train]
-  val = ids[n_train:n_train + n_val]
-  test = ids[n_train + n_val:n_train + n_val + n_test]
-  assert len(train) == n_train and len(val) == n_val and len(test) == n_test
-  return train, val, test
+def split_site(ids, n_train, n_val, n_test):
+    ids = list(ids)
+    random.Random(seed).shuffle(ids)
+    train, val = ids[:n_train], ids[n_train:n_train + n_val]
+    test = ids[n_train + n_val:n_train + n_val + n_test]
+    assert len(train) == n_train and len(val) == n_val and len(test) == n_test
+    return train, val, test
 
-# Strict held-out split (stratified by site)
-# medium_L1: 10 train / 3 val / 2 test
-# low_L1   : 10 train / 2 val / 3 test
-med_train, med_val, med_test = split_site(medium, n_train=10, n_val=3, n_test=2)
-low_train, low_val, low_test = split_site(low, n_train=10, n_val=2, n_test=3)
+med_train, med_val, med_test = split_site(medium, 10, 3, 2)
+low_train, low_val, low_test = split_site(low, 10, 2, 3)
 
-train_ids = med_train + low_train
-val_ids = med_val + low_val
-test_med = med_test
-test_low = low_test
-test_all = test_med + test_low
+out = {
+    'train_list_exp2_mediumL1_lowL1_fewshot.txt': med_train + low_train,
+    'val_list_exp2_mediumL1_lowL1_fewshot.txt': med_val + low_val,
+    'test_list_exp2_holdout_medium_L1.txt': med_test,
+    'test_list_exp2_holdout_low_L1.txt': low_test,
+    'test_list_exp2_holdout_mediumL1_lowL1.txt': med_test + low_test,
+}
+for name, ids in out.items():
+    (meta / name).write_text('\n'.join(ids) + '\n', encoding='utf-8')
+    print(f'- {name}', len(ids))
 
-(meta / 'train_list_exp2_mediumL1_lowL1_fewshot.txt').write_text('\n'.join(train_ids) + '\n', encoding='utf-8')
-(meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').write_text('\n'.join(val_ids) + '\n', encoding='utf-8')
-(meta / 'test_list_exp2_holdout_medium_L1.txt').write_text('\n'.join(test_med) + '\n', encoding='utf-8')
-(meta / 'test_list_exp2_holdout_low_L1.txt').write_text('\n'.join(test_low) + '\n', encoding='utf-8')
-(meta / 'test_list_exp2_holdout_mediumL1_lowL1.txt').write_text('\n'.join(test_all) + '\n', encoding='utf-8')
-
-# Keep this empty on purpose for training-only cache export
+# Empty on purpose: training-only cache export
 (meta / 'test_list_exp2_mediumL1_lowL1.txt').write_text('', encoding='utf-8')
-
-print('Wrote (strict held-out):')
-print('- train_list_exp2_mediumL1_lowL1_fewshot.txt', len(train_ids))
-print('- val_list_exp2_mediumL1_lowL1_fewshot.txt', len(val_ids))
-print('- test_list_exp2_holdout_medium_L1.txt', len(test_med))
-print('- test_list_exp2_holdout_low_L1.txt', len(test_low))
-print('- test_list_exp2_holdout_mediumL1_lowL1.txt', len(test_all))
 print('- test_list_exp2_mediumL1_lowL1.txt (empty)')
 PY
 ```
 
-### Step 2 — Stage the chosen train+val PLYs into one folder
-
-This creates a unified `train_val_data_exp2A/` matching the new train/val lists.
+### Step 2 — Stage the train+val PLYs into one folder
 
 ```bash
 python /workspace/tools/make_ply_subset_dir.py \
@@ -252,12 +213,9 @@ python /workspace/tools/make_ply_subset_dir.py \
   --overwrite
 ```
 
-### Step 3 — Export instance-data cache for exp2A (creates npys)
+### Step 3 — Export the exp2A instance-data cache
 
-This writes into:
-- `/workspace/data/ForAINetV2/forainetv2_instance_data_exp2A/`
-
-Note: we keep `test_list_exp2_mediumL1_lowL1.txt` empty, so this call effectively exports **train/val only**.
+Writes the npys into `/workspace/data/ForAINetV2/forainetv2_instance_data_exp2A/`.
 
 ```bash
 cd /workspace/data/ForAINetV2
@@ -272,187 +230,51 @@ python batch_load_ForAINetV2_data.py \
   --test_scan_names_file ./meta_data/test_list_exp2_mediumL1_lowL1.txt
 ```
 
-### Step 4 — Create the train/val PKLs from your explicit lists
-
-These list files already exist:
-- `/workspace/data/ForAINetV2/meta_data/train_list_exp2_mediumL1_lowL1_fewshot.txt`
-- `/workspace/data/ForAINetV2/meta_data/val_list_exp2_mediumL1_lowL1_fewshot.txt`
-
-Generate training PKLs (the fine-tune config expects `*_train_L1.pkl` and `*_val_L1.pkl`):
+### Step 4 — Create the train/val PKLs
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-python /workspace/tools/create_forainetv2_train_val_from_lists.py \
-  --root-path /workspace/data/ForAINetV2 \
-  --out-dir /workspace/data/ForAINetV2 \
-  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2_mediumL1_lowL1_fewshot.txt \
-  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2_mediumL1_lowL1_fewshot.txt \
-  --overwrite
+ff_pkls train_list_exp2_mediumL1_lowL1_fewshot.txt val_list_exp2_mediumL1_lowL1_fewshot.txt
 ```
 
-### Step 5 — Run distributed fine-tuning
+> The repo has the L1-only lists (`*_mediumL1_lowL1_fewshot.txt`). The older `*_mediumL1L2lowL1_*`
+> names do not exist here and would re-introduce `medium_L2`.
+
+### Step 5 — Fine-tune
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash /workspace/tools/dist_train.sh \
-  /workspace/configs/exp2_finetune_l1_eval_gt.py \
-  7 \
-  --work-dir /workspace/work_dirs/exp2A_epoch3000_train
+ff_train exp2A_epoch3000_train
 ```
 
-Optional: if you prefer to explicitly pin the PKLs and data-prefix paths via `--cfg-options` (as in your runs), use:
+### Step 6 — Held-out evaluation
+
+Pick a checkpoint, then run the two site evals. `save_best='mIoU'` runs during Step 5, so
+`best_mIoU*.pth` and `best_harmonic*.pth` both exist.
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash tools/dist_train.sh configs/exp2_finetune_l1_eval_gt.py 7 \
-  --work-dir work_dirs/exp2A_epoch3000_train \
-  --cfg-options \
-    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
-    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
+# Balanced (primary selection)
+CKPT=/workspace/work_dirs/exp2A_epoch3000_train/best_harmonic_epoch_2000_fix.pth ; TAG=epoch2000
+# Semantic-focused:  CKPT=$(ls -1t /workspace/work_dirs/exp2A_epoch3000_train/best_mIoU*.pth | head -n1)
+# Last-epoch:        CKPT=/workspace/work_dirs/exp2A_epoch3000_train/epoch_3000.pth ; TAG=epoch3000
+
+ff_eval medium test_list_exp2_holdout_medium_L1.txt test_data_medium_L1 \
+  "exp2A_${TAG}_medium_L1" "exp2A_${TAG}_eval_medium_L1" "$CKPT"
+
+ff_eval low    test_list_exp2_holdout_low_L1.txt    test_data_low_L1 \
+  "exp2A_${TAG}_low_L1"    "exp2A_${TAG}_eval_low_L1"    "$CKPT"
 ```
 
-Note: the repo contains `train_list_exp2_mediumL1_lowL1_fewshot.txt` / `val_list_exp2_mediumL1_lowL1_fewshot.txt` (L1 only).
-The older names `*_mediumL1L2lowL1_*` do not exist here and would re-introduce `medium_L2`.
-
-### Step 6 — Evaluation after fine-tuning (medium_L1 + low_L1 test sets)
-
-Run `tools/zero_shot_infer_split.py` with the **best validation checkpoint** saved during Step 5 (`save_best='mIoU'`).
-Keep `FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A` so test exports land in the same cache.
-
-Select the checkpoint that achieved the highest validation mIoU:
+### Step 6b — Training / validation metrics
 
 ```bash
-BEST_CKPT=$(ls -1t /workspace/work_dirs/exp2A_epoch3000_train/best_mIoU*.pth | head -n1)
-echo "Using best checkpoint: ${BEST_CKPT}"
+ff_summarize exp2A_epoch3000_train
 ```
 
-Tiny alternative (balanced checkpoint): pick and test `best_harmonic*.pth` directly:
+Raw validation lines (validation runs every 100 epochs), and the top-5 val epochs by mIoU:
 
 ```bash
-BEST_HARMONIC_CKPT=/workspace/work_dirs/exp2A_epoch3000_train/best_harmonic_epoch_2000_fix.pth
-echo "Using best harmonic checkpoint: ${BEST_HARMONIC_CKPT}"
-BEST_CKPT=${BEST_HARMONIC_CKPT}
-```
+grep "Epoch(val)" work_dirs/exp2A_epoch3000_train/*/*.log
 
-Tiny alternative (last epoch baseline): force `epoch_3000` for comparison:
-
-```bash
-BEST_CKPT=/workspace/work_dirs/exp2A_epoch3000_train/epoch_3000.pth
-echo "Using last-epoch checkpoint: ${BEST_CKPT}"
-```
-
-Important: if you see spconv `size mismatch ... weight` errors when loading `epoch_3000.pth`, fix it once:
-
-```bash
-python /workspace/tools/fix_spconv_checkpoint.py \
-  --in-path /workspace/work_dirs/exp2A_epoch3000_train/epoch_3000.pth \
-  --out-path /workspace/work_dirs/exp2A_epoch3000_train/epoch_3000_fix.pth
-```
-
-Medium L1 held-out (test 3000ep):
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp2A_epoch3000_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp2A_epoch3000_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-Medium L1 held-out (test on best harmonic):
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp2A_epoch2000_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp2A_epoch2000_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-Low L1 held-out (test 3000ep):
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split low \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
-  --extra-tag exp2A_epoch3000_low_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp2A_epoch3000_eval_low_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-Low L1 held-out (test on best hamornic):
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split low \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
-  --extra-tag exp2A_epoch2000_low_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp2A_epoch2000_eval_low_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-Primary selection is `best_harmonic` for balanced semantic+instance quality; report `epoch_3000` as a baseline and `best_mIoU` as a semantic-focused reference.
-
-### Step 6b — Validation metrics (from training log)
-
-Validation runs every 100 epochs during training. To re-print all val lines:
-
-```bash
-grep "Epoch(val)" \
-  work_dirs/exp2_variantA_joint/20260312_033733/20260312_033733.log
-```
-
-To find the best val epoch by mIoU:
-
-```bash
-grep "Epoch(val)" \
-  work_dirs/exp2_variantA_joint/20260312_033733/20260312_033733.log \
+grep "Epoch(val)" work_dirs/exp2_variantA_joint/20260312_033733/20260312_033733.log \
   | python3 -c "
 import sys, re
 rows = []
@@ -461,96 +283,38 @@ for line in sys.stdin:
     miou = re.search(r'mIoU: ([0-9.]+)', line)
     f1 = re.search(r'F1: ([0-9.]+)', line)
     if ep and miou and f1:
-        rows.append((int(ep.group(1)), float(miou.group(1)), float(f1.group(1)), line.strip()))
+        rows.append((int(ep.group(1)), float(miou.group(1)), float(f1.group(1))))
 rows.sort(key=lambda x: x[1], reverse=True)
 print('Top 5 by mIoU:')
-for ep, miou, f1, _ in rows[:5]:
+for ep, miou, f1 in rows[:5]:
     print(f'  epoch={ep:4d}  mIoU={miou:.4f}  F1={f1:.4f}')
 "
 ```
 
-To print a full validation summary (best harmonic + epoch 3000 + top-5 mIoU), run:
+#### Validation results (run: 2026-03-12)
 
-```bash
-python3 /workspace/tools/print_val_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2A_epoch3000_train/*/*.log" \
-  --epoch 3000 \
-  --top-k 5
-```
+| Metric | Best val epoch (1200) | Final val epoch (3000) |
+|---|---|---|
+| IoU ground | 71.1% | 65.2% |
+| IoU wood | 10.3% | 7.8% |
+| IoU leaf | 74.2% | 60.5% |
+| mIoU | 51.9% | 44.5% |
+| mIoU binary (non-tree / tree) | 71.1% / 93.0% = 82.0% | 65.2% / 92.7% = 78.9% |
+| F1 / Precision / Recall | 45.0% / 58.7% / 36.5% | 55.4% / 64.7% / 48.4% |
+| mMWCov | 41.9% | 55.1% |
+| mMUCov | 31.1% | 41.7% |
 
-To print a compact **training** summary (epoch 3000 + final epoch + top-k lowest loss), run:
+> **Note:** Best mIoU is at epoch 1200, but epoch 3000 has better F1 (55.4% vs 45.0%) and mMWCov
+> (55.1% vs 41.9%) — the model trades semantic accuracy for better instance grouping at later
+> epochs. Only `epoch_2998/2999/3000.pth` (plus `last_checkpoint`) were kept in this run, so
+> `epoch_1200.pth` cannot be re-tested; use `epoch_2998`/`epoch_2999` if you want extra baselines.
 
-```bash
-python3 /workspace/tools/print_train_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2A_epoch3000_train/*/*.log" \
-  --epoch 3000 \
-  --metric loss \
-  --top-k 5
-```
+### Step 7 — Collect test metrics
 
-To generate **plots** (train loss + val metrics) for Exp2A, run:
-
-```bash
-python3 /workspace/tools/plot_train_val_curves.py \
-  --log-glob "/workspace/work_dirs/exp2A_epoch3000_train/*/*.log" \
-  --out-dir "/workspace/work_dirs/exp2A_epoch3000_train/plots"
-```
-
-#### Validation results (run: 2026-03-12, best and final epochs)
-
-**Best val epoch — epoch 1200** (highest mIoU across all 3000 epochs):
-
-| Metric | Value |
-|---|---|
-| IoU ground | 71.1% |
-| IoU wood | 10.3% |
-| IoU leaf | 74.2% |
-| mIoU | 51.9% |
-| mIoU binary (non-tree / tree) | 71.1% / 93.0% = 82.0% |
-| F1 / Precision / Recall | 45.0% / 58.7% / 36.5% |
-| mMWCov | 41.9% |
-| mMUCov | 31.1% |
-
-**Final val epoch — epoch 3000** (checkpoint used for test evaluation):
-
-| Metric | Value |
-|---|---|
-| IoU ground | 65.2% |
-| IoU wood | 7.8% |
-| IoU leaf | 60.5% |
-| mIoU | 44.5% |
-| mIoU binary (non-tree / tree) | 65.2% / 92.7% = 78.9% |
-| F1 / Precision / Recall | 55.4% / 64.7% / 48.4% |
-| mMWCov | 55.1% |
-| mMUCov | 41.7% |
-
-> **Note:** The best mIoU is at epoch 1200, but epoch 3000 has better F1 (55.4% vs 45.0%) and mMWCov (55.1% vs 41.9%).
-> This suggests the model trades semantic accuracy for better instance grouping at later epochs.
-> In this run, only `epoch_2998.pth`, `epoch_2999.pth`, `epoch_3000.pth` (plus `last_checkpoint`) were kept,
-> so `epoch_1200.pth` is not available for re-test.
-> If you want to compare checkpoints now, re-run Step 6 with `epoch_2998.pth` and `epoch_2999.pth` as additional baselines.
-
-### Step 7 — Collect test metrics from eval run dirs
-
-Run on the **host** (not inside the container) using `sudo` because the eval dirs are root-owned:
-
-```bash
-cd /home/nvidia/projects/fvc_structure/ForestFormer3D
-
-sudo /home/nvidia/micromamba/bin/python tools/dvc_collect_metrics.py \
-  --work-dir work_dirs/exp2A_epoch3000_eval_medium_L1 \
-  --out work_dirs/exp2A_epoch3000_eval_medium_L1/metrics_test_mediumL1.json
-
-sudo /home/nvidia/micromamba/bin/python tools/dvc_collect_metrics.py \
-  --work-dir work_dirs/exp2A_epoch3000_eval_low_L1 \
-  --out work_dirs/exp2A_epoch3000_eval_low_L1/metrics_test_lowL1.json
-```
-
-Alternative (inside the container, no `sudo` / micromamba path required):
+Inside the container:
 
 ```bash
 cd /workspace
-
 python3 tools/dvc_collect_metrics.py \
   --work-dir work_dirs/exp2A_epoch3000_eval_medium_L1 \
   --out work_dirs/exp2A_epoch3000_eval_medium_L1/metrics_test_mediumL1.json
@@ -560,146 +324,55 @@ python3 tools/dvc_collect_metrics.py \
   --out work_dirs/exp2A_epoch3000_eval_low_L1/metrics_test_lowL1.json
 ```
 
-To print Ground / Wood / Leaf IoU directly from the MMEngine log (no JSON needed):
+On the **host** the eval dirs are root-owned, so use `sudo` and the micromamba interpreter:
 
 ```bash
-grep -E "Table1Row|Stage1Row|Exp1Row|IoU_ground|IoU_wood|IoU_leaf" \
-  work_dirs/exp2A_epoch3000_eval_medium_L1/20260316_041848/20260316_041848.log
-
-grep -E "Table1Row|Stage1Row|Exp1Row|IoU_ground|IoU_wood|IoU_leaf" \
-  work_dirs/exp2A_epoch3000_eval_low_L1/20260316_043048/20260316_043048.log
+cd /home/nvidia/projects/fvc_structure/ForestFormer3D
+sudo /home/nvidia/micromamba/bin/python tools/dvc_collect_metrics.py \
+  --work-dir work_dirs/exp2A_epoch3000_eval_medium_L1 \
+  --out work_dirs/exp2A_epoch3000_eval_medium_L1/metrics_test_mediumL1.json
 ```
 
-#### Val vs Test quick-check
-
-Validation metrics (from training log):
+Per-checkpoint summaries straight from the logs:
 
 ```bash
-grep "Epoch(val)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_train/20260316_021318/20260316_021318.log
+ff_test_summary "exp2A*_eval_medium_L1*" best_harmonic
+ff_test_summary "exp2A*_eval_medium_L1*" epoch_3000_fix.pth
+ff_test_summary "exp2A*_eval_low_L1*"    best_harmonic
+ff_test_summary "exp2A*_eval_low_L1*"    epoch_3000_fix.pth
 ```
 
-Test metrics (from held-out eval logs):
+Read IoU / val / test lines directly from an MMEngine log:
 
 ```bash
-grep "Epoch(test)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_medium_L1/20260316_041848/20260316_041848.log
-grep "Epoch(test)" /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_low_L1/20260316_043048/20260316_043048.log
+grep -E "Table1Row|Stage1Row|Exp1Row|IoU_ground|IoU_wood|IoU_leaf" work_dirs/exp2A_epoch3000_eval_medium_L1/*/*.log
+grep "Epoch(val)"  work_dirs/exp2A_epoch3000_train/*/*.log
+grep "Epoch(test)" work_dirs/exp2A_epoch3000_eval_medium_L1/*/*.log
+grep "Epoch(test)" work_dirs/exp2A_epoch3000_eval_low_L1/*/*.log
 ```
 
-To print a full **test-medium** summary (best harmonic + target run + top-k mIoU), run:
+#### Step 7 results (run: 2026-03-12, `epoch_3000`)
 
-```bash
-BEST_HARMONIC_CKPT=$(ls -1t /workspace/work_dirs/exp2A_epoch3000_train/best_harmonic*.pth | head -n1)
-echo "Using best harmonic checkpoint: ${BEST_HARMONIC_CKPT}"
+| Metric | medium_L1 | low_L1 |
+|---|---|---|
+| IoU ground | 56.3% | 74.3% |
+| IoU wood | 4.1% | 26.7% |
+| IoU leaf | 86.3% | 0.0% |
+| mIoU | 48.9% | 50.5% |
+| mIoU binary (non-tree / tree) | 56.3% / 96.8% = 76.5% | 74.3% / 86.5% = 80.4% |
+| F1 / Precision / Recall | 39.1% / 58.9% / 29.2% | 0.0% / 0.0% / 0.0% |
+| mMWCov | 30.0% | 0.0% |
+| mMUCov | 26.2% | 0.0% |
 
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp2A_best_harmonic_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_HARMONIC_CKPT} \
-  --work-dir /workspace/work_dirs/exp2A_best_harmonic_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
+> **Note on low_L1 instance metrics:** all instance metrics (F1, PQ, Cov) are 0 while semantic IoU
+> is healthy (80.4% binary) — the backbone classifies points correctly but the instance head
+> predicted no valid instances above threshold. Likely cause: the 3 held-out low_L1 tiles contain
+> no `leaf`-class points (`IoU_leaf=0`), which breaks the multi-class instance matcher. Re-run with
+> the full 15-tile low_L1 pool for stable instance metrics.
 
-Then summarize test-medium metrics:
+#### Checkpoint comparison on held-out test
 
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2A*_eval_medium_L1*/*/*.log" \
-  --target-substring "best_harmonic" \
-  --top-k 5
-
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2A*_eval_medium_L1*/*/*.log" \
-  --target-substring "epoch_3000_fix.pth" \
-  --top-k 5
-```
-
-
-Then summarize test-low metrics:
-
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2A*_eval_low_L1*/*/*.log" \
-  --target-substring "best_harmonic" \
-  --top-k 5
-
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2A*_eval_low_L1*/*/*.log" \
-  --target-substring "epoch_3000_fix.pth" \
-  --top-k 5
-```
-
-Test JSON summaries:
-
-```bash
-cat /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_medium_L1/metrics_test_mediumL1.json
-cat /home/nvidia/projects/fvc_structure/ForestFormer3D/work_dirs/exp2A_epoch3000_eval_low_L1/metrics_test_lowL1.json
-```
-
-Qualitative viewer across experiments:
-
-```bash
-# If your current directory is /workspace/ForestFormer3D
-python3 tools/qualitative_results_app.py \
-  --work-dirs-root /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs \
-  --host 0.0.0.0 \
-  --port 8051
-
-# If your current directory is the parent workspace root
-python3 ForestFormer3D/tools/qualitative_results_app.py \
-  --work-dirs-root /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs \
-  --host 0.0.0.0 \
-  --port 8051
-```
-
-This app scans all experiment folders under `work_dirs`, lists scenes with top-level `.ply` or `.las`
-outputs, and renders side-by-side GT and Prediction views for both semantic and instance segmentation.
-
-### Step 7 results (run: 2026-03-12)
-
-**medium_L1** (`exp2A_epoch3000_eval_medium_L1`):
-
-| Metric | Value |
-|---|---|
-| IoU ground | 56.3% |
-| IoU wood | 4.1% |
-| IoU leaf | 86.3% |
-| mIoU | 48.9% |
-| mIoU binary (non-tree / tree) | 56.3% / 96.8% = 76.5% |
-| F1 / Precision / Recall | 39.1% / 58.9% / 29.2% |
-| mMWCov | 30.0% |
-| mMUCov | 26.2% |
-
-**low_L1** (`exp2A_epoch3000_eval_low_L1`):
-
-| Metric | Value |
-|---|---|
-| IoU ground | 74.3% |
-| IoU wood | 26.7% |
-| IoU leaf | 0.0% |
-| mIoU | 50.5% |
-| mIoU binary (non-tree / tree) | 74.3% / 86.5% = 80.4% |
-| F1 / Precision / Recall | 0.0% / 0.0% / 0.0% |
-| mMWCov | 0.0% |
-| mMUCov | 0.0% |
-
-> **Note on low_L1 instance metrics:** All instance metrics (F1, PQ, Cov) are 0 for low_L1.
-> Semantic IoU is healthy (80.4% binary), meaning the backbone correctly classifies points,
-> but the instance segmentation head predicted zero valid instances above the threshold.
-> Likely cause: the 3 held-out low_L1 tiles contain no `leaf`-class points (`IoU_leaf=0`),
-> which breaks the multi-class instance matcher. Consider re-running with the full low_L1
-> pool (all 15 tiles) to get stable instance metrics.
-
-### Checkpoint comparison on held-out test (updated)
-
-#### medium_L1 (2 scenes)
+**medium_L1 (2 scenes)**
 
 | Checkpoint | Prec (%) | Rec (%) | F1 (%) | Cov (%) | Ground (%) | Wood (%) | Leaf (%) | mIoU (%) | Harmonic (%) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -707,834 +380,254 @@ outputs, and renders side-by-side GT and Prediction views for both semantic and 
 | `best_mIoU_epoch_300` | 50.0 | 27.4 | 35.4 | 25.2 | 50.3 | 7.0 | 84.4 | 47.2 | 40.5 |
 | `epoch_3000` | 58.9 | 29.2 | 39.1 | 26.2 | 56.3 | 4.1 | 86.3 | 48.9 | 43.4 |
 
-#### low_L1 (3 scenes, `epoch_3000`)
+**low_L1 (3 scenes, `epoch_3000`)**
 
 | Prec (%) | Rec (%) | F1 (%) | Cov (%) | Ground (%) | Wood (%) | Leaf (%) | mIoU (%) | Harmonic (%) |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 0.0 | 0.0 | 0.0 | 0.0 | 74.3 | 26.7 | 0.0 | 50.5 | 0.0 |
 
-> **Interpretation:** For balanced medium_L1 performance, `epoch_3000` and `best_harmonic_epoch_2000` are very close; `epoch_3000` is higher in F1 and harmonic, while `best_harmonic_epoch_2000` is higher in recall and coverage.
-> Low_L1 instance metrics are not directly comparable because GT instances are absent (`Scenes with any GT instances: 0/3`).
+> **Interpretation:** on medium_L1, `epoch_3000` and `best_harmonic_epoch_2000` are very close —
+> `epoch_3000` wins on F1 and harmonic, `best_harmonic_epoch_2000` on recall and coverage. low_L1
+> instance metrics are not comparable because GT instances are absent (`Scenes with any GT
+> instances: 0/3`).
+
+### Qualitative viewer
+
+Scans all experiment folders under `work_dirs`, lists scenes with top-level `.ply`/`.las` outputs,
+and renders side-by-side GT vs prediction for semantic and instance segmentation.
+
+```bash
+python3 tools/qualitative_results_app.py \
+  --work-dirs-root /media/laura/8402326D023263F8/calperumResearch/site1_1_DD0001/lidar/ForestFormer3D/data/ForAINetV2/work_dirs \
+  --host 0.0.0.0 --port 8051
+```
+
+(From the parent workspace root, prefix the script path with `ForestFormer3D/`.)
 
 ## Variant B — Curriculum fine-tuning (medium-only → low-only)
 
-This variant uses a two-stage curriculum with strict held-out testing:
+Two stages with strict held-out testing:
 
-- **Stage 1 (medium-only):** start from forest-pretrained checkpoint, train on medium-only train/val.
-- **Stage 2 (low-only):** initialize from Stage-1 best checkpoint, then train on low-only train/val.
+- **Stage 1** — start from the forest-pretrained checkpoint, train on medium-only train/val.
+- **Stage 2** — initialize from the **Stage-1** checkpoint (not the forest one), train on low-only.
 
-Key rules:
+Rules: never test on tiles used for training; keep the strict held-out lists
+(`test_list_exp2_holdout_medium_L1.txt`, `test_list_exp2_holdout_low_L1.txt`); prefer
+`best_harmonic` for selection and also report `best_mIoU`.
 
-- Never test on tiles used for training.
-- Keep strict held-out lists (`test_list_exp2_holdout_medium_L1.txt`, `test_list_exp2_holdout_low_L1.txt`).
-- Prefer `best_harmonic` for model selection; also report `best_mIoU`.
+### B.1 — Site-only list generator
 
-### Variant B.1 — Build medium-only train/val lists (from existing exp2 split)
+Splits the joint exp2 train/val lists by tile prefix. Used by Variant B and by Experiments 3B/3C —
+only the prefix and the output names change.
 
 ```bash
-python - <<'PY'
+make_site_lists () {   # PREFIX TRAIN_OUT VAL_OUT
+  python - "$1" "$2" "$3" <<'PY'
+import sys
 from pathlib import Path
 
+prefix, train_out, val_out = sys.argv[1], sys.argv[2], sys.argv[3]
 meta = Path('/workspace/data/ForAINetV2/meta_data')
 train_all = (meta / 'train_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
 val_all = (meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
 
-train_med = [x for x in train_all if x.strip().startswith('znorm_3Dlabels_m_L1_')]
-val_med = [x for x in val_all if x.strip().startswith('znorm_3Dlabels_m_L1_')]
+train = [x.strip() for x in train_all if x.strip().startswith(prefix)]
+val = [x.strip() for x in val_all if x.strip().startswith(prefix)]
 
-(meta / 'train_list_exp2_mediumL1_only.txt').write_text('\n'.join(train_med) + '\n', encoding='utf-8')
-(meta / 'val_list_exp2_mediumL1_only.txt').write_text('\n'.join(val_med) + '\n', encoding='utf-8')
-
-print('Wrote medium-only lists:')
-print('- train_list_exp2_mediumL1_only.txt', len(train_med))
-print('- val_list_exp2_mediumL1_only.txt', len(val_med))
+(meta / train_out).write_text('\n'.join(train) + '\n', encoding='utf-8')
+(meta / val_out).write_text('\n'.join(val) + '\n', encoding='utf-8')
+print(f'- {train_out}', len(train))
+print(f'- {val_out}', len(val))
 PY
+}
 ```
 
-### Variant B.2 — Create Stage-1 medium-only PKLs
+| Use | Tile prefix | Train list | Val list | Expected |
+|---|---|---|---|---|
+| B Stage 1 (medium) | `znorm_3Dlabels_m_L1_` | `train_list_exp2_mediumL1_only.txt` | `val_list_exp2_mediumL1_only.txt` | 10 / 3 |
+| B Stage 2 (low) | `znorm_3Dlabels_l_L1_` | `train_list_exp2B_lowL1_only.txt` | `val_list_exp2B_lowL1_only.txt` | 10 / 2 |
+| Exp 3B (medium) | `znorm_3Dlabels_m_L1_` | `train_list_exp3B_mediumL1_only.txt` | `val_list_exp3B_mediumL1_only.txt` | 10 / 3 |
+| Exp 3C (low) | `znorm_3Dlabels_l_L1_` | `train_list_exp3C_lowL1_only.txt` | `val_list_exp3C_lowL1_only.txt` | 10 / 2 |
+
+### B.2–B.3 — Stage 1: medium-only, from forest-pretrained
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-python /workspace/tools/create_forainetv2_train_val_from_lists.py \
-  --root-path /workspace/data/ForAINetV2 \
-  --out-dir /workspace/data/ForAINetV2 \
-  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2_mediumL1_only.txt \
-  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2_mediumL1_only.txt \
-  --train-out forainetv2_oneformer3d_infos_train_exp2B_stage1_medium.pkl \
-  --val-out forainetv2_oneformer3d_infos_val_exp2B_stage1_medium.pkl \
-  --overwrite
+make_site_lists znorm_3Dlabels_m_L1_ train_list_exp2_mediumL1_only.txt val_list_exp2_mediumL1_only.txt
+
+ff_pkls train_list_exp2_mediumL1_only.txt val_list_exp2_mediumL1_only.txt \
+  forainetv2_oneformer3d_infos_train_exp2B_stage1_medium.pkl \
+  forainetv2_oneformer3d_infos_val_exp2B_stage1_medium.pkl
+
+ff_train exp2B_stage1_medium_train \
+  load_from=/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth \
+  train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage1_medium.pkl \
+  val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage1_medium.pkl
+
+ff_summarize exp2B_stage1_medium_train
 ```
 
-### Variant B.3 — Stage-1 training (medium-only, from forest-pretrained)
+### B.4 — Stage-1 evaluation (held-out medium)
+
+Both checkpoints, each into its own work-dir so the logs stay separate:
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash /workspace/tools/dist_train.sh \
-  /workspace/configs/exp2_finetune_l1_eval_gt.py \
-  7 \
-  --work-dir /workspace/work_dirs/exp2B_stage1_medium_train \
-  --cfg-options \
-    load_from=/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth \
-    train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage1_medium.pkl \
-    val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage1_medium.pkl \
-    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
-    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
+for CK in epoch_3000 best_harmonic_epoch_2400; do
+  python /workspace/tools/fix_spconv_checkpoint.py \
+    --in-path  /workspace/work_dirs/exp2B_stage1_medium_train/${CK}.pth \
+    --out-path /workspace/work_dirs/exp2B_stage1_medium_train/${CK}_fix.pth
+done
+
+ff_eval medium test_list_exp2_holdout_medium_L1.txt test_data_medium_L1 \
+  exp2B_stage1_medium_only exp2B_stage1_eval_medium_L1 \
+  /workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000_fix.pth
+
+ff_eval medium test_list_exp2_holdout_medium_L1.txt test_data_medium_L1 \
+  exp2B_stage1_best_harmonic_ep2400_medium_L1 exp2B_stage1_best_harmonic_eval_medium_L1 \
+  /workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic_epoch_2400_fix.pth
+
+ff_test_summary "exp2B_stage1*_eval_medium_L1*" epoch_3000_fix.pth
+ff_test_summary "exp2B_stage1*_eval_medium_L1*" best_harmonic_epoch_2400_fix.pth
 ```
 
-To print Stage-1 **training** metrics (epoch 3000 + final epoch + top-k lowest loss), run:
+### B.5–B.6 — Stage 2: low-only, initialized from Stage 1
 
 ```bash
-python3 /workspace/tools/print_train_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2B_stage1_medium_train/*/*.log" \
-  --epoch 3000 \
-  --metric loss \
-  --top-k 5
+make_site_lists znorm_3Dlabels_l_L1_ train_list_exp2B_lowL1_only.txt val_list_exp2B_lowL1_only.txt
+
+ff_pkls train_list_exp2B_lowL1_only.txt val_list_exp2B_lowL1_only.txt \
+  forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
+  forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl
+
+# MUST initialize from the B.3 output, not the original forest checkpoint
+ff_train exp2B_stage2_low_train_from_ep2400 \
+  load_from=/workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic_epoch_2400_fix.pth \
+  train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
+  val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl
 ```
 
-To print Stage-1 **validation** metrics (best harmonic + epoch 3000 + top-5 mIoU), run:
+### B.7–B.8 — Stage-2 evaluation and metric collection
 
 ```bash
-python3 /workspace/tools/print_val_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2B_stage1_medium_train/*/*.log" \
-  --epoch 3000 \
-  --top-k 5
-```
+S2=/workspace/work_dirs/exp2B_stage2_low_train_from_ep2400
+python /workspace/tools/fix_spconv_checkpoint.py \
+  --in-path  $S2/best_mIoU_epoch_2200.pth \
+  --out-path $S2/best_mIoU_epoch_2200_fix.pth
+CKPT=$S2/best_mIoU_epoch_2200_fix.pth
 
-To generate Stage-1 **plots** (train loss + val metrics), run:
+ff_eval medium test_list_exp2_holdout_medium_L1.txt test_data_medium_L1 \
+  exp2B_stage2_best_mIoU_ep2200_eval_medium_L1 exp2B_stage2_best_mIoU_ep2200_eval_medium_L1 "$CKPT"
 
-```bash
-python3 /workspace/tools/plot_train_val_curves.py \
-  --log-glob "/workspace/work_dirs/exp2B_stage1_medium_train/*/*.log" \
-  --out-dir "/workspace/work_dirs/exp2B_stage1_medium_train/plots"
-```
+ff_eval low    test_list_exp2_holdout_low_L1.txt    test_data_low_L1 \
+  exp2B_stage2_best_mIoU_ep2200_eval_low_L1    exp2B_stage2_best_mIoU_ep2200_eval_low_L1    "$CKPT"
 
-### Variant B.4 — Stage-1 evaluation (held-out medium)
-
-```bash
-python tools/fix_spconv_checkpoint.py \
-  --in-path /workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000.pth \
-  --out-path /workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000_fix.pth
-```
-
-```bash
-STAGE1_BEST_CKPT=/workspace/work_dirs/exp2B_stage1_medium_train/epoch_3000_fix.pth
-
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp2B_stage1_medium_only \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${STAGE1_BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp2B_stage1_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-Then summarize Stage-1 **test-medium** metrics (target run + top-k mIoU), run:
-
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2B_stage1_eval_medium_L1/*/*.log" \
-  --target-substring "epoch_3000_fix.pth" \
-  --top-k 5
-```
-
-Stage-1 best-harmonic checkpoint (epoch 2400):
-
-```bash
-python tools/fix_spconv_checkpoint.py \
-  --in-path /workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic_epoch_2400.pth \
-  --out-path /workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic_epoch_2400_fix.pth
-```
-
-```bash
-STAGE1_BEST_HARMONIC_CKPT=/workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic_epoch_2400_fix.pth
-
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp2B_stage1_best_harmonic_ep2400_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${STAGE1_BEST_HARMONIC_CKPT} \
-  --work-dir /workspace/work_dirs/exp2B_stage1_best_harmonic_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-Then summarize Stage-1 **test-medium** metrics for best-harmonic (epoch 2400), run:
-
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp2B_stage1*_eval_medium_L1*/*/*.log" \
-  --target-substring "best_harmonic_epoch_2400_fix.pth" \
-  --top-k 5
-```
-
-### Variant B.5 — Build low-only lists and create Stage-2 low-only PKLs
-
-```bash
-python - <<'PY'
-from pathlib import Path
-
-meta = Path('/workspace/data/ForAINetV2/meta_data')
-train_all = (meta / 'train_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
-val_all = (meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
-
-train_low = [x for x in train_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
-val_low = [x for x in val_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
-
-(meta / 'train_list_exp2B_lowL1_only.txt').write_text('\n'.join(train_low) + '\n', encoding='utf-8')
-(meta / 'val_list_exp2B_lowL1_only.txt').write_text('\n'.join(val_low) + '\n', encoding='utf-8')
-
-print('Wrote low-only lists:')
-print('- train_list_exp2B_lowL1_only.txt', len(train_low))
-print('- val_list_exp2B_lowL1_only.txt', len(val_low))
-PY
-```
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-python /workspace/tools/create_forainetv2_train_val_from_lists.py \
-  --root-path /workspace/data/ForAINetV2 \
-  --out-dir /workspace/data/ForAINetV2 \
-  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2B_lowL1_only.txt \
-  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2B_lowL1_only.txt \
-  --train-out forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
-  --val-out forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl \
-  --overwrite
-```
-
-### Variant B.6 — Stage-2 training (low-only, MUST initialize from B.3 output)
-
-```bash
-# Use the pretrained checkpoint produced by Variant B.3 (Stage-1 medium-only run),
-# not the original forest checkpoint.
-STAGE1_PRETRAIN_CKPT=/workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic_epoch_2400_fix.pth
-echo "Initializing Stage-2 from B.3 checkpoint: ${STAGE1_PRETRAIN_CKPT}"
-
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash /workspace/tools/dist_train.sh \
-  /workspace/configs/exp2_finetune_l1_eval_gt.py \
-  7 \
-  --work-dir /workspace/work_dirs/exp2B_stage2_low_train_from_ep2400 \
-  --cfg-options \
-    load_from=${STAGE1_PRETRAIN_CKPT} \
-    train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
-    val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl \
-    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
-    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
-```
-
-### Variant B.7 — Stage-2 evaluation after low-only fine-tuning (held-out medium + held-out low)
-
-```bash
-python tools/fix_spconv_checkpoint.py \
-  --in-path /workspace/work_dirs/exp2B_stage2_low_train_from_ep2400/best_mIoU_epoch_2200.pth \
-  --out-path /workspace/work_dirs/exp2B_stage2_low_train_from_ep2400/best_mIoU_epoch_2200_fix.pth
-
-STAGE2_BEST_CKPT=/workspace/work_dirs/exp2B_stage2_low_train_from_ep2400/best_mIoU_epoch_2200_fix.pth
-echo "Using Stage-2 checkpoint: ${STAGE2_BEST_CKPT}"
-
-# held-out medium
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp2B_stage2_best_mIoU_ep2200_eval_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${STAGE2_BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp2B_stage2_best_mIoU_ep2200_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-
-# held-out low
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split low \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
-  --extra-tag exp2B_stage2_best_mIoU_ep2200_eval_low_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${STAGE2_BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp2B_stage2_best_mIoU_ep2200_eval_low_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-### Variant B.8 — Collect Variant B metrics
-
-```bash
 cd /workspace
-
-python3 tools/dvc_collect_metrics.py \
-  --work-dir work_dirs/exp2B_stage1_eval_medium_L1 \
-  --out work_dirs/exp2B_stage1_eval_medium_L1/metrics_test_mediumL1.json
-
-python3 tools/dvc_collect_metrics.py \
-  --work-dir work_dirs/exp2B_stage2_best_mIoU_ep2200_eval_medium_L1 \
-  --out work_dirs/exp2B_stage2_best_mIoU_ep2200_eval_medium_L1/metrics_test_mediumL1.json
-
-python3 tools/dvc_collect_metrics.py \
-  --work-dir work_dirs/exp2B_stage2_best_mIoU_ep2200_eval_low_L1 \
-  --out work_dirs/exp2B_stage2_best_mIoU_ep2200_eval_low_L1/metrics_test_lowL1.json
+for d in exp2B_stage1_eval_medium_L1 exp2B_stage2_best_mIoU_ep2200_eval_medium_L1 exp2B_stage2_best_mIoU_ep2200_eval_low_L1; do
+  python3 tools/dvc_collect_metrics.py --work-dir work_dirs/$d --out work_dirs/$d/metrics_test.json
+done
 ```
 
-# Experiment 3: Training from scratch (random initialization, same split as exp2A)
+---
 
-Yes — this experiment trains the model **without** ForAINet forest-pretrained weights.
-It uses the **same train/val/held-out test split as Experiment 2A** to provide a fair baseline.
+# Experiment 3 — Training from scratch
 
-Training from scratch here means:
-- No `clean_forestformer` checkpoint initialization.
-- Model weights are randomly initialized.
-
-### Step 3.1 — Train from scratch (same data split as exp2A)
-
-Reuse Experiment 2A data preparation (Steps 1–4) as-is.
-
-Important: `configs/exp2_finetune_l1_eval_gt.py` sets `load_from` to a forest checkpoint,
-so we explicitly override it with `load_from=None`.
-Also pin `data_prefix` to `forainetv2_instance_data_exp2A/*` to avoid fallback to
-`data/ForAINetV2/points` (which can trigger missing `.bin` errors).
+Same data and splits as Experiment 2A, but **no** forest-pretrained weights: `load_from=None`
+overrides the `load_from` set by `configs/exp2_finetune_l1_eval_gt.py`, so weights are randomly
+initialized. `PREFIX_OPTS` (from `use_cache`) pins `data_prefix` to the exp2A cache.
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash /workspace/tools/dist_train.sh \
-  /workspace/configs/exp2_finetune_l1_eval_gt.py \
-  7 \
-  --work-dir /workspace/work_dirs/exp3A_scratch_train \
-  --cfg-options \
-    load_from=None \
-    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
-    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
+use_cache forainetv2_instance_data_exp2A
 ```
 
-Equivalent relative-path form:
+> **Instance-eval note (`UnifiedSegMetric`):** the default `binary_mode='collapsed'` treats wood +
+> leaf as one "tree" class for instance metrics. For leaf-only ("strict") evaluation — e.g.
+> rangeland where only mallee/leaf has GT instances — append to any eval command:
+> `--cfg-options test_evaluator.binary_mode=strict test_evaluator.binary_tree_eval_ids=[3]`
+
+## 3A — Scratch, joint split (medium + low)
+
+Reuses Experiment 2A Steps 1–4 as-is.
 
 ```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash tools/dist_train.sh configs/exp2_finetune_l1_eval_gt.py 7 \
-  --work-dir work_dirs/exp3A_scratch_train \
-  --cfg-options \
-    load_from=None \
-    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
-    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
+ff_train exp3A_scratch_train load_from=None
+ff_summarize exp3A_scratch_train
 ```
 
-### Step 3.2 — Select checkpoint (same policy as exp2A)
+Evaluate both checkpoints on held-out medium (separate work-dirs → separate logs), and low:
 
 ```bash
-BEST_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_harmonic*.pth | head -n1)
-echo "Using scratch best-harmonic checkpoint: ${BEST_CKPT}"
-```
-
-Alternatives:
-
-```bash
-# Semantic-focused
-BEST_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_mIoU*.pth | head -n1)
-
-# Last-epoch baseline
-BEST_CKPT=/workspace/work_dirs/exp3A_scratch_train/epoch_3000_fix.pth
-```
-
-### Step 3.2b — Metrics summaries (train + val)
-
-Training metrics (loss etc.) for scratch run:
-
-```bash
-python3 /workspace/tools/print_train_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3A_scratch_train/*/*.log" \
-  --epoch 3000 \
-  --metric loss \
-  --top-k 5
-```
-
-Validation metrics (best harmonic + epoch 3000 + top-k mIoU) for scratch run:
-
-```bash
-python3 /workspace/tools/print_val_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3A_scratch_train/*/*.log" \
-  --epoch 3000 \
-  --top-k 5
-```
-
-### Step 3.3 — Held-out test evaluation (same split files as exp2A)
-
-Medium L1:
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp3A_scratch_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp3A_scratch_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-
-# Instance-eval note (UnifiedSegMetric): by default `binary_mode='collapsed'`,
-# meaning wood+leaf are both treated as "tree" for instance metrics.
-# If you want leaf-only ("strict") instance evaluation (e.g. rangeland where only
-# mallee/leaf has GT instances), add:
-#   --cfg-options test_evaluator.binary_mode=strict test_evaluator.binary_tree_eval_ids=[3]
-```
-
-#### Medium_L1 scratch checkpoint comparison (epoch_3000 vs best_harmonic)
-
-Interpretation note:
-
-- The held-out `medium_L1` scenes do contain GT instances. If scratch reports `F1=0` here, that does **not** mean the test split has no instances; it means the model produced no usable positive instance ids at evaluation time (for example, `Pred unique ids sample: [-1]` and `Scenes with any Pred instances: 0/2`).
-- When using the base forest config (`oneformer3d_qs_radius16_qp300_2many.py`), the semantic names `ground/wood/leaf` should be read mainly as model output slots `0/1/2`. For Calperum-style rangeland data, those slots are only an approximate transfer target rather than a literal taxonomy match.
-- In practice, the forest-pretrained checkpoint can still transfer useful instance structure to `medium_L1`, while random-init scratch may learn some vegetation semantics but fail to emit valid instance masks. So for the scratch-vs-pretrained comparison, treat `F1=0` primarily as an **instance-decoder failure**, not evidence that `medium_L1` lacks tree/mallee instances.
-
-Run **two** evals (medium) so both checkpoints have their own logs:
-
-```bash
-# 1) best_harmonic (balanced)
 BEST_HARMONIC_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_harmonic*.pth | head -n1)
-echo "Using scratch best harmonic: ${BEST_HARMONIC_CKPT}"
-
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp3A_scratch_best_harmonic_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_HARMONIC_CKPT} \
-  --work-dir /workspace/work_dirs/exp3A_scratch_best_harmonic_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-
-# 2) epoch_3000 baseline
 EPOCH_3000_CKPT=/workspace/work_dirs/exp3A_scratch_train/epoch_3000_fix.pth
-echo "Using scratch epoch 3000: ${EPOCH_3000_CKPT}"
 
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp3A_scratch_epoch_3000_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${EPOCH_3000_CKPT} \
-  --work-dir /workspace/work_dirs/exp3A_scratch_epoch_3000_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
+ff_eval medium test_list_exp2_holdout_medium_L1.txt test_data_medium_L1 \
+  exp3A_scratch_best_harmonic_medium_L1 exp3A_scratch_best_harmonic_eval_medium_L1 "$BEST_HARMONIC_CKPT"
 
-Then summarize scratch **test-medium** metrics for both checkpoints:
+ff_eval medium test_list_exp2_holdout_medium_L1.txt test_data_medium_L1 \
+  exp3A_scratch_epoch_3000_medium_L1 exp3A_scratch_epoch_3000_eval_medium_L1 "$EPOCH_3000_CKPT"
 
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_medium_L1*/*/*.log" \
-  --target-substring "best_harmonic" \
-  --top-k 5
+ff_eval low    test_list_exp2_holdout_low_L1.txt    test_data_low_L1 \
+  exp3A_scratch_low_L1 exp3A_scratch_eval_low_L1 "$BEST_HARMONIC_CKPT"
 
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_medium_L1*/*/*.log" \
-  --target-substring "epoch_3000_fix.pth" \
-  --top-k 5
-```
+ff_test_summary "exp3A_scratch*_eval_medium_L1*" best_harmonic
+ff_test_summary "exp3A_scratch*_eval_medium_L1*" epoch_3000_fix.pth
+ff_test_summary "exp3A_scratch*_eval_low_L1*"    best_harmonic
+ff_test_summary "exp3A_scratch*_eval_low_L1*"    epoch_3000_fix.pth
 
-Low L1:
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split low \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
-  --extra-tag exp3A_scratch_low_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp3A_scratch_eval_low_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-```
-
-Then summarize scratch **test-low** metrics for both checkpoints:
-
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_low_L1*/*/*.log" \
-  --target-substring "best_harmonic" \
-  --top-k 5
-
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3A_scratch*_eval_low_L1*/*/*.log" \
-  --target-substring "epoch_3000_fix.pth" \
-  --top-k 5
-```
-
-### Step 3.4 — Collect scratch test metrics
-
-Inside container:
-
-```bash
 cd /workspace
-
-python3 tools/dvc_collect_metrics.py \
-  --work-dir work_dirs/exp3A_scratch_eval_medium_L1 \
-  --out work_dirs/exp3A_scratch_eval_medium_L1/metrics_test_mediumL1.json
-
-python3 tools/dvc_collect_metrics.py \
-  --work-dir work_dirs/exp3A_scratch_eval_low_L1 \
-  --out work_dirs/exp3A_scratch_eval_low_L1/metrics_test_lowL1.json
+for d in exp3A_scratch_eval_medium_L1 exp3A_scratch_eval_low_L1; do
+  python3 tools/dvc_collect_metrics.py --work-dir work_dirs/$d --out work_dirs/$d/metrics_test.json
+done
 ```
 
-Quick val vs test check for scratch run:
+> **Reading scratch `F1=0` on medium_L1:** the held-out medium_L1 scenes *do* contain GT instances,
+> so `F1=0` means the model emitted no usable positive instance ids (e.g. `Pred unique ids sample:
+> [-1]`, `Scenes with any Pred instances: 0/2`) — an **instance-decoder failure**, not a missing-GT
+> artifact. Note also that with the base forest config the class names `ground/wood/leaf` are really
+> output slots `0/1/2`; for Calperum rangeland they are an approximate transfer target, not a
+> literal taxonomy. The forest-pretrained checkpoint can still transfer usable instance structure to
+> medium_L1 while random init learns some semantics but fails to produce valid instance masks.
+
+## 3B / 3C — Scratch, single-site
+
+Identical recipe; set the variant block, then run the shared commands.
 
 ```bash
-grep "Epoch(val)" /workspace/work_dirs/exp3A_scratch_train/*/*.log
-grep "Epoch(test)" /workspace/work_dirs/exp3A_scratch_eval_medium_L1/*/*.log
-grep "Epoch(test)" /workspace/work_dirs/exp3A_scratch_eval_low_L1/*/*.log
+# --- Experiment 3B: medium-only (train 10 / val 3 / test 2) ---
+PREFIX=znorm_3Dlabels_m_L1_ ; SPLIT=medium
+TRAIN_LIST=train_list_exp3B_mediumL1_only.txt ; VAL_LIST=val_list_exp3B_mediumL1_only.txt
+TRAIN_PKL=forainetv2_oneformer3d_infos_train_exp3B_scratch_medium.pkl
+VAL_PKL=forainetv2_oneformer3d_infos_val_exp3B_scratch_medium.pkl
+TEST_LIST=test_list_exp2_holdout_medium_L1.txt ; PLY_DIR=test_data_medium_L1
+WORK=exp3B_scratch_medium_train ; EVAL_WORK=exp3B_scratch_medium_eval_medium_L1
+TAG=exp3B_scratch_medium_only_medium_L1
+
+# --- Experiment 3C: low-only (train 10 / val 2 / test 3) ---
+PREFIX=znorm_3Dlabels_l_L1_ ; SPLIT=low
+TRAIN_LIST=train_list_exp3C_lowL1_only.txt ; VAL_LIST=val_list_exp3C_lowL1_only.txt
+TRAIN_PKL=forainetv2_oneformer3d_infos_train_exp3C_scratch_low.pkl
+VAL_PKL=forainetv2_oneformer3d_infos_val_exp3C_scratch_low.pkl
+TEST_LIST=test_list_exp2_holdout_low_L1.txt ; PLY_DIR=test_data_low_L1
+WORK=exp3C_scratch_low_train ; EVAL_WORK=exp3C_scratch_low_eval_low_L1
+TAG=exp3C_scratch_low_only_low_L1
 ```
 
-## Experiment 3B: Training from scratch (random initialization, medium-only)
-
-This scratch run trains **only on medium_L1 tiles** using the strict held-out split:
-- Train: **10** medium_L1 tiles
-- Val: **3** medium_L1 tiles
-- Held-out Test: **2** medium_L1 tiles (`test_list_exp2_holdout_medium_L1.txt`)
-
-### Step 3B.1 — (Re)create the medium-only train/val lists
-
-If you already created these in Variant B.1, you can skip this.
+Shared commands:
 
 ```bash
-python - <<'PY'
-from pathlib import Path
+make_site_lists "$PREFIX" "$TRAIN_LIST" "$VAL_LIST"
+ff_pkls "$TRAIN_LIST" "$VAL_LIST" "$TRAIN_PKL" "$VAL_PKL"
 
-meta = Path('/workspace/data/ForAINetV2/meta_data')
-train_all = (meta / 'train_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
-val_all = (meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
+ff_train "$WORK" load_from=None \
+  train_dataloader.dataset.ann_file="$TRAIN_PKL" \
+  val_dataloader.dataset.ann_file="$VAL_PKL"
 
-train_med = [x for x in train_all if x.strip().startswith('znorm_3Dlabels_m_L1_')]
-val_med = [x for x in val_all if x.strip().startswith('znorm_3Dlabels_m_L1_')]
-
-(meta / 'train_list_exp2_mediumL1_only.txt').write_text('\n'.join(train_med) + '\n', encoding='utf-8')
-(meta / 'val_list_exp2_mediumL1_only.txt').write_text('\n'.join(val_med) + '\n', encoding='utf-8')
-
-test_med = (meta / 'test_list_exp2_holdout_medium_L1.txt').read_text(encoding='utf-8').splitlines()
-test_med = [x.strip() for x in test_med if x.strip()]
-
-print('Medium-only split sizes:')
-print('- train_list_exp2_mediumL1_only.txt', len(train_med))
-print('- val_list_exp2_mediumL1_only.txt', len(val_med))
-print('- test_list_exp2_holdout_medium_L1.txt', len(test_med))
-PY
-```
-
-Expected: train=10, val=3, test=2.
-
-### Step 3B.2 — Create scratch medium-only PKLs
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-python /workspace/tools/create_forainetv2_train_val_from_lists.py \
-  --root-path /workspace/data/ForAINetV2 \
-  --out-dir /workspace/data/ForAINetV2 \
-  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp2B_mediumL1_only.txt \
-  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp2B_mediumL1_only.txt \
-  --train-out forainetv2_oneformer3d_infos_train_exp3B_scratch_medium.pkl \
-  --val-out forainetv2_oneformer3d_infos_val_exp3B_scratch_medium.pkl \
-  --overwrite
-```
-
-### Step 3B.3 — Train from scratch (medium-only)
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash /workspace/tools/dist_train.sh \
-  /workspace/configs/exp2_finetune_l1_eval_gt.py \
-  7 \
-  --work-dir /workspace/work_dirs/exp3B_scratch_medium_train \
-  --cfg-options \
-    load_from=None \
-    train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp3B_scratch_medium.pkl \
-    val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp3B_scratch_medium.pkl \
-    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
-    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
-```
-
-### Step 3B.3b — (Optional) Fix the epoch-3000 checkpoint for spconv
-
-If you see spconv "size mismatch" errors when loading `epoch_3000.pth`, fix it once:
-
-```bash
+# Optional, if epoch_3000.pth raises spconv size-mismatch errors
 python /workspace/tools/fix_spconv_checkpoint.py \
-  --in-path /workspace/work_dirs/exp3B_scratch_medium_train/epoch_3000.pth \
-  --out-path /workspace/work_dirs/exp3B_scratch_medium_train/epoch_3000_fix.pth
+  --in-path  /workspace/work_dirs/$WORK/epoch_3000.pth \
+  --out-path /workspace/work_dirs/$WORK/epoch_3000_fix.pth
 
-EPOCH_3000_CKPT=/workspace/work_dirs/exp3B_scratch_medium_train/epoch_3000_fix.pth
-```
+ff_summarize "$WORK"
 
-### Step 3B.4 — Plots + summaries (train + val)
-
-```bash
-python3 /workspace/tools/plot_train_val_curves.py \
-  --log-glob "/workspace/work_dirs/exp3B_scratch_medium_train/*/*.log" \
-  --out-dir "/workspace/work_dirs/exp3B_scratch_medium_train/plots" \
-  --title "exp3B_scratch_medium_train"
-
-python3 /workspace/tools/print_train_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3B_scratch_medium_train/*/*.log" \
-  --epoch 3000 \
-  --metric loss \
-  --top-k 5
-
-python3 /workspace/tools/print_val_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3B_scratch_medium_train/*/*.log" \
-  --epoch 3000 \
-  --top-k 5
-```
-
-### Step 3B.5 — Held-out test evaluation (medium-only test = 2 scenes)
-
-```bash
-BEST_CKPT=$(ls -1t /workspace/work_dirs/exp3B_scratch_medium_train/best_harmonic*.pth | head -n1)
-echo "Using exp3B scratch best harmonic: ${BEST_CKPT}"
-
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split medium \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_medium_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_medium_L1 \
-  --extra-tag exp3B_scratch_medium_only_medium_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp3B_scratch_medium_eval_medium_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-
-# Same instance-eval override applies here if needed:
-#   --cfg-options test_evaluator.binary_mode=strict test_evaluator.binary_tree_eval_ids=[3]
-```
-
-Then summarize test-medium metrics:
-
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3B_scratch_medium_eval_medium_L1/*/*.log" \
-  --target-substring "best_harmonic" \
-  --top-k 5
-```
-
-## Experiment 3C: Training from scratch (random initialization, low-only)
-
-This scratch run trains **only on low_L1 tiles** using the strict held-out split:
-- Train: **10** low_L1 tiles
-- Val: **2** low_L1 tiles
-- Held-out Test: **3** low_L1 tiles (`test_list_exp2_holdout_low_L1.txt`)
-
-### Step 3C.1 — (Re)create the low-only train/val lists
-
-```bash
-python - <<'PY'
-from pathlib import Path
-
-meta = Path('/workspace/data/ForAINetV2/meta_data')
-train_all = (meta / 'train_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
-val_all = (meta / 'val_list_exp2_mediumL1_lowL1_fewshot.txt').read_text(encoding='utf-8').splitlines()
-
-# NOTE: low tiles use the prefix below (confirmed in the existing fewshot lists)
-train_low = [x.strip() for x in train_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
-val_low = [x.strip() for x in val_all if x.strip().startswith('znorm_3Dlabels_l_L1_')]
-
-(meta / 'train_list_exp3C_lowL1_only.txt').write_text('\n'.join(train_low) + '\n', encoding='utf-8')
-(meta / 'val_list_exp3C_lowL1_only.txt').write_text('\n'.join(val_low) + '\n', encoding='utf-8')
-
-test_low = (meta / 'test_list_exp2_holdout_low_L1.txt').read_text(encoding='utf-8').splitlines()
-test_low = [x.strip() for x in test_low if x.strip()]
-
-print('Low-only split sizes:')
-print('- train_list_exp3C_lowL1_only.txt', len(train_low))
-print('- val_list_exp3C_lowL1_only.txt', len(val_low))
-print('- test_list_exp2_holdout_low_L1.txt', len(test_low))
-PY
-```
-
-Expected: train=10, val=2, test=3.
-
-### Step 3C.2 — Create scratch low-only PKLs
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-python /workspace/tools/create_forainetv2_train_val_from_lists.py \
-  --root-path /workspace/data/ForAINetV2 \
-  --out-dir /workspace/data/ForAINetV2 \
-  --train-list /workspace/data/ForAINetV2/meta_data/train_list_exp3C_lowL1_only.txt \
-  --val-list /workspace/data/ForAINetV2/meta_data/val_list_exp3C_lowL1_only.txt \
-  --train-out forainetv2_oneformer3d_infos_train_exp3C_scratch_low.pkl \
-  --val-out forainetv2_oneformer3d_infos_val_exp3C_scratch_low.pkl \
-  --overwrite
-```
-
-### Step 3C.3 — Train from scratch (low-only)
-
-```bash
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-bash /workspace/tools/dist_train.sh \
-  /workspace/configs/exp2_finetune_l1_eval_gt.py \
-  7 \
-  --work-dir /workspace/work_dirs/exp3C_scratch_low_train \
-  --cfg-options \
-    load_from=None \
-    train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp3C_scratch_low.pkl \
-    val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp3C_scratch_low.pkl \
-    train_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    train_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    train_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask \
-    val_dataloader.dataset.data_prefix.pts=forainetv2_instance_data_exp2A/points \
-    val_dataloader.dataset.data_prefix.pts_instance_mask=forainetv2_instance_data_exp2A/instance_mask \
-    val_dataloader.dataset.data_prefix.pts_semantic_mask=forainetv2_instance_data_exp2A/semantic_mask
-```
-
-### Step 3C.3b — (Optional) Fix the epoch-3000 checkpoint for spconv
-
-If you see spconv "size mismatch" errors when loading `epoch_3000.pth`, fix it once:
-
-```bash
-python /workspace/tools/fix_spconv_checkpoint.py \
-  --in-path /workspace/work_dirs/exp3C_scratch_low_train/epoch_3000.pth \
-  --out-path /workspace/work_dirs/exp3C_scratch_low_train/epoch_3000_fix.pth
-
-EPOCH_3000_CKPT=/workspace/work_dirs/exp3C_scratch_low_train/epoch_3000_fix.pth
-```
-
-### Step 3C.4 — Plots + summaries (train + val)
-
-```bash
-python3 /workspace/tools/plot_train_val_curves.py \
-  --log-glob "/workspace/work_dirs/exp3C_scratch_low_train/*/*.log" \
-  --out-dir "/workspace/work_dirs/exp3C_scratch_low_train/plots" \
-  --title "exp3C_scratch_low_train"
-
-python3 /workspace/tools/print_train_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3C_scratch_low_train/*/*.log" \
-  --epoch 3000 \
-  --metric loss \
-  --top-k 5
-
-python3 /workspace/tools/print_val_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3C_scratch_low_train/*/*.log" \
-  --epoch 3000 \
-  --top-k 5
-```
-
-### Step 3C.5 — Held-out test evaluation (low-only test = 3 scenes)
-
-```bash
-BEST_CKPT=$(ls -1t /workspace/work_dirs/exp3C_scratch_low_train/best_harmonic*.pth | head -n1)
-echo "Using exp3C scratch best harmonic: ${BEST_CKPT}"
-
-FORAINETV2_PROTOCOL=forest \
-FORAINETV2_INSTANCE_DATA_DIR=forainetv2_instance_data_exp2A \
-FORAINETV2_BIN_BASE_DIR=forainetv2_instance_data_exp2A \
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7 \
-python /workspace/tools/zero_shot_infer_split.py \
-  --split low \
-  --scene-list /workspace/data/ForAINetV2/meta_data/test_list_exp2_holdout_low_L1.txt \
-  --ply-dir /workspace/data/ForAINetV2/test_data_low_L1 \
-  --extra-tag exp3C_scratch_low_only_low_L1 \
-  --config /workspace/configs/oneformer3d_qs_radius16_qp300_2many.py \
-  --checkpoint ${BEST_CKPT} \
-  --work-dir /workspace/work_dirs/exp3C_scratch_low_eval_low_L1 \
-  --dist --gpus 7 \
-  --overwrite-pkl
-
-# Same instance-eval override applies here if needed:
-#   --cfg-options test_evaluator.binary_mode=strict test_evaluator.binary_tree_eval_ids=[3]
-```
-
-Then summarize test-low metrics:
-
-```bash
-python3 /workspace/tools/print_test_metrics_summary.py \
-  --log-glob "/workspace/work_dirs/exp3C_scratch_low_eval_low_L1/*/*.log" \
-  --target-substring "best_harmonic" \
-  --top-k 5
+BEST_CKPT=$(ls -1t /workspace/work_dirs/$WORK/best_harmonic*.pth | head -n1)
+ff_eval "$SPLIT" "$TEST_LIST" "$PLY_DIR" "$TAG" "$EVAL_WORK" "$BEST_CKPT"
+ff_test_summary "$EVAL_WORK" best_harmonic
 ```
