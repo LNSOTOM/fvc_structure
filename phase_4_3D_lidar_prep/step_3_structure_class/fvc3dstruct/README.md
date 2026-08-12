@@ -1,114 +1,141 @@
-# Step 3: 3D Structure Classification (fvc3dstruct)
+# `fvc3dstruct` — Package API Reference
 
-Tools for fusing **structure-class labels** (from co-registered structure/mask LiDAR) onto a **Z-normalized** LiDAR cloud, followed by mallee crown instance assignment and crown-centric refinement.
+Python library implementing the Step-3 structure-fusion pipeline. This document covers the
+**importable API**: modules, functions, config keys, and return values.
 
-This folder contains the `fvc3dstruct` Python package used by the Step 3 scripts and notebooks.
+> For the **workflow** — CLI scripts, notebooks, expected inputs and outputs — see
+> [`../README_phase4_step3.md`](../README_phase4_step3.md). This file deliberately does not repeat it.
 
-## What it does
+---
 
-The main pipeline (see `fvc3dstruct/pipeline.py`) implements a multi-stage workflow:
+## Public API
 
-1. **Data-driven height priors** per class (from structure ↔ Z_norm matching)
-2. **Cartesian voxel label transfer** (baseline 3D fusion)
-3. **Mallee crown detection** (watershed over mallee evidence)
-4. **Per-point instance IDs (`treeID`)** for mallee crowns
-5. **Crown-centric polar refinement** (r/θ bins around crown centroid + height priors)
-6. **Height-based consolidation** + crown consistency rules (e.g., woody debris ↔ mallee)
-7. **LAS outputs** (vegetation-only product + optional full fused product)
+Everything in `__all__`, importable directly from `fvc3dstruct`:
 
-## Package layout
+| Export | Module | Purpose |
+|---|---|---|
+| `process_tile(z_path, s_path, out_path, config=None)` | `pipeline` | Run all stages on one tile pair; returns a metrics dict |
+| `cartesian_voxel_merge(las_z, las_s, voxel_xy=0.10, voxel_z=0.10, return_stats=False)` | `voxel_merge` | Stage 2 — majority-vote label transfer on a Cartesian grid |
+| `get_mallee_centroids_watershed(...)` | `watershed` | Stage 3 — crown detection; returns label grid + centroids |
+| `refine_with_polar_coords(...)` | `polar_refine` | Stage 4 — crown-centric refinement; returns `(classification, confidence)` |
+| `compute_class_height_thresholds(...)` | `height_stats` | Stage 1 — data-driven per-class height ranges |
+| `summarise_height_ranges(thr)` | `height_stats` | Height thresholds as a `pandas.DataFrame` |
+| `auto_mallee_min_height(thr, fallback=1.0)` | `height_stats` | Derive mallee crown minimum height |
+| `print_height_report(thr)` | `height_stats` | Console summary of derived thresholds |
+| `DEFAULT_CONFIG` | `config` | Baseline config dict (see below) |
+| `read_las(path)` / `write_las(las_obj, out_path)` | `io_las` | LAS I/O helpers |
+| `ensure_las14_pf6(las_in)` | `io_las` | Coerce to LAS 1.4 / Point Format 6 |
 
-```
-fvc3dstruct/
-├── README.md
-├── __init__.py
-├── config.py          # DEFAULT_CONFIG
-├── pipeline.py        # process_tile()
-├── voxel_merge.py     # cartesian_voxel_merge()
-├── watershed.py       # mallee crown grid + centroids
-├── polar_refine.py    # refine_with_polar_coords()
-├── treeid.py          # treeID assignment utilities
-├── height_stats.py    # compute_class_height_thresholds(), auto_mallee_min_height()
-└── io_las.py          # LAS writers and helpers
-```
-
-## Installation / importing
-
-This repo does not currently expose Step 3 as a standalone pip package (no `pyproject.toml` in this step). In practice you have two common options:
-
-### Option A: Run from this repo (recommended)
-- Run notebooks and scripts from within this repository workspace.
-- Python will typically resolve imports because the step directory is already on the path in the notebook/session.
-
-### Option B: Add Step 3 to `PYTHONPATH`
-
-```bash
-export PYTHONPATH="/home/nvidia/projects/fvc_structure/phase_4_3D_lidar_prep/step_3_structure_class:$PYTHONPATH"
-```
-
-## Script usage
-
-### Batch tiles
-
-See `main_run.py` for a simple example that loops over Z_norm tiles and their matching structure tiles and calls `process_tile()`.
-
-```bash
-micromamba activate fvc_structure
-python phase_4_3D_lidar_prep/step_3_structure_class/main_run.py
-```
-
-### Single tile (Python)
+`process_folder()` is **not** in `__all__` — import it explicitly:
 
 ```python
-from fvc3dstruct.pipeline import process_tile
-
-process_tile(
-    z_path="/path/to/z_norm_tile.las",
-    s_path="/path/to/mask_tiles_multispectral.tileid.las",
-    out_path="/path/to/output_struct3d_tile.las",
-    config={
-        # overrides (optional)
-        "voxel_size_xy": 0.10,
-        "voxel_size_z": 0.10,
-        "r_bin": 0.10,
-        "theta_bin_deg": 10,
-        "min_conf": 0.30,
-        "min_flip_ratio": 1.50,
-    },
-)
+from fvc3dstruct.pipeline import process_folder
 ```
 
-## Notebooks
+## Modules
 
-- `notebooks/01_run_pipeline_site01_workflow.ipynb`
-  - End-to-end workflow for a representative site
-  - Includes QC plots and 2D/3D before/after visualizations (notebook cell 28)
+| Module | Lines | Responsibility |
+|---|---:|---|
+| `pipeline.py` | 439 | Stage orchestration — `process_tile()`, `process_folder()` |
+| `watershed.py` | 307 | Crown detection, `auto_watershed_params()`, `plot_mallee_debug()` |
+| `polar_refine.py` | 223 | Polar coords, bin indices, `soft_height_prior()`, refinement |
+| `io_las.py` | 205 | LAS readers/writers, stage snapshots, ExtraBytes fields |
+| `height_stats.py` | 167 | Class height statistics, `CLASS_NAMES` |
+| `voxel_merge.py` | 89 | Cartesian voxel majority vote |
+| `config.py` | 38 | `DEFAULT_CONFIG` |
+| `treeid.py` | 27 | `assign_treeID_optionA()` — canopy-mallee-only instance IDs |
 
-## Outputs
+## `process_tile()` return value
 
-The pipeline writes a LAS product at `out_path`.
+A metrics dict, one entry per pipeline stage. These are the fields the sweep and validation
+scripts aggregate:
 
-Depending on config, it can also write stage outputs and/or a “full fused” LAS (same points as the input Z_norm tile) with additional dimensions.
+| Key | Meaning |
+|---|---|
+| `stage2_labeled_points` / `stage2_labeled_pct` | Points labelled by the voxel transfer |
+| `stage2_nonzero_structure_voxels` | Occupied structure voxels at the chosen resolution |
+| `stage3_watershed_crowns` | Crowns detected by watershed |
+| `stage3_points_in_crowns` | Points falling inside detected crowns |
+| `stage4_changed_points` / `stage4_changed_pct` | Labels revised by polar refinement |
+| `stage4_mean_confidence` | Mean winning-class probability over evaluated points |
+| `stage4_low_confidence_pct` | Share of evaluated points below `min_conf` |
+| `stage5_promoted_points` | Unlabelled points promoted by height |
+| `stage5_forced_points` | Points forced to mallee inside crowns |
+| `stage5_majority_reclassified_points` | Points reassigned by crown majority |
+| `final_veg_points` / `final_veg_pct` | Vegetation retention in the final product |
+| `final_treeids` | Distinct non-zero `treeID` values |
 
-Common fields:
-- `Z_norm` (height above ground)
-- per-point fused `classification`
-- optional `treeID` for mallee crown instances
+**Note on `stage4_mean_confidence`:** it is computed from structure-cloud polar bins and the
+point's own `Z_norm`, so it is *independent of `voxel_size_xy`/`voxel_size_z` by construction*.
+Identical values across a voxel-size sweep are expected, not a bug — and it is therefore not
+evidence that voxel choice is costless for final label quality.
 
-## Configuration
+Set `"return_classification_arrays": True` to also get the full per-point Stage-2 baseline and
+final classification arrays, for confusion/transition analyses.
 
-Defaults live in `fvc3dstruct/config.py` as `DEFAULT_CONFIG`. Typical knobs:
-- `voxel_size_xy`, `voxel_size_z` (voxel transfer resolution)
-- `r_bin`, `theta_bin_deg` (polar refinement bins)
-- `min_conf`, `min_flip_ratio` (update/flip thresholds)
-- watershed parameters (`min_tree_dist`, `smoothing_sigma`) or set to `"auto"`
+## `DEFAULT_CONFIG`
 
-## Dependencies
+Defined in `config.py`. Pass a partial dict to `process_tile()`/`process_folder()` to override.
 
-At runtime this step mainly relies on:
-- `laspy` (LAS I/O)
-- `numpy`
-- `scipy` (spatial / interpolation utilities used in supporting modules)
-- `matplotlib` (notebook QC plots)
+**Fusion geometry**
 
-Environment management in this project is commonly done via `micromamba` (see the repo-level environment files).
+| Key | Default | Meaning |
+|---|---|---|
+| `voxel_size_xy` / `voxel_size_z` | `0.10` | Stage-2 voxel resolution (m) |
+| `ground_thresh` | `0.15` | Ground exclusion height (m) |
+| `r_bin` | `0.10` | Polar radial bin width (m) |
+| `theta_bin_deg` | `10.0` | Polar angular bin width (degrees) |
+
+**Label update thresholds**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `min_conf` | `0.3` | Minimum confidence to fill an empty label |
+| `min_flip_ratio` | `1.5` | Ratio required to flip an existing label |
+| `max_fill_height` | `2.0` | Max height for radial fill (m) |
+| `enable_radial_fill` | `False` | Enable radial gap filling |
+
+**Stage-5 consolidation**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `merge_65_to_68_znorm` | `0.5` | Woody-debris → mallee merge height (m) |
+| `promote_unlabelled_znorm` | `1.3` | Height above which unlabelled points are promoted (m) |
+
+**Crown detection**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `min_tree_dist` | `1.5` | Minimum distance between crown peaks (m) |
+| `smoothing_sigma` | `1.0` | Gaussian smoothing applied to the CHM |
+| `mallee_min_znorm` | `None` | Override auto-derived crown minimum height (m) |
+| `mallee_force_min_znorm` | `None` | Force in-crown points above this height to mallee (m) |
+
+**Output control**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `write_outputs` | `True` | Write LAS products; `False` for analysis-only runs |
+| `write_full_fused` | `False` | Also write the full fused LAS (all input points) |
+| `write_veg_mask_npy` | `False` | Write a boolean vegetation mask aligned to the Z_norm LAS |
+| `save_stage_outputs` / `stage_out_dir` | `False` / `None` | Write per-stage snapshots for QC |
+| `collapse_treeid_to_one` | `False` | Collapse non-zero `treeID` to `1` on export |
+| `return_classification_arrays` | `False` | Include full label arrays in the return dict |
+
+## Importing
+
+No `pyproject.toml` — the package is used from the repo, not installed. Either run from the step
+directory, or put it on the path:
+
+```python
+import sys
+sys.path.insert(0, ".../phase_4_3D_lidar_prep/step_3_structure_class")
+from fvc3dstruct.pipeline import process_tile
+```
+
+Version: `fvc3dstruct.__version__` (`1.0.0`).
+
+## Runtime dependencies
+
+`laspy` (LAS I/O) · `numpy` · `scipy` (spatial/interpolation) · `pandas` (height summaries) ·
+`matplotlib` (only for `watershed.plot_mallee_debug()`)

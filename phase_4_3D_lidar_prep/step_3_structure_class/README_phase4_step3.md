@@ -2,7 +2,11 @@
 
 Tools for fusing **structure-class labels** (from co-registered structure/mask LiDAR) onto a **Z-normalized** LiDAR cloud, followed by mallee crown instance assignment and crown-centric refinement.
 
-This folder contains the `fvc3dstruct` Python package used by the Step 3 scripts and notebooks.
+This is the **workflow guide** for the step: what to run, in what order, with what inputs and
+outputs.
+
+> For the **Python API** — function signatures, every `DEFAULT_CONFIG` key, and the `process_tile()`
+> return fields — see [`fvc3dstruct/README.md`](fvc3dstruct/README.md).
 
 ## What it does
 
@@ -16,35 +20,32 @@ The main pipeline (see `fvc3dstruct/pipeline.py`) implements a multi-stage workf
 6. **Height-based consolidation** + crown consistency rules (e.g., woody debris ↔ mallee)
 7. **LAS outputs** (vegetation-only product + optional full fused product)
 
-## Package layout
+## What's in this step
 
 ```
-fvc3dstruct/
-├── README.md
-├── __init__.py
-├── config.py          # DEFAULT_CONFIG
-├── pipeline.py        # process_tile()
-├── voxel_merge.py     # cartesian_voxel_merge()
-├── watershed.py       # mallee crown grid + centroids
-├── polar_refine.py    # refine_with_polar_coords()
-├── treeid.py          # treeID assignment utilities
-├── height_stats.py    # compute_class_height_thresholds(), auto_mallee_min_height()
-└── io_las.py          # LAS writers and helpers
+step_3_structure_class/
+├── fvc3dstruct/         The package — all pipeline logic  (see its own README)
+├── main_run.py          Batch entry point
+├── compare_voxel_sizes.py                   Voxel-size sensitivity sweep
+├── make_label_transfer_validation_figure.py Four-panel validation figure
+├── summarize_label_transfer_validation.py   Batch validation tables
+├── test_pipeline.sh     Smoke test over main_run.py
+└── notebooks/           Interactive workflows and analyses
 ```
 
-## Installation / importing
+| Script | Produces | Used by |
+|---|---|---|
+| `main_run.py` | Fused LAS tiles for a site | `test_pipeline.sh` |
+| `compare_voxel_sizes.py` | Sweep CSVs + sensitivity figure | notebooks 04, 05 |
+| `make_label_transfer_validation_figure.py` | Validation figure (PNG) | notebooks 02, 03 |
+| `summarize_label_transfer_validation.py` | Tables 5 and 6 (CSV + MD) | — |
 
-This repo does not currently expose Step 3 as a standalone pip package (no `pyproject.toml` in this step). In practice you have two common options:
+> **`main_run.py` needs editing before it runs.** Its input paths are hardcoded at lines 14–19
+> (`/home/nvidia/...`, `/data/calperumResearch/...`) and point at a different machine. Change them
+> to your own, or call `process_folder()` directly as shown below.
 
-### Option A: Run from this repo (recommended)
-- Run notebooks and scripts from within this repository workspace.
-- Python will typically resolve imports because the step directory is already on the path in the notebook/session.
-
-### Option B: Add Step 3 to `PYTHONPATH`
-
-```bash
-export PYTHONPATH="/home/nvidia/projects/fvc_structure/phase_4_3D_lidar_prep/step_3_structure_class:$PYTHONPATH"
-```
+Legacy pre-`fvc3dstruct` scripts (the `merge_znorm_*` variants and friends) live on the `dev`
+branch; their logic is now inside the package.
 
 ## Script usage
 
@@ -191,9 +192,17 @@ Notes:
 
 ## Notebooks
 
-- `notebooks/01_run_pipeline_site01_workflow.ipynb`
-  - End-to-end workflow for a representative site
-  - Includes QC plots and 2D/3D before/after visualizations (notebook cell 28)
+| Notebook | What it covers |
+|---|---|
+| `01_run_pipeline_site01*.ipynb` | End-to-end workflow for site 01 (plain / `_improved` / `_workflow` / `_workflow_L2` variants); QC plots and 2D/3D before-after views |
+| `01_run_pipeline_site11*.ipynb` | Same for site 11 |
+| `02_label_transfer_validation_tile109.ipynb` | Single-tile validation of the 2D→3D transfer |
+| `03_label_transfer_validation_gallery_tile109.ipynb` | Multi-panel validation gallery |
+| `04_voxel_size_sensitivity_and_label_confidence.ipynb` | Voxel sweep + Stage-4 confidence; reviewer-facing tables |
+| `05_shrub_class_transition_matrix.ipynb` | Shrub class transition/confusion analysis |
+
+Helper modules beside the notebooks (`flow.py`, `maskCoreg.py`, `maskCoreg_low.py`,
+`test_label_transfer.py`, `test_label_transfer_low.py`) support these workflows.
 
 ## Outputs
 
@@ -220,17 +229,15 @@ Common output names when using `process_folder()`:
 
 ## Configuration
 
-Defaults live in `fvc3dstruct/config.py` as `DEFAULT_CONFIG`. Typical knobs:
-- `voxel_size_xy`, `voxel_size_z` (voxel transfer resolution)
-- `r_bin`, `theta_bin_deg` (polar refinement bins)
-- `min_conf`, `min_flip_ratio` (update/flip thresholds)
-- watershed parameters (`min_tree_dist`, `smoothing_sigma`) or set to `"auto"`
+Defaults live in `fvc3dstruct/config.py` as `DEFAULT_CONFIG`; pass a partial dict to override.
+The knobs you are most likely to change from a script or notebook:
 
-Output controls:
+- `voxel_size_xy`, `voxel_size_z` — voxel transfer resolution
+- `min_conf`, `min_flip_ratio` — label update/flip thresholds
+- `write_outputs: False` — analysis-only runs, no LAS written
 
-- `write_full_fused` (default `False`): also write the full fused LAS (same points as input Z_norm)
-- `save_stage_outputs` + `stage_out_dir`: write intermediate stage snapshots for debugging/QC
-- `write_veg_mask_npy` (default `False`): write a boolean vegetation mask aligned to the full Z_norm LAS
+**Every key, with defaults and meaning, is tabulated in
+[`fvc3dstruct/README.md`](fvc3dstruct/README.md#default_config).**
 
 ## Dependencies
 
