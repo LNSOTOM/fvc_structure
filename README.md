@@ -9,6 +9,21 @@ LiDAR + UAS imagery → DSM → co-registration → 2D tiles + labels
                           → structure-classified LAS → model inputs → instance + semantic predictions
 ```
 
+## Repository layout
+
+```
+fvc_structure/
+├── phase_1_image_processing/        # DSM generation from LAS (PDAL)
+├── phase_2_lidar_coregistration/    # gefolki/ (optical flow), step_0_checks/ (CRS)
+├── phase_3_2D_imagery_prep/         # step_1 tiling, step_2 2D structure labels
+├── phase_4_3D_lidar_prep/           # step_1 clipping, step_2 csf_znorm, step_3 structure_class
+├── phase_5_3d_cnn_training/         # lidar_preprocessing/, forestformer_preprocessing/
+├── ForestFormer3D/                  # Vendored model + ForAINetV2 docs
+├── SegmentAnyTree/                  # Vendored model + inference docs
+├── tools/ + docs/                   # Qualitative results viewer app and HTML
+└── environment.yml, requirements.txt, Procfile, wsgi.py
+```
+
 ## Pipeline phases
 
 Phases run in order; each consumes the previous phase's outputs. Every phase README documents
@@ -29,20 +44,6 @@ Step and package docs:
 - Phase 4 — [step 1 clipping](phase_4_3D_lidar_prep/step_1_clipping/README_phase4_step1.md) · [step 2 CSF + `Z_norm`](phase_4_3D_lidar_prep/step_2_csf_znorm/README_phase4_step2.md) · [step 3 workflow](phase_4_3D_lidar_prep/step_3_structure_class/README_phase4_step3.md) · [`fvc3dstruct` API](phase_4_3D_lidar_prep/step_3_structure_class/fvc3dstruct/README.md)
 - Phase 5 — [`lidar_preprocessing` package](phase_5_3d_cnn_training/lidar_preprocessing/README.md)
 
-## Repository layout
-
-```
-fvc_structure/
-├── phase_1_image_processing/        # DSM generation from LAS (PDAL)
-├── phase_2_lidar_coregistration/    # gefolki/ (optical flow), step_0_checks/ (CRS)
-├── phase_3_2D_imagery_prep/         # step_1 tiling, step_2 2D structure labels
-├── phase_4_3D_lidar_prep/           # step_1 clipping, step_2 csf_znorm, step_3 structure_class
-├── phase_5_3d_cnn_training/         # lidar_preprocessing/, forestformer_preprocessing/
-├── ForestFormer3D/                  # Vendored model + ForAINetV2 docs
-├── SegmentAnyTree/                  # Vendored model + inference docs
-├── tools/ + docs/                   # Qualitative results viewer app and HTML
-└── environment.yml, requirements.txt, Procfile, wsgi.py
-```
 
 ## Models
 
