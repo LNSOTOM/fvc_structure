@@ -1,8 +1,8 @@
 # fvc_structure
 
-Fractional vegetation cover / 3D structure pipeline: UAV LiDAR and imagery are processed
-phase by phase into structure-classified 3D tiles, which then feed the instance-segmentation
-models (ForestFormer3D, SegmentAnyTree).
+Fractional vegetation cover / 3D structure pipeline: UAS LiDAR and imagery are processed
+phase by phase into structure-classified 3D tiles, which then feed the instance and semantic
+segmentation models (ForestFormer3D, SegmentAnyTree).
 
 ## Overview
 
@@ -11,7 +11,7 @@ Data flow through the repository:
 ```
 LiDAR point clouds ──▶ Phase 1  DSM (GeoTIFF, 0.03 m)
                              │
-UAV orthomosaics ────────────┼──▶ Phase 2  co-registered LiDAR (optical flow)
+UAS orthomosaics ────────────┼──▶ Phase 2  co-registered LiDAR (optical flow)
                              │                    │
                              └──▶ Phase 3  tiles + 2D structure labels (raster)
                                                   │
@@ -20,7 +20,8 @@ UAV orthomosaics ────────────┼──▶ Phase 2  co-re
                                                               │
                                    Phase 5  ─────────────────┴──▶ PLY / NPZ model inputs
                                                                         │
-                                        ForestFormer3D · SegmentAnyTree ┘  ──▶ instance predictions
+                                        ForestFormer3D · SegmentAnyTree ┘  ──▶ instance + semantic
+                                                                                predictions
 ```
 
 Contents:
@@ -112,9 +113,13 @@ The sections below cover running the segmentation models on the Phase 5 outputs.
 
 ## SegmentAnyTree (ForAINetV2 / FOR-instanceV2)
 
+- Environment setup / Docker guide: [SegmentAnyTree/README.md](SegmentAnyTree/README.md) — also on GitHub: [LNSOTOM/fvc_structure/SegmentAnyTree](https://github.com/LNSOTOM/fvc_structure/tree/main/SegmentAnyTree)
 - Multi-GPU Docker inference guide: [SegmentAnyTree/README_ForAINetV2_multi_gpu_inference.md](SegmentAnyTree/README_ForAINetV2_multi_gpu_inference.md)
 
 ## ForestFormer3D (ForAINetV2)
+
+A unified, end-to-end framework for precise individual tree (instance) and semantic
+segmentation.
 
 - Environment setup / Docker guide: [ForestFormer3D/readme.md](ForestFormer3D/readme.md)
 - Quick setup (enter container → data prep → train → test): [ForestFormer3D/README_quick_setup.md](ForestFormer3D/README_quick_setup.md)

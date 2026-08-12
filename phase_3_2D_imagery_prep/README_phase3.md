@@ -4,7 +4,7 @@ Tools for processing orthomosaic imagery into structured tiles with vegetation c
 
 ## Method
 
-Orthomosaic imagery from UAV acquisitions was processed into gridded tiles with corresponding vegetation structure labels. The workflow involves:
+Orthomosaic imagery from UAS acquisitions was processed into gridded tiles with corresponding vegetation structure labels. The workflow involves:
 1. Clipping orthomosaics into regular grid tiles (30.70 × 30.70 m/pixel)
 2. Extracting and stacking multispectral bands
 3. Converting FVC (Fractional Vegetation Cover) annotations to structure-based classification
