@@ -37,7 +37,7 @@ annotations converted into structure classes and rasterized to tile resolution.
 
 ### Phase 4 — 3D LiDAR preparation
 
-[phase_4_3D_lidar_prep/README.md](phase_4_3D_lidar_prep/README.md)
+[phase_4_3D_lidar_prep/README_phase4.md](phase_4_3D_lidar_prep/README_phase4.md)
 
 Co-registered point clouds clipped to the 2D tiles, ground-classified and height-normalized,
 then fused with the 2D structure masks (voxel transfer + crown-centric polar refinement) to
