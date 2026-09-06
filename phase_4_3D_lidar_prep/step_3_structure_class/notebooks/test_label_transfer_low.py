@@ -42,7 +42,7 @@ OVERLAY_CLASS_COLORS = {
 
 OVERLAY_CLASS_LABELS = {
     64: 'Forb',
-    65: 'Woody debris',
+    65: 'Woody\ndebris',
     66: 'Hummock',
     67: 'Shrub',
     68: 'Mallee',
@@ -58,13 +58,30 @@ HEIGHT_RANGES = {
 
 VALIDATION_CLASS_CODES = (64, 65, 66, 67, 68)
 
-mask_path = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/inputs/masks/tiles_3072/raw/structure_class/annotation_raster/downsample_5cm_nearest/mask_structure_3072.33.tif')
-projected_las_path = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/lidar/clipped/mask/coreg/icp/mask_tiles_multispectral.33.las')
-refined_las_root = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/lidar/clipped/3d_structure_mask_malleid')
-multispectral_dir = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/inputs/predictors/tiles_3072/stacked')
-results_output_path = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/lidar/clipped/validation/label_transfer_validation_results_tile33.png')
-gallery_output_path = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/lidar/clipped/validation/label_transfer_validation_gallery_tile33.png')
-height_output_path = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/lidar/clipped/validation/label_transfer_validation_height_qc_tile33.png')
+
+def wsl_path(path: str) -> Path:
+    match = re.match(r'^([A-Za-z]):\\(.*)$', path)
+    if match:
+        drive, rest = match.groups()
+        rest_path = rest.replace('\\', '/')
+        mounted_path = Path('/mnt') / drive.lower() / rest_path
+        mirror_path = Path('/tmp') / f'wsl_drive_{drive.lower()}' / rest_path
+        return mirror_path if mirror_path.parent.exists() else mounted_path
+    return Path(path)
+
+# mask_path = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/inputs/masks/tiles_3072/raw/structure_class/annotation_raster/downsample_5cm_nearest/mask_structure_3072.33.tif')
+# projected_las_path = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/lidar/clipped/mask/coreg/icp/mask_tiles_multispectral.33.las')
+# refined_las_root = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/lidar/clipped/3d_structure_mask_malleid')
+# multispectral_dir = Path('/media/laura/8402326D023263F8/calperumResearch/site2_1_DD0011/inputs/predictors/tiles_3072/stacked')
+
+mask_path = wsl_path('I:\\calperumResearch\\site2_1_DD0011\\inputs\\masks\\tiles_3072\\raw\\structure_class\\annotation_raster\\downsample_5cm_nearest\\mask_structure_3072.33.tif')
+projected_las_path = wsl_path('I:\\calperumResearch\\site2_1_DD0011\\lidar\\clipped\\mask\\coreg\\icp\\mask_tiles_multispectral.33.las')
+refined_las_root = wsl_path('I:\\calperumResearch\\site2_1_DD0011\\lidar\\clipped\\3d_structure_mask_malleid')
+multispectral_dir = wsl_path('I:\\calperumResearch\\site2_1_DD0011\\inputs\\predictors\\tiles_3072\\stacked')
+
+results_output_path = wsl_path('I:\\calperumResearch\\site2_1_DD0011\\lidar\\clipped\\validation\\label_transfer_validation_results_tile33.png')
+gallery_output_path = wsl_path('I:\\calperumResearch\\site2_1_DD0011\\lidar\\clipped\\validation\\label_transfer_validation_gallery_tile33.png')
+height_output_path = wsl_path('I:\\calperumResearch\\site2_1_DD0011\\lidar\\clipped\\validation\\label_transfer_validation_height_qc_tile33.png')
 
 
 def find_site_root(path: Path) -> Path:
