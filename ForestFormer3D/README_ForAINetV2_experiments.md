@@ -9,47 +9,54 @@ Exact commands for the three experiments, run **inside the ForestFormer3D Docker
 | [2](#experiment-2--few-shot-fine-tuning) | Few-shot fine-tuning on Calperum L1 | A: joint (medium+low), B: curriculum (medium → low) |
 | [3](#experiment-3--training-from-scratch) | Training from scratch (random init), same splits as 2A | 3A joint, 3B medium-only, 3C low-only |
 
-## Conventions
+## How to read this guide
 
-- A line-continuation backslash `\` **must be the last character on the line** (no trailing spaces).
-- `CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7` exposes **7 GPUs**, so `--gpus 7` / `dist_train.sh … 7` is consistent.
-- Base config: `/workspace/configs/oneformer3d_qs_radius16_qp300_2many.py` (used for all evaluation).
-- Fine-tune config: `/workspace/configs/exp2_finetune_l1_eval_gt.py` (used for all training).
-- Forest-pretrained init: `/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth`.
-- Instance-data caches: `forainetv2_instance_data_forest` (Exp 1, already in the repo) and
-  `forainetv2_instance_data_exp2A` (Exp 2 and 3, built in [2A Step 3](#step-3--export-the-exp2a-instance-data-cache)).
-- If loading a checkpoint raises spconv `size mismatch ... weight`, fix it once:
-  ```bash
-  python /workspace/tools/fix_spconv_checkpoint.py \
-    --in-path  <run-dir>/epoch_3000.pth \
-    --out-path <run-dir>/epoch_3000_fix.pth
-  ```
-- Model selection: prefer `best_harmonic` (balanced semantic + instance); report `epoch_3000` as
-  the last-epoch baseline and `best_mIoU` as a semantic-focused reference.
+Every experiment is split into numbered steps that share the same shape:
 
-## Reusable evaluator notes
+| Field | Meaning |
+|---|---|
+| **Goal** | what the step produces |
+| **Run** | the exact command(s) to execute |
+| **Verify** | a cheap check to run before starting the next step |
 
-The reusable evaluation entry point is `UnifiedSegMetric` in `oneformer3d/unified_metric.py`, wired
-through the active configs as `type='UnifiedSegMetric'`. The evaluator reports semantic IoU/mIoU,
-binary non-tree/tree IoU, instance precision/recall/F1, MUCov/MWCov, PQ/SQ/RQ, and the
-`harmonic` score used for checkpoint selection.
+Step ids (`E1.2`, `E2A.3`, `E3B.2`) are stable, so run notes and logs can reference them directly.
+Sections titled **Recorded results** are outputs from past runs kept for comparison, not commands.
 
-For new splits or datasets, keep the active base config as the template and update only:
+## Stage 0 — Prerequisites
 
-- `metric_meta['classes']`: semantic class names in model/output order.
-- `binary_ground_eval_id`: eval id used as non-tree/ground after label normalization.
-- `binary_mode='collapsed'`: all non-ground classes become tree for binary/instance evaluation.
-- `binary_mode='strict'` with `binary_tree_eval_ids=[...]`: only selected eval ids become tree.
-- `report_instance_metrics=False`: semantic-only evaluation when instance masks are unavailable.
+### 0.1 Fixed paths and settings
 
-Avoid using the old `*copy*.py` configs or copied modules; they were local backups and are not part
-of the reusable experiment path.
+| Item | Value |
+|---|---|
+| Working directory | `/workspace` (repo mounted inside the container) |
+| Evaluation config | `/workspace/configs/oneformer3d_qs_radius16_qp300_2many.py` |
+| Training config | `/workspace/configs/exp2_finetune_l1_eval_gt.py` |
+| Forest-pretrained init | `/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth` |
+| Cache — Experiment 1 | `forainetv2_instance_data_forest` (already in the repo) |
+| Cache — Experiments 2 and 3 | `forainetv2_instance_data_exp2A` (built in [E2A.3](#e2a3--export-the-exp2a-instance-data-cache)) |
+| GPUs | `CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,7` exposes 7 GPUs, so always pass `7` to `--gpus` / `dist_train.sh` |
 
-## Shell setup (run once per shell)
+Two conventions that silently break runs if ignored:
 
-Everything below assumes these helpers are defined. `use_cache` sets the environment shared by
-every command; `PREFIX_OPTS` pins `data_prefix` to the selected cache so training never falls back
-to `data/ForAINetV2/points` (which triggers missing `.bin` errors).
+- A line-continuation backslash `\` must be the **last** character on the line (no trailing spaces).
+- Checkpoint selection: prefer `best_harmonic` (balanced semantic + instance), and report
+  `epoch_3000` as the last-epoch baseline and `best_mIoU` as a semantic-focused reference.
+
+If loading a checkpoint raises spconv `size mismatch ... weight`, convert it once:
+
+```bash
+python /workspace/tools/fix_spconv_checkpoint.py \
+  --in-path  <run-dir>/epoch_3000.pth \
+  --out-path <run-dir>/epoch_3000_fix.pth
+```
+
+### 0.2 Shell helpers (run once per shell)
+
+**Goal:** define the helpers every later step depends on. `use_cache` sets the shared environment,
+and `PREFIX_OPTS` pins `data_prefix` to the selected cache so training never falls back to
+`data/ForAINetV2/points` (which triggers missing `.bin` errors).
+
+**Run:**
 
 ```bash
 use_cache () {   # $1 = instance-data cache dir name
@@ -117,6 +124,33 @@ ff_test_summary () {  # WORK_DIR_GLOB TARGET_SUBSTRING
 `ff_pkls` with only two arguments writes the default `*_train_L1.pkl` / `*_val_L1.pkl` that the
 fine-tune config expects; pass the third and fourth to name them explicitly.
 
+**Verify:**
+
+```bash
+type use_cache ff_eval ff_train ff_pkls ff_summarize ff_test_summary >/dev/null \
+  && echo "helpers loaded"
+```
+
+### 0.3 Evaluator reference (`UnifiedSegMetric`)
+
+The reusable evaluation entry point is `UnifiedSegMetric` in `oneformer3d/unified_metric.py`, wired
+through the active configs as `type='UnifiedSegMetric'`. It reports semantic IoU/mIoU, binary
+non-tree/tree IoU, instance precision/recall/F1, MUCov/MWCov, PQ/SQ/RQ, and the `harmonic` score
+used for checkpoint selection.
+
+For a new split or dataset, keep the active base config as the template and change only:
+
+| Option | Purpose |
+|---|---|
+| `metric_meta['classes']` | semantic class names in model/output order |
+| `binary_ground_eval_id` | eval id treated as non-tree/ground after label normalisation |
+| `binary_mode='collapsed'` | all non-ground classes become tree for binary/instance evaluation |
+| `binary_mode='strict'` + `binary_tree_eval_ids=[...]` | only the listed eval ids become tree |
+| `report_instance_metrics=False` | semantic-only evaluation when instance masks are unavailable |
+
+Do not use the old `*copy*.py` configs or copied modules; they were local backups and are not part
+of the reusable experiment path.
+
 ---
 
 # Experiment 1 — Zero-shot transfer
@@ -124,10 +158,22 @@ fine-tune config expects; pass the third and fourth to name them explicitly.
 Forest-trained model, no fine-tuning, evaluated in-domain (forest) and cross-domain (Calperum
 rangeland). All five runs use `--split forest` and the forest instance-data cache.
 
+### E1.1 — Select the cache and checkpoint
+
+**Run:**
+
 ```bash
 use_cache forainetv2_instance_data_forest
 CKPT=/workspace/work_dirs/clean_forestformer/epoch_3000_fix.pth
+```
 
+### E1.2 — Run the five evaluations
+
+**Goal:** one work-dir, and one log, per split.
+
+**Run:**
+
+```bash
 # 1.1 Baseline ForAINetV2 — forest (in-domain)
 ff_eval forest test_list.txt           test_data           forainetv2_baseline_forest  zero_shot_baseline_forest  "$CKPT"
 # 1.2 Calperum low_L1     (cross-domain)
@@ -138,6 +184,12 @@ ff_eval forest test_list_low_L2.txt    test_data_low_L2    forainetv2_low_L2_for
 ff_eval forest test_list_medium_L1.txt test_data_medium_L1 forainetv2_medium_L1_forest zero_shot_medium_L1_forest "$CKPT"
 # 1.5 Calperum medium_L2  (cross-domain)
 ff_eval forest test_list_medium_L2.txt test_data_medium_L2 forainetv2_medium_L2_forest zero_shot_medium_L2_forest "$CKPT"
+```
+
+**Verify:** every split should print a metric row.
+
+```bash
+grep -l "Exp1Row" /workspace/work_dirs/zero_shot_*/*/*.log
 ```
 
 ---
@@ -166,11 +218,11 @@ use_cache forainetv2_instance_data_exp2A
 
 ## Variant A — Joint fine-tuning (medium_L1 + low_L1)
 
-### Step 1 — Generate the exp2 lists
+### E2A.1 — Generate the exp2 lists
 
 Skip if the list files already exist. Writes `train_list_exp2_mediumL1_lowL1_fewshot.txt`,
 `val_list_exp2_mediumL1_lowL1_fewshot.txt`, the three `test_list_exp2_holdout_*` files, and
-`test_list_exp2_mediumL1_lowL1.txt` (**deliberately empty**, so Step 3 exports train/val only).
+`test_list_exp2_mediumL1_lowL1.txt` (**deliberately empty**, so E2A.3 exports train/val only).
 
 ```bash
 python - <<'PY'
@@ -217,7 +269,16 @@ print('- test_list_exp2_mediumL1_lowL1.txt (empty)')
 PY
 ```
 
-### Step 2 — Stage the train+val PLYs into one folder
+**Verify:** 20 train ids and 5 val ids.
+
+```bash
+wc -l /workspace/data/ForAINetV2/meta_data/train_list_exp2_mediumL1_lowL1_fewshot.txt \
+      /workspace/data/ForAINetV2/meta_data/val_list_exp2_mediumL1_lowL1_fewshot.txt
+```
+
+### E2A.2 — Stage the train+val PLYs into one folder
+
+**Run:**
 
 ```bash
 python /workspace/tools/make_ply_subset_dir.py \
@@ -231,7 +292,13 @@ python /workspace/tools/make_ply_subset_dir.py \
   --overwrite
 ```
 
-### Step 3 — Export the exp2A instance-data cache
+**Verify:** 25 staged scenes (20 train + 5 val).
+
+```bash
+ls /workspace/data/ForAINetV2/train_val_data_exp2A | wc -l
+```
+
+### E2A.3 — Export the exp2A instance-data cache
 
 Writes the npys into `/workspace/data/ForAINetV2/forainetv2_instance_data_exp2A/`.
 
@@ -248,7 +315,13 @@ python batch_load_ForAINetV2_data.py \
   --test_scan_names_file ./meta_data/test_list_exp2_mediumL1_lowL1.txt
 ```
 
-### Step 4 — Create the train/val PKLs
+**Verify:** the cache directory is populated.
+
+```bash
+ls /workspace/data/ForAINetV2/forainetv2_instance_data_exp2A | head
+```
+
+### E2A.4 — Create the train/val PKLs
 
 ```bash
 ff_pkls train_list_exp2_mediumL1_lowL1_fewshot.txt val_list_exp2_mediumL1_lowL1_fewshot.txt
@@ -257,15 +330,29 @@ ff_pkls train_list_exp2_mediumL1_lowL1_fewshot.txt val_list_exp2_mediumL1_lowL1_
 > The repo has the L1-only lists (`*_mediumL1_lowL1_fewshot.txt`). The older `*_mediumL1L2lowL1_*`
 > names do not exist here and would re-introduce `medium_L2`.
 
-### Step 5 — Fine-tune
+**Verify:**
+
+```bash
+ls -l /workspace/data/ForAINetV2/forainetv2_oneformer3d_infos_*_L1.pkl
+```
+
+### E2A.5 — Fine-tune
+
+**Run:**
 
 ```bash
 ff_train exp2A_epoch3000_train
 ```
 
-### Step 6 — Held-out evaluation
+**Verify:** checkpoints were written.
 
-Pick a checkpoint, then run the two site evals. `save_best='mIoU'` runs during Step 5, so
+```bash
+ls /workspace/work_dirs/exp2A_epoch3000_train/*.pth | head
+```
+
+### E2A.6 — Held-out evaluation
+
+Pick a checkpoint, then run the two site evals. `save_best='mIoU'` runs during E2A.5, so
 `best_mIoU*.pth` and `best_harmonic*.pth` both exist.
 
 ```bash
@@ -281,7 +368,7 @@ ff_eval low    test_list_exp2_holdout_low_L1.txt    test_data_low_L1 \
   "exp2A_${TAG}_low_L1"    "exp2A_${TAG}_eval_low_L1"    "$CKPT"
 ```
 
-### Step 6b — Training / validation metrics
+### E2A.7 — Training and validation metrics
 
 ```bash
 ff_summarize exp2A_epoch3000_train
@@ -309,7 +396,7 @@ for ep, miou, f1 in rows[:5]:
 "
 ```
 
-#### Validation results (run: 2026-03-12)
+#### Recorded results — E2A.7 (run: 2026-03-12)
 
 | Metric | Best val epoch (1200) | Final val epoch (3000) |
 |---|---|---|
@@ -327,7 +414,7 @@ for ep, miou, f1 in rows[:5]:
 > epochs. Only `epoch_2998/2999/3000.pth` (plus `last_checkpoint`) were kept in this run, so
 > `epoch_1200.pth` cannot be re-tested; use `epoch_2998`/`epoch_2999` if you want extra baselines.
 
-### Step 7 — Collect test metrics
+### E2A.8 — Collect test metrics
 
 Inside the container:
 
@@ -369,7 +456,7 @@ grep "Epoch(test)" work_dirs/exp2A_epoch3000_eval_medium_L1/*/*.log
 grep "Epoch(test)" work_dirs/exp2A_epoch3000_eval_low_L1/*/*.log
 ```
 
-#### Step 7 results (run: 2026-03-12, `epoch_3000`)
+#### Recorded results — E2A.8 (run: 2026-03-12, `epoch_3000`)
 
 | Metric | medium_L1 | low_L1 |
 |---|---|---|
@@ -433,7 +520,7 @@ Rules: never test on tiles used for training; keep the strict held-out lists
 (`test_list_exp2_holdout_medium_L1.txt`, `test_list_exp2_holdout_low_L1.txt`); prefer
 `best_harmonic` for selection and also report `best_mIoU`.
 
-### B.1 — Site-only list generator
+### E2B.1 — Site-only list generator
 
 Splits the joint exp2 train/val lists by tile prefix. Used by Variant B and by Experiments 3B/3C —
 only the prefix and the output names change.
@@ -467,7 +554,7 @@ PY
 | Exp 3B (medium) | `znorm_3Dlabels_m_L1_` | `train_list_exp3B_mediumL1_only.txt` | `val_list_exp3B_mediumL1_only.txt` | 10 / 3 |
 | Exp 3C (low) | `znorm_3Dlabels_l_L1_` | `train_list_exp3C_lowL1_only.txt` | `val_list_exp3C_lowL1_only.txt` | 10 / 2 |
 
-### B.2–B.3 — Stage 1: medium-only, from forest-pretrained
+### E2B.2 — Stage 1: medium-only, from forest-pretrained
 
 ```bash
 make_site_lists znorm_3Dlabels_m_L1_ train_list_exp2_mediumL1_only.txt val_list_exp2_mediumL1_only.txt
@@ -484,7 +571,7 @@ ff_train exp2B_stage1_medium_train \
 ff_summarize exp2B_stage1_medium_train
 ```
 
-### B.4 — Stage-1 evaluation (held-out medium)
+### E2B.3 — Stage-1 evaluation (held-out medium)
 
 Both checkpoints, each into its own work-dir so the logs stay separate:
 
@@ -507,7 +594,7 @@ ff_test_summary "exp2B_stage1*_eval_medium_L1*" epoch_3000_fix.pth
 ff_test_summary "exp2B_stage1*_eval_medium_L1*" best_harmonic_epoch_2400_fix.pth
 ```
 
-### B.5–B.6 — Stage 2: low-only, initialized from Stage 1
+### E2B.4 — Stage 2: low-only, initialised from Stage 1
 
 ```bash
 make_site_lists znorm_3Dlabels_l_L1_ train_list_exp2B_lowL1_only.txt val_list_exp2B_lowL1_only.txt
@@ -516,14 +603,14 @@ ff_pkls train_list_exp2B_lowL1_only.txt val_list_exp2B_lowL1_only.txt \
   forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
   forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl
 
-# MUST initialize from the B.3 output, not the original forest checkpoint
+# MUST initialize from the E2B.2 output, not the original forest checkpoint
 ff_train exp2B_stage2_low_train_from_ep2400 \
   load_from=/workspace/work_dirs/exp2B_stage1_medium_train/best_harmonic_epoch_2400_fix.pth \
   train_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_train_exp2B_stage2_low.pkl \
   val_dataloader.dataset.ann_file=forainetv2_oneformer3d_infos_val_exp2B_stage2_low.pkl
 ```
 
-### B.7–B.8 — Stage-2 evaluation and metric collection
+### E2B.5 — Stage-2 evaluation and metric collection
 
 ```bash
 S2=/workspace/work_dirs/exp2B_stage2_low_train_from_ep2400
@@ -561,16 +648,24 @@ use_cache forainetv2_instance_data_exp2A
 > rangeland where only mallee/leaf has GT instances — append to any eval command:
 > `--cfg-options test_evaluator.binary_mode=strict test_evaluator.binary_tree_eval_ids=[3]`
 
-## 3A — Scratch, joint split (medium + low)
+## E3A — Scratch, joint split (medium + low)
 
-Reuses Experiment 2A Steps 1–4 as-is.
+### E3A.1 — Train from random init
+
+Reuses E2A.1–E2A.4 as-is.
+
+**Run:**
 
 ```bash
 ff_train exp3A_scratch_train load_from=None
 ff_summarize exp3A_scratch_train
 ```
 
-Evaluate both checkpoints on held-out medium (separate work-dirs → separate logs), and low:
+### E3A.2 — Evaluate and collect metrics
+
+**Goal:** evaluate both checkpoints on held-out medium (separate work-dirs → separate logs), and low.
+
+**Run:**
 
 ```bash
 BEST_HARMONIC_CKPT=$(ls -1t /workspace/work_dirs/exp3A_scratch_train/best_harmonic*.pth | head -n1)
@@ -604,9 +699,11 @@ done
 > literal taxonomy. The forest-pretrained checkpoint can still transfer usable instance structure to
 > medium_L1 while random init learns some semantics but fails to produce valid instance masks.
 
-## 3B / 3C — Scratch, single-site
+## E3B / E3C — Scratch, single-site
 
 Identical recipe; set the variant block, then run the shared commands.
+
+### E3B/E3C.1 — Select the variant block
 
 ```bash
 # --- Experiment 3B: medium-only (train 10 / val 3 / test 2) ---
@@ -628,7 +725,7 @@ WORK=exp3C_scratch_low_train ; EVAL_WORK=exp3C_scratch_low_eval_low_L1
 TAG=exp3C_scratch_low_only_low_L1
 ```
 
-Shared commands:
+### E3B/E3C.2 — Shared commands
 
 ```bash
 make_site_lists "$PREFIX" "$TRAIN_LIST" "$VAL_LIST"
