@@ -27,6 +27,24 @@ Exact commands for the three experiments, run **inside the ForestFormer3D Docker
 - Model selection: prefer `best_harmonic` (balanced semantic + instance); report `epoch_3000` as
   the last-epoch baseline and `best_mIoU` as a semantic-focused reference.
 
+## Reusable evaluator notes
+
+The reusable evaluation entry point is `UnifiedSegMetric` in `oneformer3d/unified_metric.py`, wired
+through the active configs as `type='UnifiedSegMetric'`. The evaluator reports semantic IoU/mIoU,
+binary non-tree/tree IoU, instance precision/recall/F1, MUCov/MWCov, PQ/SQ/RQ, and the
+`harmonic` score used for checkpoint selection.
+
+For new splits or datasets, keep the active base config as the template and update only:
+
+- `metric_meta['classes']`: semantic class names in model/output order.
+- `binary_ground_eval_id`: eval id used as non-tree/ground after label normalization.
+- `binary_mode='collapsed'`: all non-ground classes become tree for binary/instance evaluation.
+- `binary_mode='strict'` with `binary_tree_eval_ids=[...]`: only selected eval ids become tree.
+- `report_instance_metrics=False`: semantic-only evaluation when instance masks are unavailable.
+
+Avoid using the old `*copy*.py` configs or copied modules; they were local backups and are not part
+of the reusable experiment path.
+
 ## Shell setup (run once per shell)
 
 Everything below assumes these helpers are defined. `use_cache` sets the environment shared by
