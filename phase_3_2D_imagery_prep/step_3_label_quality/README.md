@@ -33,8 +33,15 @@ python label_qa.py \
     --output-dir      /path/site1_1_DD0001/lidar/clipped/validation/label_quality
 ```
 
-Or `./run_label_qa.sh site1_1_DD0001 Medium annotations_shp`, which fills in the layout on
-`D:` and falls back to the `/tmp/wsl_drive_d` mirror when the drive is not mounted in WSL.
+Or `./run_label_qa.sh <site> <condition> <shp-subdir>`, which fills in the layout on `D:` and
+falls back to the `/tmp/wsl_drive_d` mirror when the drive is not mounted in WSL:
+
+```bash
+./run_label_qa.sh site1_1_DD0001 Medium annotations_shp   # medium condition
+./run_label_qa.sh site2_1_DD0011 Low     annotation_shp   # low condition
+```
+
+The two are **different sites**, named as they are throughout phases 2, 4 and 5.
 
 Only `--site`, `--shp-dir` and `--output-dir` are required; any measure whose inputs are
 absent is left blank rather than failing. `--tiles 26,109` restricts the run. Tiles are
@@ -237,11 +244,15 @@ ranges, so this is not a systematic `Z_norm` offset affecting every class. That 
 `Shrub` range inherited from `fvc3dstruct.height_stats.DEFAULT_HEIGHT_RANGES` rather than at
 the delineation; revise the range before treating 80–90% of shrub polygons as mislabelled.
 
-**Check the LiDAR belongs to the site before trusting these columns.**
-`site1_1_DD0011/lidar/` held a byte-for-byte copy of DD0001's tiles until it was restaged, and
-`label_qa.py` reported `missing_las` for all 15 tiles rather than producing wrong numbers only
-because the two sites' tile IDs happen not to overlap. Section 9.5 of the notebook re-checks
-the match on every run.
+**Check the LiDAR belongs to the site before trusting these columns.** DD0011's LiDAR directory
+held a byte-for-byte copy of DD0001's tiles until it was restaged, and `label_qa.py` reported
+`missing_las` for all 15 tiles rather than wrong heights only because the two sites' tile IDs
+happen not to overlap (DD0001 is 16–205, DD0011 is 25–79). Section 9.5 of the notebook
+re-checks the match on every run.
+
+The mix-up was helped along by the data directory being named `site1_1_DD0011`, giving both
+sites a `site1_1_*` prefix so that anything globbing it swept up both. It has been renamed to
+`site2_1_DD0011` to match phases 2, 4 and 5.
 
 ## Dependencies
 
