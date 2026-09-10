@@ -200,9 +200,7 @@ that site.
 
 ## Measured so far
 
-Both sites, 15 tiles each, from `label_qa.py`. The low site's height columns are blank
-because `site1_1_DD0011/lidar/` on `D:` is a byte-identical copy of DD0001's — same tile IDs,
-sizes and timestamps — so no LAS matches its tiles.
+Both sites, 15 tiles each, from `label_qa.py`.
 
 | | Medium (DD0001) | Low (DD0011) |
 |---|---|---|
@@ -219,6 +217,31 @@ sizes and timestamps — so no LAS matches its tiles.
 Both preservation problems are site-specific and independent: the medium site's 5 cm labels
 are dilated, and the low site's shapefiles disagree with its rasters. Neither shows up in a
 count of invalid geometries, which is why the IoU columns exist.
+
+### Top-of-canopy height, both sites
+
+| Class · site | Expected (m) | Median P95 (m) | Polygons outside |
+|---|---|---|---|
+| Forb · Low | 0.00–0.40 | 0.030 | 1% |
+| Grass · Medium | 0.00–0.80 | 0.077 | 3% |
+| Woody debris · Medium | 0.05–5.00 | 0.265 | 24% |
+| Woody debris · Low | 0.05–5.00 | 0.265 | 55% |
+| **Shrub · Medium** | 0.40–3.00 | **0.111** | **90%** |
+| **Shrub · Low** | 0.40–3.00 | **0.297** | **81%** |
+| Mallee · Medium | 1.50–8.00 | 1.418 | 55% |
+
+**Shrub sits below its range at both sites.** The two sites hold different shrub communities —
+chenopod at the low site, mixed shrub at the medium — measured from separate LiDAR
+acquisitions, and both land far below 0.40 m. Forb and Grass sit comfortably inside their
+ranges, so this is not a systematic `Z_norm` offset affecting every class. That points at the
+`Shrub` range inherited from `fvc3dstruct.height_stats.DEFAULT_HEIGHT_RANGES` rather than at
+the delineation; revise the range before treating 80–90% of shrub polygons as mislabelled.
+
+**Check the LiDAR belongs to the site before trusting these columns.**
+`site1_1_DD0011/lidar/` held a byte-for-byte copy of DD0001's tiles until it was restaged, and
+`label_qa.py` reported `missing_las` for all 15 tiles rather than producing wrong numbers only
+because the two sites' tile IDs happen not to overlap. Section 9.5 of the notebook re-checks
+the match on every run.
 
 ## Dependencies
 
