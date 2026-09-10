@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Run label_qa.py for one site.
+#
+#   ./run_label_qa.sh site1_1_DD0001 Medium annotations_shp [extra args...]
+#
+# Paths follow the layout on D:. When D: is not mounted in WSL the script falls
+# back to the /tmp/wsl_drive_d mirror, matching wsl_path() in label_qa.py.
+
+set -euo pipefail
+
+SITE="${1:?usage: run_label_qa.sh SITE CONDITION SHP_SUBDIR [extra args]}"
+CONDITION="${2:?}"
+SHP_SUBDIR="${3:?}"
+shift 3
+
+if [ -d /mnt/d/paper2 ]; then
+    ROOT=/mnt/d/paper2/data/calperumResearch
+else
+    ROOT=/tmp/wsl_drive_d/paper2/data/calperumResearch
+fi
+
+BASE="$ROOT/$SITE"
+MASK="$BASE/imagery/inputs/masks/tiles_3072/raw/structure_class"
+PYTHON="${PYTHON:-$HOME/micromamba/envs/fvc_structure/bin/python}"
+
+exec "$PYTHON" "$(dirname "$0")/label_qa.py" \
+    --site "$SITE" \
+    --site-condition "$CONDITION" \
+    --shp-dir "$MASK/$SHP_SUBDIR" \
+    --raster-dir "$MASK/annotation_raster" \
+    --downsampled-dir "$MASK/annotation_raster/downsample_5cm_nearest" \
+    --las-dir "$BASE/lidar/clipped/raster/z_norm/csf" \
+    --output-dir "$BASE/lidar/clipped/validation/label_quality" \
+    "$@"
