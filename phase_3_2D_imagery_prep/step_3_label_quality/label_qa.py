@@ -5,7 +5,7 @@ The 2D structure labels produced in `step_2_structure_2D_labels` are the
 reference used by every downstream experiment. This script quantifies their
 quality from the delivered artefacts alone, and writes two tables:
 
-    <site>_qa_summary.csv   one row per tile, plus an Average row
+    <site>_qa_summary.csv   one row per tile, plus an Average and a Median row
     <site>_qa_issues.csv    one row per individual problem found
 
 What the summary measures, in three groups:
@@ -89,7 +89,7 @@ import math
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 import geopandas as gpd
 import numpy as np
@@ -151,6 +151,10 @@ DEFAULT_MIN_POINTS = 10
 # Sentinel for "no polygon here" in the polygon-index raster.
 NO_POLYGON = -1
 
+# The grids a label is written to, in pipeline order. Each carries a per-feature
+# centroid displacement and a per-feature IoU, after Haynes et al. (2025).
+FEATURE_STAGES = ("1 cm", "5 cm", "imagery")
+
 
 SUMMARY_COLUMNS = [
     "Site", "Site condition", "Tile", "Polygons", "Classes present",
@@ -163,7 +167,14 @@ SUMMARY_COLUMNS = [
     "Labelled area near a class boundary (%)",
     "Imagery GSD (cm)", "Imagery grid offset (cm)",
     "Label cells per imagery pixel",
-] + [f"{name} area (%)" for name in CLASS_LABELS.values()] \
+    "Polygons measured for displacement",
+    "Label vs predictor IoU mean", "Label vs predictor IoU median",
+    "Label vs predictor identical (%)",
+] + [f"Centroid RMSE {stage} (m)" for stage in FEATURE_STAGES] \
+  + [f"Centroid MAE {stage} (m)" for stage in FEATURE_STAGES] \
+  + [f"Polygon IoU mean {stage}" for stage in FEATURE_STAGES] \
+  + [f"Polygon IoU median {stage}" for stage in FEATURE_STAGES] \
+  + [f"{name} area (%)" for name in CLASS_LABELS.values()] \
   + [f"{name} polygons" for name in CLASS_LABELS.values()] \
   + [f"IoU raster {name}" for name in CLASS_LABELS.values()] \
   + [f"IoU 5 cm {name}" for name in CLASS_LABELS.values()] \
@@ -609,6 +620,200 @@ def assess_registration(fine_path: Path, coarse_path: Path, image_path: Path,
 
 
 # --------------------------------------------------------------------------
+# Per-feature displacement, after Haynes et al. (2025)
+# --------------------------------------------------------------------------
+
+def _grid_index(coords: np.ndarray, origin: float, step: float) -> np.ndarray:
+    """Cell index containing each map coordinate along one axis."""
+    return np.floor((coords - origin) / step).astype(np.int64)
+
+
+def _feature_on_grid(geom, transform: rasterio.Affine, shape: Tuple[int, int],
+                     all_touched: bool) -> Tuple[np.ndarray, int, int]:
+    """One polygon rasterised inside its own window on `transform`.
+
+    Returns the boolean footprint and the window's row/column offset. Working
+    per polygon in a local window keeps each feature's identity, which a
+    whole-tile rasterisation loses wherever two polygons overlap - and the low
+    site averages 148 overlapping pairs per tile.
+    """
+    minx, miny, maxx, maxy = geom.bounds
+    col_lo = _grid_index(np.array([minx]), transform.c, transform.a)[0] - 1
+    col_hi = _grid_index(np.array([maxx]), transform.c, transform.a)[0] + 2
+    row_lo = _grid_index(np.array([maxy]), transform.f, transform.e)[0] - 1
+    row_hi = _grid_index(np.array([miny]), transform.f, transform.e)[0] + 2
+
+    col_lo, row_lo = max(col_lo, 0), max(row_lo, 0)
+    col_hi, row_hi = min(col_hi, shape[1]), min(row_hi, shape[0])
+    if col_hi <= col_lo or row_hi <= row_lo:
+        return np.zeros((0, 0), dtype=bool), row_lo, col_lo
+
+    window_transform = rasterio.Affine(
+        transform.a, transform.b, transform.c + col_lo * transform.a,
+        transform.d, transform.e, transform.f + row_lo * transform.e)
+    footprint = rasterize(
+        [(geom, 1)], out_shape=(row_hi - row_lo, col_hi - col_lo),
+        transform=window_transform, fill=0, all_touched=all_touched,
+        dtype=rasterio.uint8).astype(bool)
+    return footprint, row_lo, col_lo
+
+
+def _footprint_centroid(footprint: np.ndarray, row_off: int, col_off: int,
+                        transform: rasterio.Affine) -> Tuple[float, float] | None:
+    """Map coordinates of a footprint's centre of mass, cell centres equally weighted."""
+    rows, cols = np.nonzero(footprint)
+    if rows.size == 0:
+        return None
+    x = transform.c + (col_off + cols.mean() + 0.5) * transform.a
+    y = transform.f + (row_off + rows.mean() + 0.5) * transform.e
+    return float(x), float(y)
+
+
+def _footprint_on_fine(footprint: np.ndarray, row_off: int, col_off: int,
+                       coarse_transform: rasterio.Affine,
+                       fine_rows: np.ndarray, fine_cols: np.ndarray,
+                       fine_transform: rasterio.Affine) -> np.ndarray:
+    """A coarse-grid footprint read back onto the fine window by nearest
+    neighbour - the way a dataloader reads a coarse label at fine resolution."""
+    x = fine_transform.c + (fine_cols + 0.5) * fine_transform.a
+    y = fine_transform.f + (fine_rows + 0.5) * fine_transform.e
+    cols = _grid_index(x, coarse_transform.c, coarse_transform.a) - col_off
+    rows = _grid_index(y, coarse_transform.f, coarse_transform.e) - row_off
+
+    inside = ((rows >= 0) & (rows < footprint.shape[0])
+              & (cols >= 0) & (cols < footprint.shape[1]))
+    out = np.zeros(rows.shape, dtype=bool)
+    if footprint.size:
+        out[inside] = footprint[rows[inside], cols[inside]]
+    return out
+
+
+def assess_feature_displacement(gdf: gpd.GeoDataFrame, fine_path: Path,
+                                coarse_path: Path | None, image_path: Path | None,
+                                issue: "IssueLog") -> Dict[str, object]:
+    """How far each labelled feature moves, and how much of it survives, on each
+    grid the pipeline writes it to.
+
+    The IoU columns elsewhere in this script are computed per class over a whole
+    tile: they say how much of a class survives, but not where it went, and a
+    class can hold its area while every feature in it shifts. Haynes et al.
+    (2025), co-registering UAS imaging spectroscopy to RGB, separate those two
+    questions by digitising the same features in each image and reporting both
+    the RMSE and MAE of the Euclidean distance between their centroids and the
+    mean and median IoU of the features themselves. The same pair is measured
+    here, with one difference that has to be stated: they compare two
+    *independent delineations* of one feature, whereas there is only one
+    delineation here, so what is compared is that delineation against itself
+    after each grid has quantised it. These columns therefore bound the
+    positional cost of the *grids*, not of the annotator - the same restriction
+    that applies to the `Delineation IoU` columns.
+
+    Three grids, each the polygon rasterised as that step of the pipeline writes
+    it, against the polygon's own geometry:
+
+        1 cm      the delivered 1 cm raster's convention (all_touched=True)
+        5 cm      the label grid the models consume
+        imagery   the predictor grid the models read alongside it
+
+    Per-polygon IoU is taken on the 1 cm grid throughout, so the three stages
+    are comparable to each other. RMSE and MAE follow Haynes et al.'s equations
+    (2) and (3) over the Euclidean centroid distances, in metres.
+    """
+    with rasterio.open(fine_path) as src:
+        fine_transform = src.transform
+        fine_shape = src.shape
+
+    stages: List[Tuple[str, rasterio.Affine, Tuple[int, int], bool]] = [
+        ("1 cm", fine_transform, fine_shape, True)]
+    if coarse_path is not None:
+        with rasterio.open(coarse_path) as src:
+            stages.append(("5 cm", src.transform, src.shape, False))
+    if image_path is not None:
+        with rasterio.open(image_path) as src:
+            stages.append(("imagery", src.transform, src.shape, False))
+
+    geoms = [g for g in gdf.geometry if g is not None and not g.is_empty and g.is_valid]
+    result: Dict[str, object] = {}
+
+    distances: Dict[str, List[float]] = {stage: [] for stage, *_ in stages}
+    ious: Dict[str, List[float]] = {stage: [] for stage, *_ in stages}
+    # Label footprint against predictor footprint, per feature. This is the pair a
+    # model indexes together, and it is the only comparison here that does not
+    # involve the drawn geometry at all. It is scored on the 5 cm label grid,
+    # because 5 cm is the resolution the models and the 3D work consume: a
+    # disagreement finer than one 5 cm cell is not something either can express,
+    # so scoring it on the 1 cm grid would report a precision nothing acts on.
+    cross: List[float] = []
+
+    for geom in geoms:
+        reference, ref_row, ref_col = _feature_on_grid(
+            geom, fine_transform, fine_shape, all_touched=False)
+        if not reference.any():
+            continue
+
+        rows, cols = np.meshgrid(
+            np.arange(reference.shape[0]) + ref_row,
+            np.arange(reference.shape[1]) + ref_col, indexing="ij")
+        exact = geom.centroid
+        native: Dict[str, tuple] = {}
+
+        for stage, transform, shape, all_touched in stages:
+            footprint, row_off, col_off = _feature_on_grid(
+                geom, transform, shape, all_touched=all_touched)
+            centre = _footprint_centroid(footprint, row_off, col_off, transform)
+            if centre is None:
+                continue
+
+            distances[stage].append(math.hypot(centre[0] - exact.x, centre[1] - exact.y))
+            test = _footprint_on_fine(footprint, row_off, col_off, transform,
+                                      rows, cols, fine_transform)
+            native[stage] = (footprint, row_off, col_off, transform)
+            union = np.count_nonzero(reference | test)
+            if union:
+                ious[stage].append(np.count_nonzero(reference & test) / union)
+
+        if "5 cm" in native and "imagery" in native:
+            label, label_row, label_col, label_transform = native["5 cm"]
+            predictor, pred_row, pred_col, pred_transform = native["imagery"]
+            label_rows, label_cols = np.meshgrid(
+                np.arange(label.shape[0]) + label_row,
+                np.arange(label.shape[1]) + label_col, indexing="ij")
+            on_label = _footprint_on_fine(predictor, pred_row, pred_col, pred_transform,
+                                          label_rows, label_cols, label_transform)
+            union = np.count_nonzero(label | on_label)
+            if union:
+                cross.append(np.count_nonzero(label & on_label) / union)
+
+    for stage, *_ in stages:
+        if distances[stage]:
+            d = np.asarray(distances[stage], dtype=np.float64)
+            result[f"Centroid RMSE {stage} (m)"] = float(np.sqrt(np.mean(d ** 2)))
+            result[f"Centroid MAE {stage} (m)"] = float(np.mean(d))
+        if ious[stage]:
+            v = np.asarray(ious[stage], dtype=np.float64)
+            result[f"Polygon IoU mean {stage}"] = float(np.mean(v))
+            result[f"Polygon IoU median {stage}"] = float(np.median(v))
+
+    if cross:
+        c = np.asarray(cross, dtype=np.float64)
+        result["Label vs predictor IoU mean"] = float(np.mean(c))
+        result["Label vs predictor IoU median"] = float(np.median(c))
+        result["Label vs predictor identical (%)"] = float(np.mean(c == 1.0) * 100.0)
+
+    result["Polygons measured for displacement"] = len(geoms)
+
+    # A feature displaced by more than one cell of the grid it is read on is no
+    # longer on the pixel a model will pair it with.
+    for stage, transform, _, _ in stages:
+        rmse = result.get(f"Centroid RMSE {stage} (m)")
+        if isinstance(rmse, float) and rmse > abs(transform.a):
+            issue.add("", "feature_displacement",
+                      f"centroid RMSE {rmse:.3f} m on the {stage} grid exceeds its "
+                      f"{abs(transform.a):.3f} m cell")
+    return result
+
+
+# --------------------------------------------------------------------------
 # Delineation sensitivity: what a second annotator could change
 # --------------------------------------------------------------------------
 
@@ -805,26 +1010,33 @@ class IssueLog:
         return dict(sorted(tally.items(), key=lambda kv: -kv[1]))
 
 
-def mean_ignore_nan(values: Iterable[object]) -> float:
+def reduce_ignore_nan(values: Iterable[object], reducer) -> float:
     numeric = np.asarray(
         [v for v in values if isinstance(v, (int, float, np.integer, np.floating))],
         dtype=np.float64)
     if numeric.size == 0 or np.all(np.isnan(numeric)):
         return math.nan
-    return float(np.nanmean(numeric))
+    return float(reducer(numeric))
 
 
-def average_row(rows: Sequence[Dict[str, object]], site: str,
-                condition: str) -> Dict[str, object]:
-    """Across-tile means. Non-numeric columns are blanked."""
-    average: Dict[str, object] = {"Site": site, "Site condition": condition, "Tile": "Average"}
+def aggregate_row(rows: Sequence[Dict[str, object]], site: str, condition: str,
+                  label: str, reducer) -> Dict[str, object]:
+    """One across-tile summary row. Non-numeric columns are blanked.
+
+    Two are written, `Average` and `Median`. A handful of tiles decide the mean
+    of an IoU column whenever one tile fails differently from the rest -- the
+    low site's stale Woody-debris shapefiles, the medium site's misaligned 5 cm
+    grid -- so the median says what a typical tile scores and the gap between
+    the two says how concentrated the damage is.
+    """
+    aggregate: Dict[str, object] = {"Site": site, "Site condition": condition, "Tile": label}
     for column in SUMMARY_COLUMNS:
-        if column in average:
+        if column in aggregate:
             continue
         values = [r.get(column) for r in rows]
-        average[column] = mean_ignore_nan(values) if any(
+        aggregate[column] = reduce_ignore_nan(values, reducer) if any(
             isinstance(v, (int, float, np.integer, np.floating)) for v in values) else ""
-    return average
+    return aggregate
 
 
 def format_value(value: object) -> str:
@@ -909,6 +1121,8 @@ def main() -> None:
         else:
             row.update(iou_vector_to_raster(gdf, fine_path))
             row.update(assess_delineation(fine_path, args.boundary, issues))
+            row.update(assess_feature_displacement(
+                gdf, fine_path, coarse_path, image_path, issues))
             for struct_id, name in CLASS_LABELS.items():
                 score = row[f"IoU raster {name}"]
                 if isinstance(score, float) and not math.isnan(score) \
@@ -946,14 +1160,16 @@ def main() -> None:
     if not summary:
         raise SystemExit("No tiles produced a summary row.")
 
-    summary.append(average_row(summary, args.site, condition))
+    tile_rows = list(summary)
+    summary.append(aggregate_row(tile_rows, args.site, condition, "Average", np.nanmean))
+    summary.append(aggregate_row(tile_rows, args.site, condition, "Median", np.nanmedian))
     summary_path = output_dir / f"{args.site}_qa_summary.csv"
     issues_path = output_dir / f"{args.site}_qa_issues.csv"
 
     write_csv(summary_path, SUMMARY_COLUMNS, summary)
     write_csv(issues_path, ISSUE_COLUMNS, issues.rows)
 
-    print(f"\nTiles assessed: {len(summary) - 1}")
+    print(f"\nTiles assessed: {len(tile_rows)}")
     print(f"Issues logged:  {len(issues.rows)}")
     for name, count in issues.counts().items():
         print(f"  {name:28s} {count}")

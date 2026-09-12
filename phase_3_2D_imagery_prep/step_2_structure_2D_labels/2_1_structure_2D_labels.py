@@ -306,7 +306,7 @@ log_info(f"Excluded types: {len(all_found_types & exclude_types)}")
 log_info(f"Unknown/unmapped types: {len(all_missing_types)}")
 
 if all_missing_types:
-    log_info(f"\nUNKNOWN TYPES FOUND (assigned to ID 1 - Woody debris/stem):")
+    log_info(f"\nUNKNOWN TYPES FOUND (removed - not in STRUCTURE_ID_MAPPING or EXCLUDE_CLASSES):")
     for unknown_type in sorted(all_missing_types):
         log_info(f"  - '{unknown_type}'")
 
