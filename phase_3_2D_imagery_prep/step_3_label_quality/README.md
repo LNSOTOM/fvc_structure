@@ -6,22 +6,44 @@ rather than assumed.
 
 | Script | Needs | Answers |
 |---|---|---|
-| `label_qa.py` | only the delivered artefacts | How internally consistent, and how faithfully preserved, are the labels? |
-| `compare_reannotation.py` | a repeat delineation of a tile subset | How reproducible is the annotation itself? |
+| `label_qa.py` | only the delivered artefacts | How internally consistent, how faithfully preserved, how well registered to the imagery, and how exposed to boundary placement are the labels? |
 
-`label_qa.py` can be run today. `compare_reannotation.py` needs a second digitisation
-first — see [Producing the repeat annotation](#producing-the-repeat-annotation).
-`notebooks/01_label_quality_assessment.ipynb` drives both and explains each number.
+`label_qa.py` needs nothing but the delivered files, and it carries the answer to the
+reviewer. **No repeat annotation has been made and none is claimed**; `label_qa.py`'s
+`Delineation IoU` columns are what stands in for one, bounding how much a different outline
+could change without anyone drawing one.
+`notebooks/01_label_quality_assessment.ipynb` drives the whole thing and explains each
+number, and its section 11 states what remains unquantified.
+
+## The tiling scheme the labels live on
+
+Each site's orthomosaic was cut by a fixed grid of **30.72 × 30.72 m** cells
+(`grid_annotation_3072.shp` in step 1), and the 15 cells per site flagged `annotated = 1`
+were carried forward — a scattered subset of the grid, not a contiguous block. The grid is a
+**partition, not a moving window**: tile origins are exactly one tile apart and no two tiles
+share a pixel, so nothing is labelled twice and no pair of tiles can leak between a training
+and a test split through an overlap. Labels are delivered at **1 cm**, 3072 × 3072 px per
+tile, in EPSG:7854, and downsampled to **5 cm** (614 × 614) for the models — 3072 × 0.01 /
+0.05 = 614.4, the non-integer behind [the 5 cm grid offset](#the-5-cm-grid-offset). The
+predictor imagery is a five-band stack at each orthomosaic's native ground sample distance,
+and that distance differs between the sites: **5 cm** at the medium site (614 × 614 px)
+against **6 cm** at the low site (512 × 512 px), so one image pixel covers exactly one 5 cm
+label cell at the medium site but 1.2 of them at the low site. Section 10 of the notebook
+measures all of this from the delivered files rather than restating it.
 
 ## `label_qa.py`
 
-Writes three files into `--output-dir`:
+Writes two files into `--output-dir`:
 
 | File | Contents |
 |---|---|
 | `<site>_qa_summary.csv` | one row per tile, plus an Average row |
 | `<site>_qa_issues.csv` | one row per individual problem, so a flagged polygon can be opened in QGIS |
-| `<site>_qa_report.md` | the numbers written out as the paragraph you would send a reviewer |
+
+The answer to the reviewer is assembled from those two CSVs in
+[`notebooks/01_label_quality_assessment.ipynb`](notebooks/01_label_quality_assessment.ipynb),
+which is the deliverable; the script deliberately does not generate a second prose copy of the
+same numbers.
 
 ```bash
 python label_qa.py \
@@ -29,6 +51,7 @@ python label_qa.py \
     --shp-dir         /path/.../structure_class/annotations_shp \
     --raster-dir      /path/.../structure_class/annotation_raster \
     --downsampled-dir /path/.../annotation_raster/downsample_5cm_nearest \
+    --image-dir       /path/.../predictors/tiles_3072/multispec/res_05/stacked \
     --las-dir         /path/site1_1_DD0001/lidar/clipped/raster/z_norm/csf \
     --output-dir      /path/site1_1_DD0001/lidar/clipped/validation/label_quality
 ```
@@ -46,7 +69,15 @@ The two are **different sites**, named as they are throughout phases 2, 4 and 5.
 Only `--site`, `--shp-dir` and `--output-dir` are required; any measure whose inputs are
 absent is left blank rather than failing. `--tiles 26,109` restricts the run. Tiles are
 matched on the trailing numeric ID, as in phase 4. Note the shapefile directory is named
-`annotations_shp` for DD0001 and `annotation_shp` for DD0011.
+`annotations_shp` for DD0001 and `annotation_shp` for DD0011, and the predictor stack sits
+under `predictors/tiles_3072/multispec/res_05/stacked` at DD0001 but directly under
+`predictors/tiles_3072/stacked` at DD0011 — `run_label_qa.sh` takes whichever exists.
+
+**Class coding.** `2_2_structure_2D_rasterLabels.py` writes the 1 cm rasters as `struct_id`
+(0–4, nodata 255), then `2_3_downsampling_labels.py` remaps the 5 cm rasters through
+`{0:64, 1:65, 2:66, 3:67, 4:68}` to LAS classification codes. Every label raster is read here
+through `remap_class_codes()`, which detects the 64–68 codes and reverses them, so either
+coding can be passed to either flag.
 
 ### What the summary measures
 
@@ -74,67 +105,64 @@ sparse class for no reason.
 Two columns, `5 cm grid offset (cm)` and `Labelled area change at 5 cm (%)`, sit beside the
 IoU as its diagnosis — see [the 5 cm grid offset](#the-5-cm-grid-offset) below.
 
-**Plausibility.** Per polygon, the P95 of `Z_norm` among the LiDAR returns inside it — its
-top-of-canopy height — against the range its class implies. LiDAR height was never used to
-make the 2D labels, so this is a semi-independent check that the classes mean what the
-scheme says.
+**Registration against the imagery.** A model reads a label and a predictor pixel at the same
+row and column, so the two grids have to interlock. They are written by different steps — the
+labels by `2_3_downsampling_labels.py`, the predictors by the stacking step — and nothing
+between here and training checks that the results agree. A label set can be flawless as
+annotation and still be the wrong reference if it is read against pixels it does not cover.
 
-This is deliberately a *per-polygon top-of-canopy* statistic. A 2D mask is a crown
+| Column | Measures |
+|---|---|
+| `Imagery GSD (cm)` | resolution of the predictor stack the models actually read |
+| `Label cells per imagery pixel` | the GSD ratio. 1.0 means one label per pixel; anything else means the label tensor is resampled again before training, and that resampling is not measured here |
+| `Imagery grid offset (cm)` | separation of the two origins modulo one label cell, so 0 means the grids interlock and half a cell is the worst case |
+| `IoU imagery grid <class>` | the 1 cm labels put on the imagery grid correctly, by majority of the sub-pixels each pixel covers, against the same labels put there the way a dataloader does it, by nearest neighbour on the delivered 5 cm raster. 1.000 means the grid can be taken at face value |
+
+The two sites fail this differently. DD0001's predictors are 5 cm like its labels but their
+origin sits 2 cm off the label grid, so every label is read against a pixel it only partly
+covers. DD0011's predictors are **6 cm** against 5 cm labels — same origin, but 1.2 label
+cells per pixel, so the two tensors cannot be indexed together at all without resampling one
+of them again.
+
+**Delineation sensitivity.** Whether a second annotator would draw the same outline cannot
+be answered without a second annotator. How much it would matter can. Each class is eroded
+and dilated by `--boundary` metres (default 0.05, one cell at the resolution the models
+consume) and the IoU between the two is reported as `Delineation IoU <class>` — the agreement
+two delineations disagreeing by that much *everywhere* would still reach. It is a floor, not
+an estimate: a class scoring high cannot be moved much by where the line went, whoever drew
+it. `Edge share <class> (%)` is the same quantity as a proportion of the class, and
+`Labelled area near a class boundary (%)` counts only the cells within reach of a *different*
+class, i.e. where a shifted line changes which class a pixel reports rather than only whether
+it is labelled at all.
+
+**Independence.** Per polygon, the P95 of `Z_norm` among the LiDAR returns inside it — its
+top-of-canopy height. LiDAR height was never used to make the 2D labels, so how far the
+classes separate on it is evidence they track something measurable rather than annotator
+habit. `Height AUC <class>` is the probability that a random polygon of the class stands
+taller than a random polygon of any other class at that site: 0.5 is indistinguishable, and
+distance from 0.5 in either direction is separation — below it the class usually stands
+shorter.
+
+This describes the classes, it does not grade them. The scheme classifies **growth form** —
+woodiness, branching, stem persistence — which implies no stature, so a class near 0.5 is not
+mislabelled and **no expected height range is asserted or scored against**. An earlier version
+scored each class against `fvc3dstruct.height_stats.DEFAULT_HEIGHT_RANGES`, which belongs to
+the phase-4 3D height-strata classification; that comparison and its `Height outliers` columns
+have been removed.
+
+The height is deliberately a *per-polygon top-of-canopy* statistic. A 2D mask is a crown
 *footprint*, so every return beneath the plant — ground, litter, understorey — falls inside
-it; taking the median over the whole column measures the ground, not the plant, and reports
-every tall class as implausible by construction. Polygons with fewer than `--min-points`
-(default 10) returns are excluded, since a P95 over a handful of points measures where the
-returns landed.
+it; taking the median over the whole column measures the ground, not the plant. Polygons with
+fewer than `--min-points` (default 10) returns are excluded, since a P95 over a handful of
+points measures where the returns landed.
 
 ### Issue types in `<site>_qa_issues.csv`
 
 `invalid_geometry`, `empty_geometry`, `duplicate_geometry`, `small_area`,
-`overlap_same_class`, `overlap_different_class`, `unmapped_class`, `height_implausible`,
-`too_few_lidar_points`, `grid_misaligned_5cm`, `missing_raster`, `missing_downsampled`,
-`missing_las`.
-
-## `compare_reannotation.py`
-
-| Table | Metric |
-|---|---|
-| R1 agreement | OA, Cohen's kappa, per-class IoU and F1, reported twice: over all labelled cells, and with a 5-cell buffer around class boundaries excluded |
-| R2 area | per class, polygon count and area in each version, and the symmetric % difference |
-| R3 confusion | pooled cell-level confusion matrix between the two versions |
-
-The two scopes matter: the all-cells number mixes *delineation* disagreement (exactly where
-a crown edge falls) with *classification* disagreement (what the plant is). The
-interior-only number isolates the second, which is the one that limits achievable model
-accuracy. Reporting both pre-empts the objection that a mediocre OA is just edge noise.
-
-```bash
-python compare_reannotation.py \
-    --shp-dir-a  /path/.../annotations_shp \
-    --shp-dir-b  /path/.../annotations_shp_reannotation \
-    --raster-dir /path/.../annotation_raster \
-    --site-condition Medium \
-    --output-dir /path/site1_1_DD0001/lidar/clipped/validation/label_quality
-```
-
-Rasterisation uses `all_touched=True` to match step 2, so the agreement describes the labels
-as the experiments actually consume them. `--no-all-touched` gives the geometry-only
-comparison.
-
-## Producing the repeat annotation
-
-`label_qa.py` characterises the labels but cannot measure annotation *reproducibility* — for
-that a second delineation is needed. A defensible and affordable design:
-
-1. Draw **3 tiles per site** at random, stratified so each site's dominant classes appear.
-   Record the seed.
-2. Re-digitise them from the same 1 cm orthomosaic, blind to the originals — a second
-   annotator if one is available, otherwise the same annotator after a gap long enough that
-   the first delineation is not recalled. Same class scheme, same QGIS setup.
-3. Save to a parallel directory with identical filenames, run `compare_reannotation.py`, and
-   report the average row of R1 plus the R3 confusion matrix.
-
-If any field data exist for these sites, a third comparison against field-identified plants
-would upgrade this from *reproducibility* to *accuracy*. Reproducibility alone is still the
-standard answer to this reviewer question and is normally sufficient.
+`overlap_same_class`, `overlap_different_class`, `unmapped_class`,
+`boundary_dominated_class`, `too_few_lidar_points`, `grid_misaligned_5cm`,
+`imagery_gsd_differs_from_labels`, `imagery_grid_offset`, `imagery_grid_disagreement`,
+`missing_raster`, `missing_downsampled`, `missing_imagery`, `missing_las`.
 
 ## Findings to settle before reporting
 
@@ -227,22 +255,28 @@ count of invalid geometries, which is why the IoU columns exist.
 
 ### Top-of-canopy height, both sites
 
-| Class · site | Expected (m) | Median P95 (m) | Polygons outside |
-|---|---|---|---|
-| Forb · Low | 0.00–0.40 | 0.030 | 1% |
-| Grass · Medium | 0.00–0.80 | 0.077 | 3% |
-| Woody debris · Medium | 0.05–5.00 | 0.265 | 24% |
-| Woody debris · Low | 0.05–5.00 | 0.265 | 55% |
-| **Shrub · Medium** | 0.40–3.00 | **0.111** | **90%** |
-| **Shrub · Low** | 0.40–3.00 | **0.297** | **81%** |
-| Mallee · Medium | 1.50–8.00 | 1.418 | 55% |
+Descriptive. Growth form implies no stature, so there is no expected range and nothing here
+is a verdict. `AUC` is the probability a random polygon of the class stands taller than a
+random polygon of any other class at that site.
 
-**Shrub sits below its range at both sites.** The two sites hold different shrub communities —
-chenopod at the low site, mixed shrub at the medium — measured from separate LiDAR
-acquisitions, and both land far below 0.40 m. Forb and Grass sit comfortably inside their
-ranges, so this is not a systematic `Z_norm` offset affecting every class. That points at the
-`Shrub` range inherited from `fvc3dstruct.height_stats.DEFAULT_HEIGHT_RANGES` rather than at
-the delineation; revise the range before treating 80–90% of shrub polygons as mislabelled.
+| Class · site | Median P95 (m) |
+|---|---|
+| Forb · Low | 0.030 |
+| Grass · Medium | 0.077 |
+| Woody debris · Medium | 0.265 |
+| Woody debris · Low | 0.265 |
+| Shrub · Medium | 0.111 |
+| Shrub · Low | 0.297 |
+| Mallee · Medium | 1.418 |
+
+Shrub is short at both sites — chenopod at the low site, mixed shrub at the medium, measured
+from separate LiDAR acquisitions. Scored against the phase-4 `Shrub` range of 0.40–3.00 m
+that read as 90% and 81% of shrub polygons "outside range", which invites the conclusion that
+the shrub labels are unreliable. They are not: the range describes a **height stratification**
+and these labels are **growth form**. The comparison has been removed rather than reported
+with a caveat. Run the notebook for the current `Height AUC` values, which say the useful
+thing instead — whether the classes differ from each other on a measurement the annotator
+never saw.
 
 **Check the LiDAR belongs to the site before trusting these columns.** DD0011's LiDAR directory
 held a byte-for-byte copy of DD0001's tiles until it was restaged, and `label_qa.py` reported
@@ -256,5 +290,5 @@ sites a `site1_1_*` prefix so that anything globbing it swept up both. It has be
 
 ## Dependencies
 
-`geopandas`, `rasterio`, `shapely`, `numpy`, `scipy` (for `compare_reannotation.py`), and
+`geopandas`, `rasterio`, `shapely`, `numpy`, `pandas`, `scipy` (the delineation columns), and
 `laspy` for the height columns only. All present in the `fvc_structure` environment.

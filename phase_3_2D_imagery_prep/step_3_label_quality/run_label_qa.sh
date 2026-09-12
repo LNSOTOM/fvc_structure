@@ -23,6 +23,17 @@ BASE="$ROOT/$SITE"
 MASK="$BASE/imagery/inputs/masks/tiles_3072/raw/structure_class"
 PYTHON="${PYTHON:-$HOME/micromamba/envs/fvc_structure/bin/python}"
 
+# The predictor stack the models read. DD0001 keeps it under multispec/res_05,
+# DD0011 directly under tiles_3072, so take whichever layout is on disk.
+PRED="$BASE/imagery/inputs/predictors/tiles_3072"
+IMAGE_ARGS=()
+for CANDIDATE in "$PRED/multispec/res_05/stacked" "$PRED/stacked"; do
+    if [ -d "$CANDIDATE" ]; then
+        IMAGE_ARGS=(--image-dir "$CANDIDATE")
+        break
+    fi
+done
+
 exec "$PYTHON" "$(dirname "$0")/label_qa.py" \
     --site "$SITE" \
     --site-condition "$CONDITION" \
@@ -31,4 +42,5 @@ exec "$PYTHON" "$(dirname "$0")/label_qa.py" \
     --downsampled-dir "$MASK/annotation_raster/downsample_5cm_nearest" \
     --las-dir "$BASE/lidar/clipped/raster/z_norm/csf" \
     --output-dir "$BASE/lidar/clipped/validation/label_quality" \
+    ${IMAGE_ARGS[@]+"${IMAGE_ARGS[@]}"} \
     "$@"
