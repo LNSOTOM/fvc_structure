@@ -40,7 +40,6 @@ exec "$PYTHON" "$(dirname "$0")/label_qa.py" \
     --shp-dir "$MASK/$SHP_SUBDIR" \
     --raster-dir "$MASK/annotation_raster" \
     --downsampled-dir "$MASK/annotation_raster/downsample_5cm_nearest" \
-    --las-dir "$BASE/lidar/clipped/raster/z_norm/csf" \
     --output-dir "$BASE/lidar/clipped/validation/label_quality" \
     ${IMAGE_ARGS[@]+"${IMAGE_ARGS[@]}"} \
     "$@"

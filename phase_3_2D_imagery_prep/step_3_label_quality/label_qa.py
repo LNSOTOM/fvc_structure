@@ -8,66 +8,57 @@ quality from the delivered artefacts alone, and writes two tables:
     <site>_qa_summary.csv   one row per tile, plus an Average and a Median row
     <site>_qa_issues.csv    one row per individual problem found
 
-What the summary measures, in three groups:
+The assessment is four checks, following the label from the drawn polygon to
+the array a model reads:
 
-*Annotation*  - how much of the tile carries a reference value, the class
-  balance, and the digitising artefacts (invalid rings, duplicates, slivers,
-  and polygons of different classes that overlap and so leave pixels with no
-  single truth).
+    Shapefiles
+        |
+        +-- 1. Annotation QA
+        |       invalid geometry, cross-class overlap, below MMU
+        |
+        +-- 2. Polygon -> 1 cm raster
+        |       class IoU
+        |
+        +-- 3. 1 cm -> 5 cm label grid
+        |       class IoU, polygon IoU, centroid RMSE
+        |
+        +-- 4. Label grid -> predictor grid
+        |       class IoU, polygon IoU, centroid RMSE, grid offset
+        |
+        +-- 5. +/-5 cm boundary perturbation
+                delineation IoU
 
-*Preservation, as IoU*  - the labels pass through two lossy transformations
-  before a model sees them, and each gets one number per class:
+*Annotation QA*  - digitising artefacts: invalid rings, polygons below the
+  minimum mapping unit, and polygons of different classes that overlap and so
+  leave pixels with no single truth.
 
-    IoU raster  polygons rasterised exactly (centroid rule) against the
-                delivered 1 cm raster. `2_2_structure_2D_rasterLabels.py` uses
-                all_touched=True, which dilates every polygon by up to one 1 cm
-                ring and resolves overlaps by shapefile row order; this IoU is
-                how much of the class survives both effects.
-    IoU 5 cm    the majority class of each 5 cm cell's 1 cm sub-pixels against
-                the delivered nearest-neighbour 5 cm raster. 1.0 means the
-                downsample lost nothing.
+*Class IoU*  - one number per class for each lossy step:
 
-*Registration*  - whether a label and a predictor pixel at the same row and
-  column are the same ground. The labels and the imagery are written by
-  different steps and nothing between here and training checks that the two
-  grids interlock, so a label set can be flawless as annotation and still be
-  the wrong reference. `Imagery grid offset` is the separation of the two
-  origins modulo one label cell, `Label cells per imagery pixel` the GSD ratio,
-  and `IoU imagery grid` what the mismatch costs each class: the labels put on
-  the imagery grid by majority of the 1 cm sub-pixels each pixel covers,
-  against the same labels read the way a dataloader reads them, by nearest
-  neighbour on the delivered 5 cm raster.
+    IoU 1 cm        polygons rasterised exactly (centroid rule) against the
+                    delivered 1 cm raster. `2_2_structure_2D_rasterLabels.py`
+                    uses all_touched=True and resolves overlaps by row order;
+                    this IoU is how much of the class survives both.
+    IoU 5 cm        the majority class of each 5 cm cell's 1 cm sub-pixels
+                    against the delivered nearest-neighbour 5 cm raster.
+    IoU predictor   the 1 cm labels put on the predictor grid by majority,
+                    against the delivered 5 cm raster read there by nearest
+                    neighbour, the way a dataloader reads it.
 
-*Delineation sensitivity*  - reproducibility needs a second annotator, and
-  there is not one. What can be measured without one is the labels' *exposure*
-  to a second opinion: erode and dilate each class by `--boundary` metres, and
-  the IoU between the two is the agreement two delineations that disagreed by
-  that much everywhere would reach. It is a worst case, not an estimate, and it
-  is the one number here that speaks to reproducibility without a repeat
-  delineation.
+*Per feature*  - class IoU says how much of a class survives but not where it
+  went. After Haynes et al. (2025), each polygon's footprint on one grid is
+  compared with its footprint on the previous one: the centroid RMSE says how
+  far it moved, the polygon IoU how much of it survived.
 
-*Independence*  - per polygon, the 95th percentile of `Z_norm` among the LiDAR
-  points inside it, i.e. its top-of-canopy height. LiDAR height was never used
-  to make the 2D labels, so the extent to which the classes separate on it is
-  evidence they carry real structure rather than annotator habit. `Height AUC`
-  is the probability that a random polygon of a class stands taller than a
-  random polygon of any other class. 0.5 is indistinguishable; distance from
-  0.5 in *either* direction is separation, below it meaning the class usually
-  stands shorter.
+*Delineation sensitivity*  - with no second annotator, erode and dilate each
+  class by `--boundary` metres; the IoU between the two is the agreement two
+  delineations disagreeing by that much everywhere would reach. A worst case,
+  not an estimate.
 
-  The scheme classifies *growth form* - woodiness, branching, stem persistence -
-  which implies no stature, so an AUC near 0.5 is not an error and no expected
-  height range is asserted or scored against. Note also that the height is
-  deliberately a *per-polygon top-of-canopy* statistic: taking the median of
-  every point in the column under a crown footprint measures the ground beneath
-  the plant.
-
-Only `--shp-dir`, `--site` and `--output-dir` are required. IoU raster and the
-delineation columns need `--raster-dir`, IoU 5 cm additionally needs
-`--downsampled-dir`, the registration columns additionally need `--image-dir`,
-and the height columns need `--las-dir`; any measure whose inputs are absent is
-left blank rather than failing. Tiles are matched on the trailing numeric ID, as
-in phase 4.
+Only `--shp-dir`, `--site` and `--output-dir` are required. Checks 2 and 5 need
+`--raster-dir`, check 3 additionally needs `--downsampled-dir`, and check 4
+additionally needs `--image-dir`; any measure whose inputs are absent is left
+blank rather than failing. Tiles are matched on the trailing numeric ID, as in
+phase 4.
 
 Example
 -------
@@ -77,8 +68,7 @@ python label_qa.py \
     --raster-dir      'D:\\paper2\\...\\structure_class\\annotation_raster' \
     --downsampled-dir 'D:\\paper2\\...\\annotation_raster\\downsample_5cm_nearest' \
     --image-dir       'D:\\paper2\\...\\predictors\\tiles_3072\\multispec\\res_05\\stacked' \
-    --las-dir         'D:\\paper2\\...\\lidar\\clipped\\raster\\z_norm\\csf' \
-    --output-dir      'D:\\paper2\\...\\lidar\\clipped\\validation\\label_quality'
+    --output-dir      'D:\\paper2\\...\\validation\\label_quality'
 """
 
 from __future__ import annotations
@@ -112,8 +102,8 @@ NODATA = 255
 # label raster is read through remap_class_codes(), so either coding works.
 VALUE_REMAP = {0: 64, 1: 65, 2: 66, 3: 67, 4: 68}
 
-# A polygon smaller than this is reported as a sliver: 5 cm is the resolution the
-# labels are actually consumed at downstream, so 4 cells is the practical MMU.
+# A polygon smaller than this is below the minimum mapping unit: 5 cm is the
+# resolution the labels are consumed at downstream, so 4 cells is the practical MMU.
 DEFAULT_MMU_M2 = 4 * 0.05 * 0.05
 
 # How far a hand-drawn boundary is assumed to be uncertain by, in metres. One
@@ -123,14 +113,6 @@ DEFAULT_BOUNDARY_M = 0.05
 # Below this, two delineations differing by DEFAULT_BOUNDARY_M would agree on
 # less than half the class, so the class is boundary-dominated and is flagged.
 DELINEATION_IOU_ALARM = 0.50
-
-# A class needs this many polygons on each side of the comparison before its
-# height AUC is reported; below it the statistic is the sample, not the class.
-MIN_AUC_POLYGONS = 5
-
-# Top-of-canopy height per polygon. P95 rather than the maximum, which a single
-# stray return above the crown would set.
-CANOPY_PERCENTILE = 95
 
 # An IoU this low against the delivered raster is not an all_touched effect; it
 # means the shapefile and the raster were built from different material.
@@ -144,45 +126,22 @@ REGISTRATION_IOU_ALARM = 0.95
 # an offset is float noise in the GeoTIFF header rather than a real shift.
 GRID_OFFSET_TOLERANCE_CM = 0.1
 
-# Below this many returns a polygon's P95 is the maximum of a handful of points,
-# so the polygon is excluded from the height columns rather than judged on noise.
-DEFAULT_MIN_POINTS = 10
-
-# Sentinel for "no polygon here" in the polygon-index raster.
-NO_POLYGON = -1
-
-# The grids a label is written to, in pipeline order. Each carries a per-feature
-# centroid displacement and a per-feature IoU, after Haynes et al. (2025).
-FEATURE_STAGES = ("1 cm", "5 cm", "imagery")
+# The grids a feature is carried onto after the 1 cm raster, in pipeline order.
+# Each is compared with the one before it.
+FEATURE_STAGES = ("5 cm", "predictor")
 
 
 SUMMARY_COLUMNS = [
-    "Site", "Site condition", "Tile", "Polygons", "Classes present",
-    "Labelled area (%)", "Median polygon area (m2)",
-    "Invalid geometries", "Repairable by buffer(0)", "Duplicate geometries",
-    "Empty or zero-area", "Slivers below MMU", "Slivers below MMU (%)",
-    "Overlapping pairs", "Cross-class overlap (%)",
-    "Polygons with too few returns (%)",
-    "5 cm grid offset (cm)", "Labelled area change at 5 cm (%)",
-    "Labelled area near a class boundary (%)",
-    "Imagery GSD (cm)", "Imagery grid offset (cm)",
-    "Label cells per imagery pixel",
-    "Polygons measured for displacement",
-    "Label vs predictor IoU mean", "Label vs predictor IoU median",
-    "Label vs predictor identical (%)",
-] + [f"Centroid RMSE {stage} (m)" for stage in FEATURE_STAGES] \
-  + [f"Centroid MAE {stage} (m)" for stage in FEATURE_STAGES] \
-  + [f"Polygon IoU mean {stage}" for stage in FEATURE_STAGES] \
-  + [f"Polygon IoU median {stage}" for stage in FEATURE_STAGES] \
-  + [f"{name} area (%)" for name in CLASS_LABELS.values()] \
-  + [f"{name} polygons" for name in CLASS_LABELS.values()] \
-  + [f"IoU raster {name}" for name in CLASS_LABELS.values()] \
+    "Site", "Site condition", "Tile", "Polygons",
+    # 1. Annotation QA
+    "Invalid geometries", "Cross-class overlap (%)", "Below MMU", "Below MMU (%)",
+] + [f"IoU 1 cm {name}" for name in CLASS_LABELS.values()] \
   + [f"IoU 5 cm {name}" for name in CLASS_LABELS.values()] \
-  + [f"IoU imagery grid {name}" for name in CLASS_LABELS.values()] \
-  + [f"Edge share {name} (%)" for name in CLASS_LABELS.values()] \
-  + [f"Delineation IoU {name}" for name in CLASS_LABELS.values()] \
-  + [f"P95 Znorm {name} (m)" for name in CLASS_LABELS.values()] \
-  + [f"Height AUC {name}" for name in CLASS_LABELS.values()]
+  + ["Polygon IoU mean 5 cm", "Polygon IoU median 5 cm", "Centroid RMSE 5 cm (m)"] \
+  + [f"IoU predictor {name}" for name in CLASS_LABELS.values()] \
+  + ["Polygon IoU mean predictor", "Polygon IoU median predictor",
+     "Centroid RMSE predictor (m)", "Predictor grid offset (cm)", "Predictor GSD (cm)"] \
+  + [f"Delineation IoU {name}" for name in CLASS_LABELS.values()]
 
 ISSUE_COLUMNS = ["Site", "Tile", "Polygon", "Issue", "Details"]
 
@@ -213,28 +172,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--shp-dir", type=wsl_path, required=True,
                         help="Directory of structure-classified annotation shapefiles.")
     parser.add_argument("--raster-dir", type=wsl_path,
-                        help="Directory of 1 cm label rasters (enables IoU raster).")
+                        help="Directory of 1 cm label rasters (enables checks 2 and 5).")
     parser.add_argument("--downsampled-dir", type=wsl_path,
-                        help="Directory of 5 cm label rasters (enables IoU 5 cm).")
-    parser.add_argument("--las-dir", type=wsl_path,
-                        help="Directory of Z-normalised LAS tiles (enables the height columns).")
+                        help="Directory of 5 cm label rasters (enables check 3).")
     parser.add_argument("--image-dir", type=wsl_path,
                         help="Directory of stacked predictor tiles, i.e. the imagery the "
-                             "models read (enables the registration columns).")
+                             "models read (enables check 4).")
     parser.add_argument("--output-dir", type=wsl_path, required=True,
                         help="Directory for the two CSVs.")
     parser.add_argument("--shp-glob", default="*.shp")
     parser.add_argument("--raster-glob", default="*.tif")
-    parser.add_argument("--las-glob", default="*.las")
     parser.add_argument("--image-glob", default="*.tif")
     parser.add_argument("--mmu", type=float, default=DEFAULT_MMU_M2,
                         help=f"Minimum mapping unit in m2. Default {DEFAULT_MMU_M2:.4f}.")
     parser.add_argument("--boundary", type=float, default=DEFAULT_BOUNDARY_M,
-                        help="Assumed boundary uncertainty in metres, used by the "
-                             f"delineation columns. Default {DEFAULT_BOUNDARY_M}.")
-    parser.add_argument("--min-points", type=int, default=DEFAULT_MIN_POINTS,
-                        help="LiDAR returns a polygon needs before its top-of-canopy "
-                             f"height is used. Default {DEFAULT_MIN_POINTS}.")
+                        help="Boundary perturbation in metres for the delineation IoU. "
+                             f"Default {DEFAULT_BOUNDARY_M}.")
     parser.add_argument("--tiles", default="",
                         help="Comma-separated tile IDs to restrict the run to.")
     return parser.parse_args()
@@ -293,138 +246,79 @@ def remap_class_codes(values: np.ndarray) -> np.ndarray:
     return remapped
 
 
+def flag_low(row: Dict[str, object], prefix: str, alarm: float, issue: "IssueLog",
+             kind: str, message: str) -> None:
+    """Log every class whose `<prefix> <class>` score falls below `alarm`."""
+    for name in CLASS_LABELS.values():
+        score = row.get(f"{prefix} {name}")
+        if isinstance(score, float) and not math.isnan(score) and score < alarm:
+            issue.add("", kind, f"{name}: IoU {score:.3f} {message}")
+
+
 # --------------------------------------------------------------------------
-# Annotation: coverage, class balance, geometry, overlap
+# 1. Annotation QA: invalid geometry, cross-class overlap, below MMU
 # --------------------------------------------------------------------------
 
-def assess_annotation(gdf: gpd.GeoDataFrame, raster_path: Path | None,
-                      mmu: float, issue: "IssueLog") -> Dict[str, object]:
-    areas = gdf.geometry.area.to_numpy(dtype=np.float64)
-    labelled = float(areas.sum())
-
-    # Tile footprint from the label raster when available: the convex hull of
-    # sparse annotations under-states an incompletely labelled tile.
-    if raster_path is not None and raster_path.exists():
-        with rasterio.open(raster_path) as src:
-            footprint = abs(src.bounds.right - src.bounds.left) * \
-                        abs(src.bounds.top - src.bounds.bottom)
-    else:
-        minx, miny, maxx, maxy = gdf.total_bounds
-        footprint = float((maxx - minx) * (maxy - miny))
-
-    present = sorted(set(gdf["struct_id"]) & set(STRUCT_IDS))
-    row: Dict[str, object] = {
-        "Polygons": int(len(gdf)),
-        "Classes present": ", ".join(CLASS_LABELS[c] for c in present),
-        "Labelled area (%)": (labelled / footprint * 100.0) if footprint else math.nan,
-        "Median polygon area (m2)": float(np.median(areas)) if areas.size else math.nan,
-    }
-    class_ids = gdf["struct_id"].to_numpy()
-    for struct_id, name in CLASS_LABELS.items():
-        selection = class_ids == struct_id
-        row[f"{name} area (%)"] = (float(areas[selection].sum()) / labelled * 100.0) \
-            if labelled else math.nan
-        row[f"{name} polygons"] = int(selection.sum())
-
-    unmapped = sorted(set(gdf["struct_id"]) - set(STRUCT_IDS))
-    for value in unmapped:
-        for index in np.flatnonzero(gdf["struct_id"].to_numpy() == value):
-            issue.add(int(index), "unmapped_class", f"struct_id {value}")
-
+def assess_annotation(gdf: gpd.GeoDataFrame, mmu: float,
+                      issue: "IssueLog") -> Dict[str, object]:
     geoms = gdf.geometry
+    areas = geoms.area.to_numpy(dtype=np.float64)
+    n = len(gdf)
+
     invalid_mask = (~geoms.is_valid).to_numpy()
-    repairable = 0
     for index in np.flatnonzero(invalid_mask):
-        geom = geoms.iloc[int(index)]
         # explain_validity returns "Self-intersection[x y]"; keep only the kind.
-        reason = explain_validity(geom).split("[")[0].strip()
+        reason = explain_validity(geoms.iloc[int(index)]).split("[")[0].strip()
         issue.add(int(index), "invalid_geometry", reason)
-        repaired = geom.buffer(0)
-        if (not repaired.is_empty) and repaired.is_valid:
-            repairable += 1
 
-    empty_mask = (geoms.is_empty.to_numpy() | (areas <= 0))
-    for index in np.flatnonzero(empty_mask):
-        issue.add(int(index), "empty_geometry", "")
+    below_mmu = areas < mmu
+    for index in np.flatnonzero(below_mmu):
+        issue.add(int(index), "below_mmu", f"{areas[index]:.6f} m2 (MMU {mmu:.4f})")
 
-    sliver_mask = (areas > 0) & (areas < mmu)
-    for index in np.flatnonzero(sliver_mask):
-        issue.add(int(index), "small_area", f"{areas[index]:.6f} m2 (MMU {mmu:.4f})")
-
-    # normalize() makes geometrically identical rings compare equal as WKB.
-    seen: Dict[bytes, int] = {}
-    duplicates = 0
-    for index, geom in enumerate(geoms):
-        if geom.is_empty:
-            continue
-        key = geom.normalize().wkb
-        if key in seen:
-            duplicates += 1
-            issue.add(index, "duplicate_geometry", f"same rings as polygon {seen[key]}")
-        else:
-            seen[key] = index
-
-    row.update({
+    return {
+        "Polygons": n,
         "Invalid geometries": int(invalid_mask.sum()),
-        "Repairable by buffer(0)": repairable,
-        "Duplicate geometries": duplicates,
-        "Empty or zero-area": int(empty_mask.sum()),
-        "Slivers below MMU": int(sliver_mask.sum()),
-        "Slivers below MMU (%)": (int(sliver_mask.sum()) / len(gdf) * 100.0) if len(gdf) else math.nan,
-    })
-    row.update(assess_overlap(gdf, labelled, issue))
-    return row
+        "Cross-class overlap (%)": cross_class_overlap(gdf, float(areas.sum()), issue),
+        "Below MMU": int(below_mmu.sum()),
+        "Below MMU (%)": (int(below_mmu.sum()) / n * 100.0) if n else math.nan,
+    }
 
 
-def assess_overlap(gdf: gpd.GeoDataFrame, labelled: float,
-                   issue: "IssueLog") -> Dict[str, object]:
-    """Overlapping polygons are label ambiguity: a pixel under two polygons of
-    different classes has no single reference value, and which one it receives
-    is decided by shapefile row order in 2_2_structure_2D_rasterLabels.py."""
+def cross_class_overlap(gdf: gpd.GeoDataFrame, labelled: float,
+                        issue: "IssueLog") -> float:
+    """Share of labelled area under two polygons of different classes.
+
+    Such a pixel has no single reference value, and which one it receives is
+    decided by shapefile row order in 2_2_structure_2D_rasterLabels.py.
+    """
     geoms = gdf.geometry.to_numpy()
     class_ids = gdf["struct_id"].to_numpy()
 
     left, right = gdf.sindex.query(gdf.geometry, predicate="intersects")
-    keep = left < right  # each unordered pair once, and drops self-matches
-    left, right = left[keep], right[keep]
-
-    pairs = 0
+    keep = (left < right) & (class_ids[left] != class_ids[right])
     cross_area = 0.0
-    for i, j in zip(left, right):
+    for i, j in zip(left[keep], right[keep]):
         a, b = geoms[i], geoms[j]
-        if not a.is_valid:
-            a = a.buffer(0)
-        if not b.is_valid:
-            b = b.buffer(0)
         try:
-            overlap = a.intersection(b).area
+            overlap = (a if a.is_valid else a.buffer(0)).intersection(
+                b if b.is_valid else b.buffer(0)).area
         except Exception:
             continue
         if overlap <= 0:
             continue  # shared edge only, not an overlap
-        pairs += 1
-        same_class = class_ids[i] == class_ids[j]
-        if not same_class:
-            cross_area += overlap
-        issue.add(int(i),
-                  "overlap_same_class" if same_class else "overlap_different_class",
-                  f"with polygon {int(j)} "
-                  f"({CLASS_LABELS.get(int(class_ids[i]), class_ids[i])} / "
-                  f"{CLASS_LABELS.get(int(class_ids[j]), class_ids[j])}); "
-                  f"{overlap:.6f} m2")
-
-    return {
-        "Overlapping pairs": pairs,
-        "Cross-class overlap (%)": (cross_area / labelled * 100.0) if labelled else math.nan,
-    }
+        cross_area += overlap
+        issue.add(int(i), "cross_class_overlap",
+                  f"with polygon {int(j)} ({CLASS_LABELS.get(int(class_ids[i]), class_ids[i])} / "
+                  f"{CLASS_LABELS.get(int(class_ids[j]), class_ids[j])}); {overlap:.6f} m2")
+    return (cross_area / labelled * 100.0) if labelled else math.nan
 
 
 # --------------------------------------------------------------------------
-# Preservation: IoU through rasterisation and through downsampling
+# Class IoU at each step
 # --------------------------------------------------------------------------
 
-def iou_vector_to_raster(gdf: gpd.GeoDataFrame, raster_path: Path) -> Dict[str, object]:
-    """Polygons rasterised exactly against the delivered 1 cm raster.
+def iou_polygon_to_1cm(gdf: gpd.GeoDataFrame, raster_path: Path) -> Dict[str, object]:
+    """2. Polygons rasterised exactly against the delivered 1 cm raster.
 
     The reference uses the centroid rule (all_touched=False), so the shortfall
     from 1.0 is the combined cost of the all_touched dilation and of resolving
@@ -440,7 +334,7 @@ def iou_vector_to_raster(gdf: gpd.GeoDataFrame, raster_path: Path) -> Dict[str, 
         out_shape=shape, transform=transform,
         fill=NODATA, all_touched=False, dtype=rasterio.uint8)
 
-    return {f"IoU raster {name}": iou(reference == struct_id, delivered == struct_id)
+    return {f"IoU 1 cm {name}": iou(reference == struct_id, delivered == struct_id)
             for struct_id, name in CLASS_LABELS.items()}
 
 
@@ -459,9 +353,8 @@ def _fine_to_coarse_index(fine_transform: rasterio.Affine, n: int,
 
 def majority_on_grid(fine: np.ndarray, fine_transform: rasterio.Affine,
                      target_transform: rasterio.Affine,
-                     target_shape: tuple[int, int]) -> tuple[np.ndarray, int]:
-    """Class of each target cell by majority of the 1 cm label pixels inside it,
-    with the count of 1 cm labelled pixels that fell inside the target grid.
+                     target_shape: tuple[int, int]) -> np.ndarray:
+    """Class of each target cell by majority of the 1 cm label pixels inside it.
 
     Unlabelled sub-pixels are counted as their own category, so a cell that is
     mostly nodata resolves to nodata. Taking the majority over labelled
@@ -488,20 +381,17 @@ def majority_on_grid(fine: np.ndarray, fine_transform: rasterio.Affine,
                          ).reshape(height * width, n_categories)
     majority = np.argmax(counts, axis=1).astype(np.int64)
     majority[majority == unlabelled] = NODATA
-    return majority.reshape(height, width), int(np.count_nonzero((fine != NODATA) & in_grid))
+    return majority.reshape(height, width)
 
 
-def iou_fine_to_coarse(fine_path: Path, coarse_path: Path) -> Dict[str, object]:
-    """Majority class of each 5 cm cell's 1 cm sub-pixels against the delivered
-    nearest-neighbour 5 cm raster. 1.0 means the downsample lost nothing.
+def iou_1cm_to_5cm(fine_path: Path, coarse_path: Path) -> Dict[str, object]:
+    """3. Majority class of each 5 cm cell's 1 cm sub-pixels against the
+    delivered nearest-neighbour 5 cm raster. 1.0 means the downsample lost nothing.
 
-    Also reports the offset between the two grids and the change in total
-    labelled area, which together diagnose a low IoU. A 3072 px tile at 1 cm is
-    30.72 m, and 30.72 / 0.05 is not an integer, so `gdalwarp -tr 0.05` in
-    `2_3_downsampling_labels.py` cannot land on the 1 cm grid: it snaps to 614
-    cells and shifts the origin. Because that call also passes `-srcnodata 255`,
-    nearest resampling onto the shifted grid takes the nearest *valid* source
-    pixel in preference to a nodata one, which dilates every sparse class.
+    A 3072 px tile at 1 cm is 30.72 m, and 30.72 / 0.05 is not an integer, so
+    `gdalwarp -tr 0.05` in `2_3_downsampling_labels.py` cannot always land on
+    the 1 cm grid; where it shifts the origin, nearest resampling with
+    `-srcnodata 255` dilates every sparse class, and this IoU drops.
     """
     with rasterio.open(fine_path) as src:
         fine = remap_class_codes(src.read(1))
@@ -511,52 +401,29 @@ def iou_fine_to_coarse(fine_path: Path, coarse_path: Path) -> Dict[str, object]:
         coarse_transform = src.transform
         coarse_shape = src.shape
 
-    majority, fine_labelled = majority_on_grid(
-        fine, fine_transform, coarse_transform, coarse_shape)
+    majority = majority_on_grid(fine, fine_transform, coarse_transform, coarse_shape)
+    return {f"IoU 5 cm {name}": iou(majority == struct_id, coarse == struct_id)
+            for struct_id, name in CLASS_LABELS.items()}
 
-    result: Dict[str, object] = {
-        f"IoU 5 cm {name}": iou(majority == struct_id, coarse == struct_id)
-        for struct_id, name in CLASS_LABELS.items()
-    }
-
-    expected_cells = fine_labelled * abs(
-        (fine_transform.a * fine_transform.e) / (coarse_transform.a * coarse_transform.e))
-    delivered_cells = int(np.count_nonzero(coarse != NODATA))
-    result["5 cm grid offset (cm)"] = 100.0 * max(
-        abs(coarse_transform.c - fine_transform.c), abs(coarse_transform.f - fine_transform.f))
-    result["Labelled area change at 5 cm (%)"] = (
-        (delivered_cells - expected_cells) / expected_cells * 100.0) if expected_cells else math.nan
-    return result
-
-
-# --------------------------------------------------------------------------
-# Registration: do the labels land on the pixels the model reads?
-# --------------------------------------------------------------------------
 
 def assess_registration(fine_path: Path, coarse_path: Path, image_path: Path,
                         issue: "IssueLog") -> Dict[str, object]:
-    """Whether a label and an image pixel at the same row and column are the
-    same ground.
+    """4. Whether a label and a predictor pixel at the same row and column are
+    the same ground.
 
     A model indexes the label tensor and the predictor tensor together, so the
-    two grids have to interlock. They are built by different steps - the labels
-    by `2_3_downsampling_labels.py`, the predictors by the stacking step - and
-    nothing between here and training checks that the results agree. A label
-    set can be flawless as annotation and still be the wrong reference if it is
-    read against pixels it does not cover.
+    two grids have to interlock. They are built by different steps and nothing
+    between here and training checks that they agree.
 
-    `Imagery grid offset` is how far the imagery origin sits from the label
-    grid, reduced modulo one label cell, so 0 means the grids interlock and
-    half a cell is the worst case. `Label cells per imagery pixel` is the GSD
-    ratio: 1.0 means one label per pixel, anything else means the label tensor
-    has to be resampled again before training and that resampling is not
-    measured anywhere in this file.
+    `Predictor grid offset` is how far the predictor origin sits from the label
+    grid, reduced modulo one label cell, so 0 means the grids interlock and half
+    a cell is the worst case. `Predictor GSD` is carried alongside it because an
+    offset only means "interlock" when the two cell sizes match.
 
-    `IoU imagery grid <class>` is what the mismatch costs each class: the 1 cm
-    labels placed on the imagery grid correctly, by majority of the sub-pixels
-    each imagery pixel covers, against the same labels placed there the way a
-    dataloader does it, by nearest neighbour on the delivered 5 cm raster.
-    1.0 means the two routes agree and the grid can be taken at face value.
+    `IoU predictor <class>` is what the mismatch costs each class: the 1 cm
+    labels placed on the predictor grid correctly, by majority of the sub-pixels
+    each pixel covers, against the delivered 5 cm labels read there by nearest
+    neighbour, the way a dataloader that trusts the grids to match reads them.
     """
     with rasterio.open(fine_path) as src:
         fine = remap_class_codes(src.read(1))
@@ -571,18 +438,14 @@ def assess_registration(fine_path: Path, coarse_path: Path, image_path: Path,
         image_gsd = abs(src.transform.a)
 
     def grid_offset(a: float, b: float) -> float:
-        """Separation of two origins modulo one label cell, so a whole number of
-        cells apart reads as 0 and half a cell is the maximum."""
         gap = abs(a - b) % label_gsd
         return min(gap, label_gsd - gap)
 
     offset = max(grid_offset(image_transform.c, label_transform.c),
                  grid_offset(image_transform.f, label_transform.f))
 
-    reference, _ = majority_on_grid(fine, fine_transform, image_transform, image_shape)
+    reference = majority_on_grid(fine, fine_transform, image_transform, image_shape)
 
-    # The delivered 5 cm labels read at each imagery pixel centre: what a
-    # dataloader that trusts the two grids to match would actually be handed.
     rows_idx = _fine_to_coarse_index(image_transform, image_shape[0], label_transform, "y")
     cols_idx = _fine_to_coarse_index(image_transform, image_shape[1], label_transform, "x")
     inside = ((rows_idx[:, None] >= 0) & (rows_idx[:, None] < delivered.shape[0])
@@ -593,34 +456,29 @@ def assess_registration(fine_path: Path, coarse_path: Path, image_path: Path,
     nearest[inside] = sampled[inside]
 
     row: Dict[str, object] = {
-        "Imagery GSD (cm)": image_gsd * 100.0,
-        "Imagery grid offset (cm)": offset * 100.0,
-        "Label cells per imagery pixel": image_gsd / label_gsd if label_gsd else math.nan,
+        "Predictor GSD (cm)": image_gsd * 100.0,
+        "Predictor grid offset (cm)": offset * 100.0,
     }
     for struct_id, name in CLASS_LABELS.items():
-        row[f"IoU imagery grid {name}"] = iou(reference == struct_id, nearest == struct_id)
+        row[f"IoU predictor {name}"] = iou(reference == struct_id, nearest == struct_id)
 
     if abs(image_gsd - label_gsd) > 1e-6:
-        issue.add("", "imagery_gsd_differs_from_labels",
-                  f"imagery {image_gsd * 100:.2f} cm against labels {label_gsd * 100:.2f} cm, "
-                  f"{image_gsd / label_gsd:.3f} label cells per pixel; the two tensors cannot "
-                  f"be indexed together without resampling one of them again")
+        issue.add("", "predictor_gsd_differs_from_labels",
+                  f"predictor {image_gsd * 100:.2f} cm against labels {label_gsd * 100:.2f} cm; "
+                  f"the two tensors cannot be indexed together without resampling one again")
     if offset * 100.0 > GRID_OFFSET_TOLERANCE_CM:
-        issue.add("", "imagery_grid_offset",
-                  f"{offset * 100:.2f} cm between the imagery and label grids, "
+        issue.add("", "predictor_grid_offset",
+                  f"{offset * 100:.2f} cm between the predictor and label grids, "
                   f"{offset / label_gsd:.2f} of a label cell")
-    for name in CLASS_LABELS.values():
-        score = row[f"IoU imagery grid {name}"]
-        if isinstance(score, float) and not math.isnan(score) \
-                and score < REGISTRATION_IOU_ALARM:
-            issue.add("", "imagery_grid_disagreement",
-                      f"{name}: IoU {score:.3f} between the labels resampled onto the imagery "
-                      f"grid correctly and the same labels read by nearest neighbour")
+    flag_low(row, "IoU predictor", REGISTRATION_IOU_ALARM, issue,
+             "predictor_grid_disagreement",
+             "between the labels resampled onto the predictor grid correctly and "
+             "the same labels read by nearest neighbour")
     return row
 
 
 # --------------------------------------------------------------------------
-# Per-feature displacement, after Haynes et al. (2025)
+# Per feature: polygon IoU and centroid RMSE, after Haynes et al. (2025)
 # --------------------------------------------------------------------------
 
 def _grid_index(coords: np.ndarray, origin: float, step: float) -> np.ndarray:
@@ -628,14 +486,13 @@ def _grid_index(coords: np.ndarray, origin: float, step: float) -> np.ndarray:
     return np.floor((coords - origin) / step).astype(np.int64)
 
 
-def _feature_on_grid(geom, transform: rasterio.Affine, shape: Tuple[int, int],
-                     all_touched: bool) -> Tuple[np.ndarray, int, int]:
-    """One polygon rasterised inside its own window on `transform`.
+def _feature_on_grid(geom, transform: rasterio.Affine,
+                     shape: Tuple[int, int]) -> Tuple[np.ndarray, int, int]:
+    """One polygon rasterised (centroid rule) inside its own window on `transform`.
 
     Returns the boolean footprint and the window's row/column offset. Working
     per polygon in a local window keeps each feature's identity, which a
-    whole-tile rasterisation loses wherever two polygons overlap - and the low
-    site averages 148 overlapping pairs per tile.
+    whole-tile rasterisation loses wherever two polygons overlap.
     """
     minx, miny, maxx, maxy = geom.bounds
     col_lo = _grid_index(np.array([minx]), transform.c, transform.a)[0] - 1
@@ -653,7 +510,7 @@ def _feature_on_grid(geom, transform: rasterio.Affine, shape: Tuple[int, int],
         transform.d, transform.e, transform.f + row_lo * transform.e)
     footprint = rasterize(
         [(geom, 1)], out_shape=(row_hi - row_lo, col_hi - col_lo),
-        transform=window_transform, fill=0, all_touched=all_touched,
+        transform=window_transform, fill=0, all_touched=False,
         dtype=rasterio.uint8).astype(bool)
     return footprint, row_lo, col_lo
 
@@ -669,16 +526,16 @@ def _footprint_centroid(footprint: np.ndarray, row_off: int, col_off: int,
     return float(x), float(y)
 
 
-def _footprint_on_fine(footprint: np.ndarray, row_off: int, col_off: int,
-                       coarse_transform: rasterio.Affine,
-                       fine_rows: np.ndarray, fine_cols: np.ndarray,
-                       fine_transform: rasterio.Affine) -> np.ndarray:
-    """A coarse-grid footprint read back onto the fine window by nearest
-    neighbour - the way a dataloader reads a coarse label at fine resolution."""
-    x = fine_transform.c + (fine_cols + 0.5) * fine_transform.a
-    y = fine_transform.f + (fine_rows + 0.5) * fine_transform.e
-    cols = _grid_index(x, coarse_transform.c, coarse_transform.a) - col_off
-    rows = _grid_index(y, coarse_transform.f, coarse_transform.e) - row_off
+def _footprint_on_grid(footprint: np.ndarray, row_off: int, col_off: int,
+                       source_transform: rasterio.Affine,
+                       target_rows: np.ndarray, target_cols: np.ndarray,
+                       target_transform: rasterio.Affine) -> np.ndarray:
+    """A footprint read onto another grid's cells by nearest neighbour at their
+    centres - the way a dataloader reads a label on a grid it was not written to."""
+    x = target_transform.c + (target_cols + 0.5) * target_transform.a
+    y = target_transform.f + (target_rows + 0.5) * target_transform.e
+    cols = _grid_index(x, source_transform.c, source_transform.a) - col_off
+    rows = _grid_index(y, source_transform.f, source_transform.e) - row_off
 
     inside = ((rows >= 0) & (rows < footprint.shape[0])
               & (cols >= 0) & (cols < footprint.shape[1]))
@@ -688,133 +545,75 @@ def _footprint_on_fine(footprint: np.ndarray, row_off: int, col_off: int,
     return out
 
 
-def assess_feature_displacement(gdf: gpd.GeoDataFrame, fine_path: Path,
-                                coarse_path: Path | None, image_path: Path | None,
-                                issue: "IssueLog") -> Dict[str, object]:
-    """How far each labelled feature moves, and how much of it survives, on each
-    grid the pipeline writes it to.
+def assess_features(gdf: gpd.GeoDataFrame, fine_path: Path, coarse_path: Path,
+                    image_path: Path | None, issue: "IssueLog") -> Dict[str, object]:
+    """Per feature, how far it moves and how much of it survives at each step.
 
-    The IoU columns elsewhere in this script are computed per class over a whole
-    tile: they say how much of a class survives, but not where it went, and a
-    class can hold its area while every feature in it shifts. Haynes et al.
-    (2025), co-registering UAS imaging spectroscopy to RGB, separate those two
-    questions by digitising the same features in each image and reporting both
-    the RMSE and MAE of the Euclidean distance between their centroids and the
-    mean and median IoU of the features themselves. The same pair is measured
-    here, with one difference that has to be stated: they compare two
-    *independent delineations* of one feature, whereas there is only one
-    delineation here, so what is compared is that delineation against itself
-    after each grid has quantised it. These columns therefore bound the
-    positional cost of the *grids*, not of the annotator - the same restriction
-    that applies to the `Delineation IoU` columns.
+    Each polygon is rasterised onto each grid and compared with its footprint on
+    the grid before it:
 
-    Three grids, each the polygon rasterised as that step of the pipeline writes
-    it, against the polygon's own geometry:
+        5 cm        5 cm label footprint against 1 cm footprint, IoU on the 1 cm grid
+        predictor   predictor footprint against 5 cm label footprint, IoU on the
+                    5 cm grid, the resolution the models consume
 
-        1 cm      the delivered 1 cm raster's convention (all_touched=True)
-        5 cm      the label grid the models consume
-        imagery   the predictor grid the models read alongside it
-
-    Per-polygon IoU is taken on the 1 cm grid throughout, so the three stages
-    are comparable to each other. RMSE and MAE follow Haynes et al.'s equations
-    (2) and (3) over the Euclidean centroid distances, in metres.
+    Centroid RMSE follows Haynes et al.'s equation (2) over the Euclidean
+    distances between the two footprints' centroids, in metres. Haynes et al.
+    compare two independent delineations; here there is one, so these columns
+    bound the positional cost of the grids, not of the annotator.
     """
-    with rasterio.open(fine_path) as src:
-        fine_transform = src.transform
-        fine_shape = src.shape
+    grids: List[Tuple[str, rasterio.Affine, Tuple[int, int]]] = []
+    for name, path in (("1 cm", fine_path), ("5 cm", coarse_path), ("predictor", image_path)):
+        if path is None:
+            break
+        with rasterio.open(path) as src:
+            grids.append((name, src.transform, src.shape))
 
-    stages: List[Tuple[str, rasterio.Affine, Tuple[int, int], bool]] = [
-        ("1 cm", fine_transform, fine_shape, True)]
-    if coarse_path is not None:
-        with rasterio.open(coarse_path) as src:
-            stages.append(("5 cm", src.transform, src.shape, False))
-    if image_path is not None:
-        with rasterio.open(image_path) as src:
-            stages.append(("imagery", src.transform, src.shape, False))
+    distances: Dict[str, List[float]] = {stage: [] for stage, *_ in grids[1:]}
+    ious: Dict[str, List[float]] = {stage: [] for stage, *_ in grids[1:]}
 
-    geoms = [g for g in gdf.geometry if g is not None and not g.is_empty and g.is_valid]
-    result: Dict[str, object] = {}
-
-    distances: Dict[str, List[float]] = {stage: [] for stage, *_ in stages}
-    ious: Dict[str, List[float]] = {stage: [] for stage, *_ in stages}
-    # Label footprint against predictor footprint, per feature. This is the pair a
-    # model indexes together, and it is the only comparison here that does not
-    # involve the drawn geometry at all. It is scored on the 5 cm label grid,
-    # because 5 cm is the resolution the models and the 3D work consume: a
-    # disagreement finer than one 5 cm cell is not something either can express,
-    # so scoring it on the 1 cm grid would report a precision nothing acts on.
-    cross: List[float] = []
-
-    for geom in geoms:
-        reference, ref_row, ref_col = _feature_on_grid(
-            geom, fine_transform, fine_shape, all_touched=False)
-        if not reference.any():
+    for geom in gdf.geometry:
+        if geom is None or geom.is_empty or not geom.is_valid:
             continue
-
-        rows, cols = np.meshgrid(
-            np.arange(reference.shape[0]) + ref_row,
-            np.arange(reference.shape[1]) + ref_col, indexing="ij")
-        exact = geom.centroid
-        native: Dict[str, tuple] = {}
-
-        for stage, transform, shape, all_touched in stages:
-            footprint, row_off, col_off = _feature_on_grid(
-                geom, transform, shape, all_touched=all_touched)
+        previous = None
+        for stage, transform, shape in grids:
+            footprint, row_off, col_off = _feature_on_grid(geom, transform, shape)
             centre = _footprint_centroid(footprint, row_off, col_off, transform)
             if centre is None:
-                continue
+                break
+            current = (footprint, row_off, col_off, transform, centre)
+            if previous is not None:
+                prev_fp, prev_row, prev_col, prev_transform, prev_centre = previous
+                distances[stage].append(math.hypot(centre[0] - prev_centre[0],
+                                                   centre[1] - prev_centre[1]))
+                rows, cols = np.meshgrid(np.arange(prev_fp.shape[0]) + prev_row,
+                                         np.arange(prev_fp.shape[1]) + prev_col,
+                                         indexing="ij")
+                test = _footprint_on_grid(footprint, row_off, col_off, transform,
+                                          rows, cols, prev_transform)
+                union = np.count_nonzero(prev_fp | test)
+                if union:
+                    ious[stage].append(np.count_nonzero(prev_fp & test) / union)
+            previous = current
 
-            distances[stage].append(math.hypot(centre[0] - exact.x, centre[1] - exact.y))
-            test = _footprint_on_fine(footprint, row_off, col_off, transform,
-                                      rows, cols, fine_transform)
-            native[stage] = (footprint, row_off, col_off, transform)
-            union = np.count_nonzero(reference | test)
-            if union:
-                ious[stage].append(np.count_nonzero(reference & test) / union)
-
-        if "5 cm" in native and "imagery" in native:
-            label, label_row, label_col, label_transform = native["5 cm"]
-            predictor, pred_row, pred_col, pred_transform = native["imagery"]
-            label_rows, label_cols = np.meshgrid(
-                np.arange(label.shape[0]) + label_row,
-                np.arange(label.shape[1]) + label_col, indexing="ij")
-            on_label = _footprint_on_fine(predictor, pred_row, pred_col, pred_transform,
-                                          label_rows, label_cols, label_transform)
-            union = np.count_nonzero(label | on_label)
-            if union:
-                cross.append(np.count_nonzero(label & on_label) / union)
-
-    for stage, *_ in stages:
+    result: Dict[str, object] = {}
+    for stage, transform, _ in grids[1:]:
         if distances[stage]:
-            d = np.asarray(distances[stage], dtype=np.float64)
-            result[f"Centroid RMSE {stage} (m)"] = float(np.sqrt(np.mean(d ** 2)))
-            result[f"Centroid MAE {stage} (m)"] = float(np.mean(d))
+            rmse = float(np.sqrt(np.mean(np.square(distances[stage]))))
+            result[f"Centroid RMSE {stage} (m)"] = rmse
+            # A feature displaced by more than one cell of the grid it is read on
+            # is no longer on the pixel a model will pair it with.
+            if rmse > abs(transform.a):
+                issue.add("", "feature_displacement",
+                          f"centroid RMSE {rmse:.3f} m on the {stage} grid exceeds its "
+                          f"{abs(transform.a):.3f} m cell")
         if ious[stage]:
-            v = np.asarray(ious[stage], dtype=np.float64)
-            result[f"Polygon IoU mean {stage}"] = float(np.mean(v))
-            result[f"Polygon IoU median {stage}"] = float(np.median(v))
-
-    if cross:
-        c = np.asarray(cross, dtype=np.float64)
-        result["Label vs predictor IoU mean"] = float(np.mean(c))
-        result["Label vs predictor IoU median"] = float(np.median(c))
-        result["Label vs predictor identical (%)"] = float(np.mean(c == 1.0) * 100.0)
-
-    result["Polygons measured for displacement"] = len(geoms)
-
-    # A feature displaced by more than one cell of the grid it is read on is no
-    # longer on the pixel a model will pair it with.
-    for stage, transform, _, _ in stages:
-        rmse = result.get(f"Centroid RMSE {stage} (m)")
-        if isinstance(rmse, float) and rmse > abs(transform.a):
-            issue.add("", "feature_displacement",
-                      f"centroid RMSE {rmse:.3f} m on the {stage} grid exceeds its "
-                      f"{abs(transform.a):.3f} m cell")
+            result[f"Polygon IoU mean {stage}"] = float(np.mean(ious[stage]))
+            result[f"Polygon IoU median {stage}"] = float(np.median(ious[stage]))
     return result
 
 
 # --------------------------------------------------------------------------
-# Delineation sensitivity: what a second annotator could change
+# 5. +/- boundary perturbation: delineation IoU
 # --------------------------------------------------------------------------
 
 SQUARE = np.ones((3, 3), dtype=bool)
@@ -824,162 +623,30 @@ def assess_delineation(raster_path: Path, radius_m: float,
                        issue: "IssueLog") -> Dict[str, object]:
     """How exposed each class is to where the annotator put the line.
 
-    Whether a second annotator would draw the same outline cannot be answered
-    without a second annotator. What can be answered from the delivered labels
-    alone is how much it would matter: erode and dilate each class by `radius_m`
-    and take the IoU of the two. That is the agreement two delineations that
-    disagreed by `radius_m` *everywhere* would reach, so it is a worst case
-    rather than an estimate - a class scoring high cannot be much affected by
-    boundary placement no matter who drew it.
-
-    `Edge share` is the same quantity as a proportion of the class, and
-    `Labelled area near a class boundary` counts only the cells within reach of
-    a *different* class, i.e. where a boundary shift changes which class a pixel
-    reports rather than merely whether it is labelled at all.
+    Erode and dilate each class by `radius_m` and take the IoU of the two. That
+    is the agreement two delineations that disagreed by `radius_m` *everywhere*
+    would reach, so it is a worst case rather than an estimate - a class scoring
+    high cannot be much affected by boundary placement no matter who drew it.
     """
     with rasterio.open(raster_path) as src:
         labels = remap_class_codes(src.read(1))
         pixel = abs(src.transform.a)
 
     radius = max(int(round(radius_m / pixel)), 1)
-    labelled = labels != NODATA
-    near_other_class = np.zeros_like(labelled)
     row: Dict[str, object] = {}
-
     for struct_id, name in CLASS_LABELS.items():
         mask = labels == struct_id
-        n_cells = int(np.count_nonzero(mask))
-        if n_cells == 0:
-            row[f"Edge share {name} (%)"] = math.nan
+        if not mask.any():
             row[f"Delineation IoU {name}"] = math.nan
             continue
         # border_value=1 stops the tile edge from counting as an eroded boundary.
         core = binary_erosion(mask, SQUARE, iterations=radius, border_value=1)
         grown = binary_dilation(mask, SQUARE, iterations=radius)
-        row[f"Edge share {name} (%)"] = \
-            (1.0 - int(np.count_nonzero(core)) / n_cells) * 100.0
         row[f"Delineation IoU {name}"] = iou(core, grown)
-        near_other_class |= mask & binary_dilation(
-            labelled & ~mask, SQUARE, iterations=radius)
 
-        score = row[f"Delineation IoU {name}"]
-        if isinstance(score, float) and not math.isnan(score) \
-                and score < DELINEATION_IOU_ALARM:
-            issue.add("", "boundary_dominated_class",
-                      f"{name}: {row[f'Edge share {name} (%)']:.0f}% of the class lies within "
-                      f"{radius_m * 100:.0f} cm of its own edge, delineation IoU {score:.3f}")
-
-    n_labelled = int(np.count_nonzero(labelled))
-    row["Labelled area near a class boundary (%)"] = \
-        (int(np.count_nonzero(near_other_class)) / n_labelled * 100.0) if n_labelled else math.nan
-    return row
-
-
-# --------------------------------------------------------------------------
-# Independence: per-polygon top-of-canopy height from LiDAR
-# --------------------------------------------------------------------------
-
-def read_z_norm(las) -> np.ndarray:
-    dims = set(las.point_format.dimension_names)
-    if "Z_norm" in dims:
-        return np.asarray(las["Z_norm"], dtype=np.float32)
-    if "z_norm" in dims:
-        return np.asarray(las["z_norm"], dtype=np.float32)
-    z_raw = np.asarray(las.z, dtype=np.float32)
-    return z_raw - float(np.nanpercentile(z_raw, 1))
-
-
-def separability_auc(values: np.ndarray, others: np.ndarray) -> float:
-    """P(a random draw from `values` exceeds one from `others`), ties as half.
-
-    The Mann-Whitney statistic, read as an AUC: 0.5 means the two are
-    indistinguishable on this measurement, 1.0 that they never overlap.
-    """
-    if values.size < MIN_AUC_POLYGONS or others.size < MIN_AUC_POLYGONS:
-        return math.nan
-    combined = np.concatenate([values, others])
-    order = np.argsort(combined, kind="stable")
-    ranks = np.empty(combined.size, dtype=np.float64)
-    ranks[order] = np.arange(1, combined.size + 1, dtype=np.float64)
-    # Average the ranks inside each tie group, so an exact tie contributes 0.5.
-    unique_index = np.unique(combined, return_inverse=True)[1]
-    totals = np.bincount(unique_index, weights=ranks)
-    ranks = (totals / np.bincount(unique_index))[unique_index]
-    rank_sum = float(ranks[:values.size].sum())
-    return (rank_sum - values.size * (values.size + 1) / 2.0) / (values.size * others.size)
-
-
-def assess_height(gdf: gpd.GeoDataFrame, raster_path: Path, las_path: Path,
-                  min_points: int, issue: "IssueLog") -> Dict[str, object]:
-    """Per polygon, the P95 of Z_norm among the points inside it.
-
-    LiDAR height was never used to build the 2D labels, so how far the classes
-    separate on it is evidence they track something real. It is reported as a
-    description, not a test: the scheme classifies growth form, which implies no
-    stature, so no expected height range exists to score against.
-
-    Points are assigned to polygons through a polygon-index raster on the 1 cm
-    grid, which is O(points) and avoids a spatial join over millions of returns.
-
-    A polygon carrying fewer than `min_points` returns is left out of the class
-    statistics: a P95 over three points is the maximum of three points, and the
-    median polygon here is 0.1 m2, so this is the difference between measuring
-    canopy height and measuring where the returns happened to land.
-    """
-    import laspy  # optional dependency, only needed for this stage
-
-    with rasterio.open(raster_path) as src:
-        transform = src.transform
-        shape = (src.height, src.width)
-
-    index_raster = rasterize(
-        ((geom, index) for index, geom in enumerate(gdf.geometry)),
-        out_shape=shape, transform=transform,
-        fill=NO_POLYGON, all_touched=False, dtype=rasterio.int32)
-
-    las = laspy.read(str(las_path))
-    z = read_z_norm(las)
-    rows_idx, cols_idx = rasterio.transform.rowcol(
-        transform, np.asarray(las.x), np.asarray(las.y))
-    rows_idx, cols_idx = np.asarray(rows_idx), np.asarray(cols_idx)
-    inside = ((rows_idx >= 0) & (rows_idx < shape[0])
-              & (cols_idx >= 0) & (cols_idx < shape[1]))
-
-    polygon_of_point = index_raster[rows_idx[inside], cols_idx[inside]]
-    z_inside = z[inside]
-    hit = (polygon_of_point != NO_POLYGON) & np.isfinite(z_inside)
-    polygon_of_point, z_inside = polygon_of_point[hit], z_inside[hit]
-
-    canopy = np.full(len(gdf), np.nan)
-    n_points = np.zeros(len(gdf), dtype=np.int64)
-    if polygon_of_point.size:
-        order = np.argsort(polygon_of_point, kind="stable")
-        sorted_polygons = polygon_of_point[order]
-        sorted_z = z_inside[order]
-        boundaries = np.flatnonzero(np.diff(sorted_polygons)) + 1
-        for group, values in zip(np.split(sorted_polygons, boundaries),
-                                 np.split(sorted_z, boundaries)):
-            if values.size:
-                n_points[group[0]] = values.size
-                canopy[group[0]] = float(np.percentile(values, CANOPY_PERCENTILE))
-
-    thin = n_points < min_points
-    for index in np.flatnonzero(thin):
-        issue.add(int(index), "too_few_lidar_points",
-                  f"{n_points[index]} returns, need {min_points} for a "
-                  f"P{CANOPY_PERCENTILE}; excluded from the height columns")
-
-    class_ids = gdf["struct_id"].to_numpy()
-    usable = np.isfinite(canopy) & ~thin
-    row: Dict[str, object] = {
-        "Polygons with too few returns (%)": float(np.mean(thin) * 100.0) if len(gdf) else math.nan,
-    }
-    for struct_id, name in CLASS_LABELS.items():
-        selection = (class_ids == struct_id) & usable
-        values = canopy[selection]
-        row[f"P95 Znorm {name} (m)"] = float(np.median(values)) if values.size else math.nan
-        row[f"Height AUC {name}"] = separability_auc(
-            values, canopy[(class_ids != struct_id) & usable])
+    flag_low(row, "Delineation IoU", DELINEATION_IOU_ALARM, issue,
+             "boundary_dominated_class",
+             f"between the class eroded and dilated by {radius_m * 100:.0f} cm")
     return row
 
 
@@ -1024,10 +691,9 @@ def aggregate_row(rows: Sequence[Dict[str, object]], site: str, condition: str,
     """One across-tile summary row. Non-numeric columns are blanked.
 
     Two are written, `Average` and `Median`. A handful of tiles decide the mean
-    of an IoU column whenever one tile fails differently from the rest -- the
-    low site's stale Woody-debris shapefiles, the medium site's misaligned 5 cm
-    grid -- so the median says what a typical tile scores and the gap between
-    the two says how concentrated the damage is.
+    of an IoU column whenever one tile fails differently from the rest, so the
+    median says what a typical tile scores and the gap between the two says how
+    concentrated the damage is.
     """
     aggregate: Dict[str, object] = {"Site": site, "Site condition": condition, "Tile": label}
     for column in SUMMARY_COLUMNS:
@@ -1070,7 +736,6 @@ def main() -> None:
     shp_map = scan_tile_map(shp_dir, args.shp_glob)
     raster_map = scan_tile_map(args.raster_dir, args.raster_glob)
     coarse_map = scan_tile_map(args.downsampled_dir, args.raster_glob)
-    las_map = scan_tile_map(args.las_dir, args.las_glob)
     image_map = scan_tile_map(args.image_dir, args.image_glob)
 
     tile_ids = sorted(shp_map, key=int)
@@ -1081,12 +746,9 @@ def main() -> None:
         raise SystemExit(f"No shapefiles matched {args.shp_glob} in {shp_dir}")
 
     for enabled, name, hint in (
-        (bool(raster_map), "IoU raster", "--raster-dir"),
-        (bool(raster_map), "the delineation columns", "--raster-dir"),
-        (bool(raster_map) and bool(coarse_map), "IoU 5 cm", "--raster-dir and --downsampled-dir"),
-        (bool(raster_map) and bool(las_map), "height columns", "--raster-dir and --las-dir"),
-        (bool(raster_map) and bool(coarse_map) and bool(image_map),
-         "the registration columns",
+        (bool(raster_map), "checks 2 and 5", "--raster-dir"),
+        (bool(raster_map) and bool(coarse_map), "check 3", "--raster-dir and --downsampled-dir"),
+        (bool(raster_map) and bool(coarse_map) and bool(image_map), "check 4",
          "--raster-dir, --downsampled-dir and --image-dir"),
     ):
         if not enabled:
@@ -1109,51 +771,32 @@ def main() -> None:
 
         fine_path = raster_map.get(tile_id)
         coarse_path = coarse_map.get(tile_id)
-        las_path = las_map.get(tile_id)
         image_path = image_map.get(tile_id)
 
         row: Dict[str, object] = {"Site": args.site, "Site condition": condition,
                                   "Tile": tile_id}
-        row.update(assess_annotation(gdf, fine_path, args.mmu, issues))
+        row.update(assess_annotation(gdf, args.mmu, issues))
 
         if fine_path is None:
             issues.add("", "missing_raster", "no 1 cm label raster for this tile")
+            summary.append(row)
+            continue
+
+        row.update(iou_polygon_to_1cm(gdf, fine_path))
+        flag_low(row, "IoU 1 cm", RASTER_IOU_ALARM, issues, "raster_disagrees_with_shapefile",
+                 "between the polygons on disk and the delivered 1 cm raster")
+        row.update(assess_delineation(fine_path, args.boundary, issues))
+
+        if coarse_path is None:
+            issues.add("", "missing_downsampled", "no 5 cm label raster for this tile")
         else:
-            row.update(iou_vector_to_raster(gdf, fine_path))
-            row.update(assess_delineation(fine_path, args.boundary, issues))
-            row.update(assess_feature_displacement(
-                gdf, fine_path, coarse_path, image_path, issues))
-            for struct_id, name in CLASS_LABELS.items():
-                score = row[f"IoU raster {name}"]
-                if isinstance(score, float) and not math.isnan(score) \
-                        and score < RASTER_IOU_ALARM:
-                    n_class = int(np.count_nonzero(gdf["struct_id"].to_numpy() == struct_id))
-                    issues.add("", "raster_disagrees_with_shapefile",
-                               f"{name}: IoU {score:.3f} between the {n_class} polygons on "
-                               f"disk and the delivered 1 cm raster")
-            if coarse_path is None:
-                issues.add("", "missing_downsampled", "no 5 cm label raster for this tile")
+            row.update(iou_1cm_to_5cm(fine_path, coarse_path))
+            if image_path is None:
+                if image_map:
+                    issues.add("", "missing_imagery", "no predictor stack for this tile")
             else:
-                row.update(iou_fine_to_coarse(fine_path, coarse_path))
-                offset = float(row["5 cm grid offset (cm)"])
-                if offset > 0:
-                    issues.add("", "grid_misaligned_5cm",
-                               f"5 cm grid offset {offset:.2f} cm from the 1 cm grid; "
-                               f"labelled area changes "
-                               f"{float(row['Labelled area change at 5 cm (%)']):+.1f}%")
-                if image_path is None:
-                    if image_map:
-                        issues.add("", "missing_imagery",
-                                   "no predictor stack for this tile")
-                else:
-                    row.update(assess_registration(fine_path, coarse_path,
-                                                   image_path, issues))
-            if las_path is None:
-                if las_map:
-                    issues.add("", "missing_las", "no Z-normalised LAS for this tile")
-            else:
-                row.update(assess_height(gdf, fine_path, las_path,
-                                         args.min_points, issues))
+                row.update(assess_registration(fine_path, coarse_path, image_path, issues))
+            row.update(assess_features(gdf, fine_path, coarse_path, image_path, issues))
 
         summary.append(row)
 
@@ -1172,7 +815,7 @@ def main() -> None:
     print(f"\nTiles assessed: {len(tile_rows)}")
     print(f"Issues logged:  {len(issues.rows)}")
     for name, count in issues.counts().items():
-        print(f"  {name:28s} {count}")
+        print(f"  {name:32s} {count}")
     for path in (summary_path, issues_path):
         print(f"  Wrote: {path}")
 
