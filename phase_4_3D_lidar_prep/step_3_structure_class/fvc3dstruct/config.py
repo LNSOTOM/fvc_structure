@@ -3,10 +3,16 @@ DEFAULT_CONFIG = {
     "voxel_size_xy": 0.10,
     "voxel_size_z": 0.10,
     "ground_thresh": 0.15,
+    # Stage-1 height priors: XY radius (m) within which a structure point takes
+    # the Z_norm of its nearest Z_norm point.
+    "height_match_radius": 0.30,
     "r_bin": 0.10,
     "theta_bin_deg": 10.0,
     "min_conf": 0.3,
     "min_flip_ratio": 1.5,
+    # Stage-4 height prior: weight for a class outside its 15th-85th percentile
+    # Z_norm range (in-range classes get 1.0).
+    "height_prior_out_of_range_weight": 0.1,
     "max_fill_height": 2.0,
     "enable_radial_fill": False,
     # Stage 5 consolidation thresholds

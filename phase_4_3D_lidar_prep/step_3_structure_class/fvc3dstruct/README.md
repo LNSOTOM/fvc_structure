@@ -36,13 +36,13 @@ from fvc3dstruct.pipeline import process_folder
 
 | Module | Lines | Responsibility |
 |---|---:|---|
-| `pipeline.py` | 439 | Stage orchestration — `process_tile()`, `process_folder()` |
+| `pipeline.py` | 448 | Stage orchestration — `process_tile()`, `process_folder()` |
 | `watershed.py` | 307 | Crown detection, `auto_watershed_params()`, `plot_mallee_debug()` |
-| `polar_refine.py` | 223 | Polar coords, bin indices, `soft_height_prior()`, refinement |
+| `polar_refine.py` | 230 | Polar coords, bin indices, `soft_height_prior()`, refinement |
 | `io_las.py` | 205 | LAS readers/writers, stage snapshots, ExtraBytes fields |
-| `height_stats.py` | 167 | Class height statistics, `CLASS_NAMES` |
+| `height_stats.py` | 200 | Class height statistics (`match_structure_heights()` then `class_height_ranges()`), `CLASS_NAMES` |
 | `voxel_merge.py` | 89 | Cartesian voxel majority vote |
-| `config.py` | 38 | `DEFAULT_CONFIG` |
+| `config.py` | 44 | `DEFAULT_CONFIG` |
 | `treeid.py` | 27 | `assign_treeID_optionA()` — canopy-mallee-only instance IDs |
 
 ## `process_tile()` return value
@@ -61,6 +61,8 @@ scripts aggregate:
 | `stage4_low_confidence_pct` | Share of evaluated points below `min_conf` |
 | `stage5_promoted_points` | Unlabelled points promoted by height |
 | `stage5_forced_points` | Points forced to mallee inside crowns |
+| `stage5_crowns_voted` / `stage5_crowns_mallee_majority` | Crowns put to the majority vote / crowns more than half mallee, which the vote turns wholly mallee |
+| `stage5_min_crown_mallee_pct` | Mallee share of the least-mallee crown at the vote (NaN without crowns) |
 | `stage5_majority_reclassified_points` | Points reassigned by crown majority |
 | `final_veg_points` / `final_veg_pct` | Vegetation retention in the final product |
 | `final_treeids` | Distinct non-zero `treeID` values |
@@ -70,8 +72,9 @@ point's own `Z_norm`, so it is *independent of `voxel_size_xy`/`voxel_size_z` by
 Identical values across a voxel-size sweep are expected, not a bug — and it is therefore not
 evidence that voxel choice is costless for final label quality.
 
-Set `"return_classification_arrays": True` to also get the full per-point Stage-2 baseline and
-final classification arrays, for confusion/transition analyses.
+Set `"return_classification_arrays": True` to also get the full per-point Stage-2 baseline,
+Stage-4 refined and final classification arrays (`classification_baseline`,
+`classification_refined`, `classification_final`), for confusion/transition analyses.
 
 ## `DEFAULT_CONFIG`
 
@@ -83,6 +86,7 @@ Defined in `config.py`. Pass a partial dict to `process_tile()`/`process_folder(
 |---|---|---|
 | `voxel_size_xy` / `voxel_size_z` | `0.10` | Stage-2 voxel resolution (m) |
 | `ground_thresh` | `0.15` | Ground exclusion height (m) |
+| `height_match_radius` | `0.30` | Stage-1 XY radius within which a structure point takes its nearest Z_norm point's height (m) |
 | `r_bin` | `0.10` | Polar radial bin width (m) |
 | `theta_bin_deg` | `10.0` | Polar angular bin width (degrees) |
 
@@ -92,6 +96,7 @@ Defined in `config.py`. Pass a partial dict to `process_tile()`/`process_folder(
 |---|---|---|
 | `min_conf` | `0.3` | Minimum confidence to fill an empty label |
 | `min_flip_ratio` | `1.5` | Ratio required to flip an existing label |
+| `height_prior_out_of_range_weight` | `0.1` | Stage-4 height-prior weight for a class outside its 15th–85th percentile `Z_norm` range (in range = 1.0) |
 | `max_fill_height` | `2.0` | Max height for radial fill (m) |
 | `enable_radial_fill` | `False` | Enable radial gap filling |
 

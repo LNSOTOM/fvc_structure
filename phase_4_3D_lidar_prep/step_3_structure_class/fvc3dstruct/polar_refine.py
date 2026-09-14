@@ -73,16 +73,21 @@ def soft_height_prior(
     z_norm: float,
     cls: int,
     height_ranges: Dict[int, Tuple[float, float]],
+    out_of_range_weight: float = 0.1,
 ) -> float:
     """
     Soft height prior: downweight classes outside their typical range.
-    Returns 1.0 if in range, 0.1 if outside.
+    Returns 1.0 if in range, `out_of_range_weight` (default 0.1) if outside.
+
+    The weight is soft rather than zero because each class's range is its
+    15th-85th percentile of Z_norm, which by construction excludes 30% of that
+    class's own points; a zero weight would forbid those labels outright.
     """
     if cls not in height_ranges or cls == 0:
-        return 0.1
+        return out_of_range_weight
     
     zmin, zmax = height_ranges[cls]
-    return 1.0 if (zmin <= z_norm <= zmax) else 0.1
+    return 1.0 if (zmin <= z_norm <= zmax) else out_of_range_weight
 
 
 def refine_with_polar_coords(
@@ -100,6 +105,7 @@ def refine_with_polar_coords(
     theta_bin_deg: float = 10.0,
     min_conf: float = 0.3,
     min_flip_ratio: float = 1.5,
+    out_of_range_weight: float = 0.1,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Refine classification using crown-centric polar bins + height priors.
@@ -123,6 +129,7 @@ def refine_with_polar_coords(
         theta_bin_deg: Angular bin size (degrees)
         min_conf: Minimum confidence to update label
         min_flip_ratio: Minimum ratio new_conf/old_conf to flip label
+        out_of_range_weight: Height-prior weight for a class outside its range
 
     Returns:
         Tuple of (updated classification array, per-point best-class confidence
@@ -186,7 +193,7 @@ def refine_with_polar_coords(
         probs = {}
         for cls, count in counts.items():
             raw_prob = count / total
-            height_weight = soft_height_prior(z_val, cls, height_ranges)
+            height_weight = soft_height_prior(z_val, cls, height_ranges, out_of_range_weight)
             probs[cls] = raw_prob * height_weight
         
         # Normalize

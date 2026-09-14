@@ -65,7 +65,7 @@ def process_tile(
         las_z,
         percentile_low=15.0,
         percentile_high=85.0,
-        max_match_dist=0.30,
+        max_match_dist=cfg["height_match_radius"],
     )
     mallee_min = auto_mallee_min_height(height_ranges)
     mallee_min_override = cfg.get("mallee_min_znorm", None)
@@ -170,6 +170,7 @@ def process_tile(
             theta_bin_deg=cfg["theta_bin_deg"],
             min_conf=cfg["min_conf"],
             min_flip_ratio=cfg["min_flip_ratio"],
+            out_of_range_weight=cfg["height_prior_out_of_range_weight"],
         )
         stage4_changed = int(np.count_nonzero(classification_refined != classification_baseline))
         stage4_changed_pct = (
@@ -226,6 +227,7 @@ def process_tile(
 
     # Crown-level majority voting: if crown is >50% mallee, convert all points in crown → 68.
     n_reclassified = 0
+    crown_mallee_shares = []
     if instance_ids_all.max() > 0:
         max_id = int(instance_ids_all.max())
         for crown_id in range(1, max_id + 1):
@@ -239,6 +241,7 @@ def process_tile(
             if n_total == 0:
                 continue
 
+            crown_mallee_shares.append(n_mallee / n_total)
             if (n_mallee / n_total) > 0.5:
                 non_mallee = in_crown & (classification_final_all != 68)
                 n_conv = int(np.count_nonzero(non_mallee))
@@ -354,6 +357,11 @@ def process_tile(
         "stage4_mean_confidence": float(stage4_mean_confidence),
         "stage4_low_confidence_pct": float(stage4_low_confidence_pct),
         "stage5_promoted_points": promoted_points,
+        "stage5_crowns_voted": len(crown_mallee_shares),
+        "stage5_crowns_mallee_majority": int(sum(share > 0.5 for share in crown_mallee_shares)),
+        "stage5_min_crown_mallee_pct": (
+            100.0 * min(crown_mallee_shares) if crown_mallee_shares else float("nan")
+        ),
         "stage5_majority_reclassified_points": n_reclassified,
         "stage5_forced_points": n_forced,
         "final_veg_points": n_kept,
@@ -362,12 +370,13 @@ def process_tile(
         "write_outputs": write_outputs,
     }
 
-    # Opt-in: include full per-point classification arrays (Stage-2 baseline and
-    # final consolidated) for analyses like class-transition/confusion matrices.
-    # Both arrays share the Z_norm point-cloud's indexing. Off by default since
-    # these don't belong in a flat CSV row (see compare_voxel_sizes.py).
+    # Opt-in: include full per-point classification arrays (Stage-2 baseline,
+    # Stage-4 refined and final consolidated) for analyses like class-transition/
+    # confusion matrices. All three share the Z_norm point-cloud's indexing. Off by
+    # default since these don't belong in a flat CSV row (see compare_voxel_sizes.py).
     if bool(cfg.get("return_classification_arrays", False)):
         result["classification_baseline"] = classification_baseline
+        result["classification_refined"] = classification_refined
         result["classification_final"] = classification_final_all
 
     return result

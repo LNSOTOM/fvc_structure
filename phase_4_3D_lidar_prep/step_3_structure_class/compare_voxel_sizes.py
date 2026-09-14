@@ -459,7 +459,12 @@ def plot_las_3d_voxel_sweep(
     if last_scatter is not None and axes:
         cbar = fig.colorbar(last_scatter, ax=axes, shrink=0.84)
         cbar.set_label("Points per 3D voxel")
-    fig.suptitle(f"Tile {tile_id} 3D voxel-volume comparison across voxel sizes", fontsize=16)
+    # Voxels are counted over the sampled returns, not the whole tile.
+    fig.suptitle(
+        f"Tile {tile_id} 3D voxel-volume comparison across voxel sizes "
+        f"(random sample of {len(x_values):,} returns)",
+        fontsize=16,
+    )
     _save(fig, output_path)
 
 

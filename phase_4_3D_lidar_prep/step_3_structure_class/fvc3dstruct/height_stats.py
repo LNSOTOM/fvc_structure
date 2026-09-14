@@ -6,6 +6,8 @@ fvc3dstruct package.
 
 Provides:
     • compute_class_height_thresholds()
+    • match_structure_heights()
+    • class_height_ranges()
     • summarise_height_ranges()
     • auto_mallee_min_height()
     • print_height_report()
@@ -63,6 +65,24 @@ def compute_class_height_thresholds(
 
     Returns dict {class_id: (low, high)}.
     """
+    matched_heights = match_structure_heights(las_s, las_z, max_match_dist)
+    return class_height_ranges(
+        matched_heights,
+        np.asarray(las_s.classification),
+        percentile_low=percentile_low,
+        percentile_high=percentile_high,
+    )
+
+
+def match_structure_heights(
+    las_s: laspy.LasData,
+    las_z: laspy.LasData,
+    max_match_dist: float = 0.30,
+) -> np.ndarray:
+    """
+    Z_norm of the XY-nearest Z_norm point for each structure point, NaN where
+    none lies within `max_match_dist`.
+    """
 
     if "Z_norm" not in las_z.point_format.dimension_names:
         raise ValueError("Z_norm LAS has no 'Z_norm' dimension.")
@@ -82,12 +102,25 @@ def compute_class_height_thresholds(
     matched_heights[valid] = zn_z[idx[valid]]
 
     print(f"  ℹ️ Matched {valid.sum():,}/{len(las_s):,} structure pts to Z_norm")
+    return matched_heights
+
+
+def class_height_ranges(
+    matched_heights: np.ndarray,
+    classes: np.ndarray,
+    percentile_low: float = 15.0,
+    percentile_high: float = 85.0,
+) -> Dict[int, Tuple[float, float]]:
+    """
+    Per-class (low, high) Z_norm range from per-point heights and classes;
+    NaN heights are ignored.
+    """
 
     thresholds = {}
 
     # Handle each class 64–68
     for cls in [64, 65, 66, 67, 68]:
-        mask = (las_s.classification == cls) & np.isfinite(matched_heights)
+        mask = (classes == cls) & np.isfinite(matched_heights)
         n = int(mask.sum())
 
         if n < 20:

@@ -26,7 +26,10 @@ The main pipeline (see `fvc3dstruct/pipeline.py`) implements a multi-stage workf
 step_3_structure_class/
 ├── fvc3dstruct/         The package — all pipeline logic  (see its own README)
 ├── main_run.py          Batch entry point
-├── compare_voxel_sizes.py                   Voxel-size sensitivity sweep
+├── compare_voxel_sizes.py                   Voxel-size sensitivity sweep (site 1, pipeline counters only)
+├── parameter_sensitivity.py                 One-at-a-time sweep of every tuned parameter, both sites
+├── plot_parameter_sensitivity.py            Supplementary figures + tables from that sweep
+├── plot_voxel_transfer.py                   The voxel transfer drawn on one tile window
 ├── make_label_transfer_validation_figure.py Four-panel validation figure
 ├── summarize_label_transfer_validation.py   Batch validation tables
 ├── test_pipeline.sh     Smoke test over main_run.py
@@ -37,6 +40,9 @@ step_3_structure_class/
 |---|---|---|
 | `main_run.py` | Fused LAS tiles for a site | `test_pipeline.sh` |
 | `compare_voxel_sizes.py` | Sweep CSVs + sensitivity figure | notebooks 04, 05 |
+| `parameter_sensitivity.py` | Per-tile / summary CSVs for voxel size, matching radius, height-prior weight, `min_conf`, `min_flip_ratio` | `plot_parameter_sensitivity.py` |
+| `plot_parameter_sensitivity.py` | Supplementary figures + the tables in [`README_parameter_sensitivity.md`](README_parameter_sensitivity.md) | notebook 04 |
+| `plot_voxel_transfer.py` | Plan-view drawing of labels spreading past the 2D footprint at each voxel size | notebook 04 |
 | `make_label_transfer_validation_figure.py` | Validation figure (PNG) | notebooks 02, 03 |
 | `summarize_label_transfer_validation.py` | Tables 5 and 6 (CSV + MD) | — |
 
@@ -133,6 +139,11 @@ python phase_4_3D_lidar_prep/step_3_structure_class/compare_voxel_sizes.py \
 
 Add `--write-las` if you also want the per-run LAS products saved under size-specific folders.
 
+This sweep reports how much the pipeline's own counters move, which cannot pick one voxel size
+over another. The reviewer-facing comparison — every tuned parameter, both sites, scored against
+the 2D labels — is `parameter_sensitivity.py`, written up in
+[`README_parameter_sensitivity.md`](README_parameter_sensitivity.md).
+
 ### Validation figure for the 2D to 3D label transfer workflow
 
 Use the helper below to create a four-panel figure showing:
@@ -198,7 +209,7 @@ Notes:
 | `01_run_pipeline_site11*.ipynb` | Same for site 11 |
 | `02_label_transfer_validation_tile109.ipynb` | Single-tile validation of the 2D→3D transfer |
 | `03_label_transfer_validation_gallery_tile109.ipynb` | Multi-panel validation gallery |
-| `04_voxel_size_sensitivity_and_label_confidence.ipynb` | Voxel sweep + Stage-4 confidence; reviewer-facing tables |
+| `04_voxel_size_sensitivity_and_label_confidence.ipynb` | Voxel size and parameter sensitivity for the reviewer comments on 3.2.2: renders the tables and figures behind [`README_parameter_sensitivity.md`](README_parameter_sensitivity.md) and draws the voxels on tile 106 |
 | `05_shrub_class_transition_matrix.ipynb` | Shrub class transition/confusion analysis |
 
 Helper modules beside the notebooks (`flow.py`, `maskCoreg.py`, `maskCoreg_low.py`,
