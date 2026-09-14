@@ -90,6 +90,16 @@ FINAL_COLUMNS = [
     ("Final changed vs default (%)", "Changed from 10 cm (%)", 2),
 ]
 
+# How densely the labelled returns fill the grid. A voxel holding a single labelled
+# return has nothing to merge, so the transfer there reduces to copying the 2D raster.
+DENSITY_COLUMNS = [
+    ("Structure voxels", "Occupied voxels", 0),
+    ("Structure points per voxel, median", "Labelled points per voxel", 1),
+    ("Single-point voxels (%)", "Single-point voxels (%)", 1),
+    ("Mixed-class voxels (%)", "Mixed-class voxels (%)", 2),
+    ("Stage 2 vs input Footprint recall (%)", "Footprint recall (%)", 2),
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__,
@@ -283,6 +293,36 @@ def answer_table(per_tile: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
+def coverage_cost_table(per_tile: pd.DataFrame) -> str:
+    """What a larger voxel buys in coverage and what it costs in fidelity.
+
+    `Outside footprint` is a share of labelled points, so it is put back on the
+    all-points base before differencing; otherwise the two cannot be compared.
+    The last column is the share of the *additional* labels that land on cells the
+    2D annotation leaves unlabelled.
+    """
+    voxel = per_tile[per_tile["Parameter"] == "voxel_size"]
+    sizes = sorted(voxel["Value"].unique())
+    base = min(sizes)
+    lines = [f"| Site | Voxel (cm) | Labelled (% of points) | Outside footprint (% of points) "
+             f"| Extra labelled vs {base * 100:g} cm | Of which outside footprint |",
+             "|---|---:|---:|---:|---:|---:|"]
+    for condition in SITE_COLOURS:
+        site = voxel[voxel["Site condition"] == condition]
+        means = site.groupby("Value")[["Stage-2 labelled points (%)",
+                                       "Stage 2 vs input Outside footprint (%)"]].mean()
+        labelled = means["Stage-2 labelled points (%)"]
+        outside = labelled * means["Stage 2 vs input Outside footprint (%)"] / 100.0
+        for size in sizes:
+            gained = labelled[size] - labelled[base]
+            spread = outside[size] - outside[base]
+            share = f"{100 * spread / gained:.0f}%" if gained > 1e-9 else "–"
+            shown = f"**{size * 100:g}**" if np.isclose(size, DEFAULTS["voxel_size"]) else f"{size * 100:g}"
+            lines.append(f"| {condition} | {shown} | {labelled[size]:.1f} | {outside[size]:.2f} "
+                         f"| {gained:+.2f} | {share} |")
+    return "\n".join(lines)
+
+
 def auto_resolution(site: pd.DataFrame) -> str:
     """How many tiles `auto` crown detection resolves to each (min_tree_dist, sigma) pair."""
     pairs = site.groupby(["Auto min_tree_dist (m)", "Auto smoothing_sigma (px)"])["Tile"].nunique()
@@ -456,6 +496,8 @@ def write_tables(per_tile: pd.DataFrame, path: Path) -> None:
         "## Inputs", "", input_table(per_tile), "",
         "## Voxel size: the transfer (Stage 2)", "", table(per_tile, "voxel_size", TRANSFER_COLUMNS), "",
         voxel_extremes(per_tile), "",
+        "## Voxel size: point density in the grid", "", table(per_tile, "voxel_size", DENSITY_COLUMNS), "",
+        "## Voxel size: what a larger voxel buys and costs", "", coverage_cost_table(per_tile), "",
         "## Voxel size: agreement per class (Stage 2, mean across tiles)", "", class_iou_table(per_tile), "",
         "## Voxel size: the final labels", "", table(per_tile, "voxel_size", FINAL_COLUMNS), "",
         "## Stages 3-5 at the defaults", "", crown_table(per_tile), "",
