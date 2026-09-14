@@ -445,6 +445,42 @@ HEIGHT_BANDS = [
 ]
 
 
+def _height_quantile(block: pd.DataFrame, q: float) -> float:
+    """Height below which share `q` of a class's returns fall, from the binned counts."""
+    counts = block.groupby("Height (m)")["Points"].sum().sort_index()
+    if counts.sum() == 0:
+        return float("nan")
+    cumulative = counts.cumsum() / counts.sum()
+    return float(cumulative.index[np.searchsorted(cumulative.to_numpy(), q)])
+
+
+def class_height_table(profile: pd.DataFrame, quantiles: Sequence[float] = (0.5, 0.85, 0.95, 0.99),
+                       tail_m: float = 1.0) -> str:
+    """Height percentiles of each class's labelled returns.
+
+    `filters.colorization` is a plan-view raster lookup with no height gate, so every
+    return in the column above a labelled cell inherits that cell's class. Where a
+    ground class sits under canopy it therefore grows an upper tail that is not the
+    growth form. A flat p95-to-p99 step means the class is clean; a large one is that
+    contamination.
+    """
+    header = ("| Site | Class | Returns | " + " | ".join(f"p{q * 100:g}" for q in quantiles)
+              + f" | Above {tail_m:g} m |")
+    lines = [header, "|---|---|---:|" + "---:|" * (len(quantiles) + 1)]
+    for condition in SITE_COLOURS:
+        site = profile[profile["Site condition"] == condition]
+        for name in CLASS_ORDER:
+            block = site[site["Layer"] == name]
+            total = block["Points"].sum()
+            if total == 0:
+                continue
+            cells = [f"{_height_quantile(block, q):.2f} m" for q in quantiles]
+            tail = block[block["Height (m)"] > tail_m]["Points"].sum()
+            lines.append(f"| {condition} | {name} | {total:,} | " + " | ".join(cells)
+                         + f" | {100 * tail / total:.1f}% |")
+    return "\n".join(lines)
+
+
 def auto_resolution(site: pd.DataFrame) -> str:
     """How many tiles `auto` crown detection resolves to each (min_tree_dist, sigma) pair."""
     pairs = site.groupby(["Auto min_tree_dist (m)", "Auto smoothing_sigma (px)"])["Tile"].nunique()
