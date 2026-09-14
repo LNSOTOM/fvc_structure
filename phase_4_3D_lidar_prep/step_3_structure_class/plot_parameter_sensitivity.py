@@ -49,6 +49,13 @@ PARAMETER_LABELS = {
     "min_flip_ratio": "min_flip_ratio",
 }
 
+# Growth forms in height order, with the palette used for the vertical profile.
+CLASS_ORDER = ("Forb", "Woody debris", "Hummock grass", "Shrub", "Mallee")
+CLASS_COLOURS = ("#8c6d31", "#694714", "#d9b44a", "#2a78d6", "#2e8b57")
+
+# Tiles are 3072 px at 1 cm, so 30.72 m square; used to express counts per m2.
+TILE_SIDE_M = 30.72
+
 # (column, panel title, y-axis label) for the voxel figure.
 VOXEL_PANELS = [
     ("Stage-2 labelled points (%)", "Labelled by voxel transfer", "% of lidar points"),
@@ -321,6 +328,121 @@ def coverage_cost_table(per_tile: pd.DataFrame) -> str:
             lines.append(f"| {condition} | {shown} | {labelled[size]:.1f} | {outside[size]:.2f} "
                          f"| {gained:+.2f} | {share} |")
     return "\n".join(lines)
+
+
+def plot_vertical_profile(profile: pd.DataFrame, path: Path, max_height: float = 6.0) -> None:
+    """Absolute returns per height bin: all returns, those carrying a 2D label, and by class.
+
+    Summed over tiles, so the bars are the number of returns the transfer actually has
+    to work with at each height, not a normalised shape.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.4), constrained_layout=True)
+    shown = profile[profile["Height (m)"] <= max_height]
+
+    for ax, (title, layers) in zip(axes, [
+            ("(a) All returns", ["all"]),
+            ("(b) Returns carrying a 2D label", ["labelled"]),
+            ("(c) Labelled returns by class", list(CLASS_ORDER))]):
+        style_axes(ax)
+        ax.grid(axis="y", color=GRID, linewidth=0.6)
+        if len(layers) == 1:
+            for condition, colour in SITE_COLOURS.items():
+                block = shown[(shown["Site condition"] == condition)
+                              & (shown["Layer"] == layers[0])]
+                totals = block.groupby("Height (m)")["Points"].sum().sort_index()
+                ax.plot(totals.to_numpy(), totals.index.to_numpy(), color=colour,
+                        linewidth=1.6, label=f"{condition} site")
+        else:
+            # One site only; two would double the lines and the classes differ between them.
+            block = shown[shown["Site condition"] == "Medium"]
+            for layer, colour in zip(layers, CLASS_COLOURS):
+                totals = block[block["Layer"] == layer].groupby("Height (m)")["Points"].sum().sort_index()
+                if totals.sum() == 0:
+                    continue
+                ax.plot(totals.to_numpy(), totals.index.to_numpy(), color=colour,
+                        linewidth=1.4, label=layer)
+            ax.legend(frameon=False, fontsize=6.5, labelcolor=INK_SECONDARY, loc="upper right")
+        ax.set_title(title, fontsize=8.5, color=INK, loc="left")
+        ax.set_xlabel("returns per 10\u2009cm bin", fontsize=7.5, color=INK_SECONDARY)
+        ax.set_xscale("log")
+        ax.set_ylim(0, max_height)
+    axes[0].set_ylabel("height above ground (m)", fontsize=7.5, color=INK_SECONDARY)
+    axes[0].legend(frameon=False, fontsize=7, labelcolor=INK_SECONDARY, loc="upper right")
+    save(fig, path)
+
+
+def vertical_table(profile: pd.DataFrame, bands: Sequence[Tuple[float, float, str]]) -> str:
+    """Returns in each height band, summed over tiles: absolute counts and the labelled share."""
+    lines = ["| Site | Band | All returns | Labelled returns | Labelled (%) | Labelled per m\u00b2 |",
+             "|---|---|---:|---:|---:|---:|"]
+    area = TILE_SIDE_M ** 2
+    for condition in SITE_COLOURS:
+        site = profile[profile["Site condition"] == condition]
+        tiles = site["Tile"].nunique()
+        for lo, hi, label in bands:
+            band = site[(site["Height (m)"] >= lo) & (site["Height (m)"] < hi)]
+            total = band[band["Layer"] == "all"]["Points"].sum()
+            labelled = band[band["Layer"] == "labelled"]["Points"].sum()
+            share = 100.0 * labelled / total if total else float("nan")
+            lines.append(f"| {condition} | {label} | {total:,} | {labelled:,} | "
+                         f"{share:.1f} | {labelled / (tiles * area):.1f} |")
+    return "\n".join(lines)
+
+
+def spacing_table(per_tile: pd.DataFrame) -> str:
+    """Each voxel size as a multiple of the mean spacing between labelled returns.
+
+    Spacing is planimetric, 1/sqrt(labelled returns per m2). The transfer needs two
+    labelled returns inside one cube, so it is *their* spacing that sets the useful
+    voxel size, not the spacing of all returns.
+    """
+    inputs = per_tile[per_tile["Parameter"] == "input"]
+    sizes = sorted(per_tile[per_tile["Parameter"] == "voxel_size"]["Value"].unique())
+    area = TILE_SIDE_M ** 2
+    header = ("| Site | Labelled returns per m\u00b2 | Mean spacing (cm) | "
+              + " | ".join(f"{s * 100:g} cm" for s in sizes) + " |")
+    lines = [header, "|---|---:|---:|" + "---:|" * len(sizes)]
+    for condition in SITE_COLOURS:
+        site = inputs[inputs["Site condition"] == condition]
+        density = (site["Structure points"] / area).mean()
+        spacing = 100.0 / np.sqrt(density)
+        ratios = [f"{s * 100 / spacing:.2f}\u00d7" for s in sizes]
+        lines.append(f"| {condition} | {density:.0f} | {spacing:.2f} | " + " | ".join(ratios) + " |")
+    return "\n".join(lines)
+
+
+# Densities to scale the voxel rule to, as multiples of this survey.
+SENSOR_FACTORS = ((0.5, "half as dense"), (1.0, "this survey"), (2.0, "twice as dense"))
+
+
+def sensor_scaling_table(per_tile: pd.DataFrame,
+                         factors: Sequence[Tuple[float, str]] = SENSOR_FACTORS) -> str:
+    """How the voxel would scale with survey density, at two spacings per voxel.
+
+    Spacing goes as 1/sqrt(density), so a denser survey reaches the same occupancy
+    with a proportionally smaller voxel.
+    """
+    inputs = per_tile[per_tile["Parameter"] == "input"]
+    area = TILE_SIDE_M ** 2
+    spacings = [100.0 / np.sqrt((inputs[inputs["Site condition"] == c]["Structure points"] / area).mean())
+                for c in SITE_COLOURS]
+    lines = ["| Survey density | Labelled spacing (cm) | Voxel at 2\u00d7 spacing (cm) |",
+             "|---|---:|---:|"]
+    for factor, label in factors:
+        lo, hi = sorted(s / np.sqrt(factor) for s in spacings)
+        lines.append(f"| {label} ({factor:g}\u00d7) | {lo:.1f}\u2013{hi:.1f} | {2 * lo:.0f}\u2013{2 * hi:.0f} |")
+    return "\n".join(lines)
+
+
+# Height bands for the vertical profile table, chosen to separate ground, understorey
+# and the canopy where the sparse classes sit.
+HEIGHT_BANDS = [
+    (0.0, 0.1, "0\u201310 cm (ground)"),
+    (0.1, 0.5, "10\u201350 cm (understorey)"),
+    (0.5, 1.5, "0.5\u20131.5 m"),
+    (1.5, 3.0, "1.5\u20133 m"),
+    (3.0, 8.0, ">3 m (upper canopy)"),
+]
 
 
 def auto_resolution(site: pd.DataFrame) -> str:
