@@ -38,8 +38,8 @@ step_3_structure_class/
 |---|---|---|
 | `main_run.py` | Fused LAS tiles for a site | `test_pipeline.sh` |
 | `compare_voxel_sizes.py` | Sweep CSVs + figures of the pipeline's own counters | notebook 05 |
-| `reviewer_response/sensitivity.py` | Every measurement behind the reviewer replies: the parameter sweep, the vertical profile, and phase 3's 2D label QA | `reviewer_response/figures.py` |
-| `reviewer_response/figures.py` | The supplementary figures and every table, including the pipeline error budget | notebook `reviewer_response/04_reviewer_responses.ipynb` |
+| `reviewer_response/sensitivity.py` | Every measurement behind the reviewer replies: the parameter sweep and phase 3's 2D label QA | `reviewer_response/figures.py` |
+| `reviewer_response/figures.py` | The three supplementary figures and the six tables, including the pipeline error budget | notebook `reviewer_response/04_reviewer_responses.ipynb` |
 | `make_label_transfer_validation_figure.py` | Validation figure (PNG) | notebooks 02, 03 |
 | `summarize_label_transfer_validation.py` | Tables 5 and 6 (CSV + MD) | — |
 
@@ -53,7 +53,7 @@ from one set of measurements:
 |---|---|
 | [`response_to_reviewers.md`](reviewer_response/response_to_reviewers.md) | the four replies, ready to paste, plus the decisions to settle first |
 | [`04_reviewer_responses.ipynb`](reviewer_response/04_reviewer_responses.ipynb) | the evidence: one section per comment, executed |
-| [`sensitivity.py`](reviewer_response/sensitivity.py) | the measurements → three CSVs in `assets/parameter_sensitivity/` |
+| [`sensitivity.py`](reviewer_response/sensitivity.py) | the measurements → two CSVs in `assets/parameter_sensitivity/` |
 | [`figures.py`](reviewer_response/figures.py) | the figures and tables, from those CSVs |
 
 `assets/` is gitignored, so the notebook's committed outputs are the record of the numbers; the

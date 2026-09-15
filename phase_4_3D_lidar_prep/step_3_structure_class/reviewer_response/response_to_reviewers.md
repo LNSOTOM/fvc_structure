@@ -126,8 +126,8 @@ parameter while holding the others at their defaults.
   range and apply a tenfold penalty outside it. A weight of 1 would disable the prior, whereas 0
   would make it a hard exclusion.
 - **Confidence threshold (0.3):** accepts a clear winner among up to three candidate classes while
-  rejecting near-ties among four or five. Mean Stage-4 confidence was 0.999, so the threshold did
-  not bind in these data.
+  rejecting near-ties among four or five. Mean Stage-4 confidence was 0.999 at the medium site and
+  0.991 at the low site, so the threshold did not bind in these data.
 - **Flip ratio (1.5):** requires a 60:40 majority in a two-class case before replacing a label
   inherited from the 2D annotation, preventing changes based on near-ties.
 
@@ -147,5 +147,5 @@ Grey lines mark the selected default values.
 ```bash
 cd phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response
 python sensitivity.py all --workers 16
-python figures.py --no-tile-figures
+python figures.py
 ```
