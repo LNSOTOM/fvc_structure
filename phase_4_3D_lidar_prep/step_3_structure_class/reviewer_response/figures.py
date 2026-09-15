@@ -5,8 +5,6 @@
     supplementary_voxel_size_sensitivity.png / .pdf   the voxel sweep, 5-25 cm (3.2.2)
     supplementary_parameter_sensitivity.png / .pdf    radius, height-prior weight,
                                                       min_conf, min_flip_ratio
-    supplementary_vertical_profile.png / .pdf         returns per height bin
-    voxel_transfer_tile<ID>.png / .pdf                labels spreading past their footprint
     reviewer_response_tables.md                       every table, as markdown
 
 Curves are the median across a site's tiles with the inter-quartile range shaded, and
@@ -16,8 +14,7 @@ rerun this after any rerun of `sensitivity.py`.
 
 Usage
 -----
-python figures.py                       # everything the CSVs can draw
-python figures.py --no-tile-figures     # skip the two that re-read the lidar tiles
+python figures.py
 """
 
 from __future__ import annotations
@@ -40,11 +37,12 @@ from matplotlib import colors  # noqa: E402
 from matplotlib.collections import LineCollection  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.patches import Patch  # noqa: E402
+from matplotlib.ticker import MaxNLocator  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from sensitivity import (  # noqa: E402
-    DATA_ROOT, DEFAULTS, INPUT_DIR, OUTPUT_DIR, SITE_CONFIG, STRUCTURE_DIR, SWEEPS,
+    DATA_ROOT, DEFAULTS, INPUT_DIR, OUTPUT_DIR, STRUCTURE_DIR, SWEEPS,
     Z_NORM_DIR, classes_beneath, read_labels)
 
 from fvc3dstruct.voxel_merge import cartesian_voxel_merge  # noqa: E402
@@ -307,8 +305,6 @@ def error_sources_table(per_tile: pd.DataFrame, label_quality: pd.DataFrame) -> 
          "Share of the lidar points on labelled cells, all tiles",
          lambda c: (lambda s: f"{int((s['Points on labelled 5 cm cells'] - s['Structure points']).sum()):,} "
                               f"({100 * (s['Points on labelled 5 cm cells'] - s['Structure points']).sum() / s['Points on labelled 5 cm cells'].sum():.3f}%)")(sweep(inputs, c))),
-        ("5 cm labels → returns", "A plan-view lookup gives canopy returns the class beneath them",
-         "Share of Shrub returns above 1 m (see the class heights below)", None),
         ("Stage 1: height lookup", "The nearest-neighbour search is in XY only",
          "Largest shift in any class height range it causes, any tile",
          lambda c: f"{sweep(inputs, c)['Stage-1 range shift, max (m)'].max():.3f} m"),
@@ -342,7 +338,7 @@ def error_sources_table(per_tile: pd.DataFrame, label_quality: pd.DataFrame) -> 
     lines = ["| Step | What it introduces | How it is measured | " + " | ".join(SITE_COLOURS) + " |",
              "|---|---|---|" + "---:|" * len(SITE_COLOURS)]
     for step, introduces, measure, cell in rows:
-        values = ["see below" if cell is None else cell(c) for c in SITE_COLOURS]
+        values = [cell(condition) for condition in SITE_COLOURS]
         lines.append(f"| {step} | {introduces} | {measure} | " + " | ".join(values) + " |")
     return "\n".join(lines)
 
@@ -502,6 +498,49 @@ def plot_voxel_figure(per_tile: pd.DataFrame, path: Path) -> Path:
         if index >= 3:
             ax.set_xlabel(PARAMETER_LABELS["voxel_size"], fontsize=7.5, color=INK_SECONDARY)
     figure_legend(fig, "Default (10 cm)")
+    return save(fig, path)
+
+
+def voxel_volume_profile(per_tile: pd.DataFrame) -> pd.DataFrame:
+    """Tile-paired occupied-voxel volume and mIoU changes relative to 10 cm.
+
+    Occupied volume is a resolution-dependent support proxy, not vegetation volume:
+    each occupied voxel contributes its full cubic volume regardless of point count.
+    """
+    voxel = per_tile[per_tile["Parameter"] == "voxel_size"].copy()
+    voxel["Occupied support volume (m3)"] = voxel["Structure voxels"] * voxel["Value"] ** 3
+    keys = ["Site", "Tile"]
+    default = voxel[np.isclose(voxel["Value"], DEFAULTS["voxel_size"])].set_index(keys)
+    baseline_volume = default["Occupied support volume (m3)"]
+    baseline_miou = default["Stage 2 vs input mIoU"]
+    index = pd.MultiIndex.from_frame(voxel[keys])
+    voxel["Occupied volume change vs 10 cm (%)"] = (
+        100.0 * (voxel["Occupied support volume (m3)"].to_numpy()
+                 / baseline_volume.reindex(index).to_numpy() - 1.0))
+    voxel["mIoU change vs 10 cm"] = (
+        voxel["Stage 2 vs input mIoU"].to_numpy()
+        - baseline_miou.reindex(index).to_numpy())
+    return voxel
+
+
+def plot_voxel_volume_profile(per_tile: pd.DataFrame, path: Path) -> Path:
+    """Resolution sensitivity of occupied support volume beside label fidelity."""
+    profile = voxel_volume_profile(per_tile)
+    fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.1), constrained_layout=True)
+    panels = [
+        ("Occupied volume change vs 10 cm (%)", "(a) Occupied support volume", "% change from 10 cm"),
+        ("mIoU change vs 10 cm", "(b) Plan-view label fidelity", "mIoU change from 10 cm"),
+    ]
+    for ax, (column, title, ylabel) in zip(axes, panels):
+        style_axes(ax)
+        draw_sweep(ax, profile, "voxel_size", column)
+        ax.axhline(0, color=AXIS, linewidth=0.8, zorder=1)
+        ax.set_title(title, fontsize=8.5, color=INK, loc="left")
+        ax.set_ylabel(ylabel, fontsize=7.5, color=INK_SECONDARY)
+        ax.set_xlabel(PARAMETER_LABELS["voxel_size"], fontsize=7.5, color=INK_SECONDARY)
+        ax.set_xticks([5, 10, 15, 20, 25])
+        ax.set_xlim(3.5, 26.5)
+    figure_legend(fig, "Reference (10 cm)")
     return save(fig, path)
 
 
@@ -800,12 +839,6 @@ def answer_table(per_tile: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def auto_resolution(site: pd.DataFrame) -> str:
-    """How many tiles `auto` crown detection resolves to each (min_tree_dist, sigma) pair."""
-    pairs = site.groupby(["Auto min_tree_dist (m)", "Auto smoothing_sigma (px)"])["Tile"].nunique()
-    return "; ".join(f"{d:g} m / {s:.2f} px on {n}" for (d, s), n in pairs.items())
-
-
 def input_table(per_tile: pd.DataFrame) -> str:
     """Per-site checks of what the pipeline is given, from the `input` rows. Each is the
     extreme across tiles the claim needs, not an average."""
@@ -819,25 +852,8 @@ def input_table(per_tile: pd.DataFrame) -> str:
          lambda s: fmt(s["Match distance XY max (m)"].max(), 3)),
         ("Structure points beyond the 0.30 m radius, any tile (%)",
          lambda s: fmt(s["Structure points beyond match radius (%)"].max(), 3)),
-        ("Heights taken from another return in the same column, range over tiles (%)",
-         lambda s: f"{fmt(s['Stage-1 heights from another return (%)'].min(), 1)}–"
-                   f"{fmt(s['Stage-1 heights from another return (%)'].max(), 1)}"),
-        ("Largest class-range shift that causes, any tile (m)",
+        ("Largest class-range shift from XY-only matching, any tile (m)",
          lambda s: fmt(s["Stage-1 range shift, max (m)"].max(), 3)),
-        ("Lidar points on labelled 5 cm cells missing from the structure cloud, all tiles",
-         lambda s: f"{int((s['Points on labelled 5 cm cells'] - s['Structure points']).sum()):,} "
-                   f"({100 * (s['Points on labelled 5 cm cells'] - s['Structure points']).sum() / s['Points on labelled 5 cm cells'].sum():.3f}%)"),
-        ("Plan-view mIoU of the 5 cm labels themselves (mean / median)",
-         lambda s: mean_median(s, "Final vs input mIoU", 3)),
-        ("5 cm labels lying outside the 1 cm footprint (mean / median, %)",
-         lambda s: mean_median(s, "Final vs 1 cm Outside footprint (%)", 1)),
-        ("Crown detection in the sweep (as the delivered labels were made)",
-         lambda s: "`auto`" if SITE_CONFIG[s["Site"].iloc[0]].get("min_tree_dist") == "auto"
-                   else "defaults"),
-        ("`auto` resolves to (min_tree_dist / smoothing_sigma), tiles", auto_resolution),
-        ("Canopy point spacing `auto` starts from, range over tiles (m)",
-         lambda s: (f"{fmt(s['Canopy point spacing, 60th percentile (m)'].min(), 3)}–"
-                    f"{fmt(s['Canopy point spacing, 60th percentile (m)'].max(), 3)}")),
     ]
     for label, cell in checks:
         lines.append(f"| {label} | " + " | ".join(cell(inputs[inputs["Site condition"] == c])
@@ -1107,18 +1123,27 @@ def plot_voxel_volumes(las_path: Path, output: Path, tile: str,
 
     Geometry only: how coarse each grid is, not what happens to the labels. Drawn from a
     seeded random sample of the tile's returns, so the voxel counts describe the sample.
+    Both rows use Z_norm, with ground at zero. Lower panels count voxel centres in
+    shared 0.5 m height-above-ground bands.
     """
     las = laspy.read(str(las_path))
-    points = np.column_stack([np.asarray(las[axis], dtype=np.float32) for axis in ("x", "y", "z")])
+    if "Z_norm" not in las.point_format.dimension_names:
+        raise ValueError(f"{las_path} requires Z_norm for ground-normalized voxel profiles.")
+    points = np.column_stack([np.asarray(las[axis], dtype=np.float64)
+                              for axis in ("x", "y", "Z_norm")])
+    if not len(points) or not np.isfinite(points).all():
+        raise ValueError("Voxel profiles require nonempty, finite X, Y and Z_norm coordinates.")
+    points[:, :2] -= points[:, :2].min(axis=0)
     if len(points) > max_points:
         points = points[np.random.default_rng(seed).choice(len(points), max_points, replace=False)]
-    limits = [(float(points[:, i].min()), float(points[:, i].max())) for i in range(3)]
+    limits = [(0.0, max(float(points[:, axis].max()) + max(sizes), max(sizes)))
+              for axis in range(3)]
 
     voxel_sets = []
     for size in sizes:
-        index = np.floor((points - points.min(axis=0)) / size).astype(np.int32)
+        index = np.floor(points / size).astype(np.int32)
         unique, counts = np.unique(index, axis=0, return_counts=True)
-        centres = points.min(axis=0) + (unique.astype(np.float32) + 0.5) * size
+        centres = (unique.astype(np.float64) + 0.5) * size
         order = np.argsort(counts)
         voxel_sets.append((centres[order], counts[order].astype(np.float32)))
 
@@ -1126,33 +1151,60 @@ def plot_voxel_volumes(las_path: Path, output: Path, tile: str,
     vmin = max(1.0, float(np.percentile(density, 5)))
     norm = colors.LogNorm(vmin=vmin, vmax=max(vmin + 1.0, float(np.percentile(density, 99.5))))
 
-    fig = plt.figure(figsize=(3.0 * len(sizes), 4.0), constrained_layout=True)
+    lowest_centre = min(float(centres[:, 2].min()) for centres, _ in voxel_sets)
+    height_min = np.floor(min(0.0, lowest_centre) / 0.5) * 0.5
+    height_edges = np.arange(height_min, np.ceil(limits[2][1] / 0.5) * 0.5 + 0.25, 0.5)
+    limits[2] = (float(height_edges[0]), float(height_edges[-1]))
+    profiles = [np.histogram(centres[:, 2], bins=height_edges)[0]
+                for centres, _ in voxel_sets]
+    profile_max = max(int(profile.max()) for profile in profiles)
+    font_size = 16
+    fig = plt.figure(figsize=(5.0 * len(sizes), 11.0), layout="none")
+    grid = fig.add_gridspec(2, len(sizes), height_ratios=(1.25, 1),
+                           left=0.045, right=0.92, bottom=0.09, top=0.90,
+                           wspace=0.27, hspace=0.16)
     axes, scatter = [], None
-    for index, (size, (centres, counts)) in enumerate(zip(sizes, voxel_sets), start=1):
-        ax = fig.add_subplot(1, len(sizes), index, projection="3d")
+    for index, (size, (centres, counts)) in enumerate(zip(sizes, voxel_sets)):
+        ax = fig.add_subplot(grid[0, index], projection="3d")
         axes.append(ax)
         scatter = ax.scatter(centres[:, 0], centres[:, 1], centres[:, 2], c=counts, s=4,
                              cmap="plasma", norm=norm, alpha=0.88, linewidths=0)
-        ax.set_title(f"{size * 100:g} cm\n{len(counts):,} occupied voxels", fontsize=8.5,
+        ax.set_title(f"{size * 100:g} cm\n{len(counts):,} occupied voxels", fontsize=font_size,
                      color=INK)
-        for axis, (label, limit) in zip("xyz", zip(("X", "Y", "Z"), limits)):
-            getattr(ax, f"set_{axis}label")(label, fontsize=7, color=INK_SECONDARY)
+        for axis, (label, limit) in zip("xyz", zip(("Local X (m)", "Local Y (m)", "Z_norm (m)"), limits)):
+            getattr(ax, f"set_{axis}label")(label, fontsize=font_size, color=INK_SECONDARY,
+                                           labelpad=24)
             getattr(ax, f"set_{axis}lim")(*limit)
-        ax.tick_params(colors=INK_SECONDARY, labelsize=5.5)
+        ax.tick_params(colors=INK_SECONDARY, labelsize=font_size)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=3, prune="both"))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=3, prune="both"))
+        ax.zaxis.set_major_locator(MaxNLocator(nbins=2))
         ax.view_init(elev=24, azim=-62)
-        ax.set_box_aspect([max(hi - lo, 1.0) for lo, hi in limits])
-    bar = fig.colorbar(scatter, ax=axes, shrink=0.7)
-    bar.set_label("returns per voxel", fontsize=7.5, color=INK_SECONDARY)
-    bar.ax.tick_params(colors=INK_SECONDARY, labelsize=6.5)
-    fig.suptitle(f"Tile {tile}, random sample of {len(points):,} returns", fontsize=8.5,
+        ax.set_box_aspect([max(hi - lo, 1.0) for lo, hi in limits], zoom=0.8)
+        profile_ax = fig.add_subplot(grid[1, index])
+        style_axes(profile_ax)
+        profile_ax.tick_params(labelsize=font_size)
+        profile_ax.stairs(profiles[index], height_edges, orientation="horizontal",
+                          color=SITE_COLOURS["Medium"], linewidth=1.4)
+        profile_ax.set_xlim(0, max(profile_max * 1.05, 1))
+        profile_ax.xaxis.set_major_locator(MaxNLocator(nbins=3, integer=True))
+        profile_ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        profile_ax.set_ylim(height_edges[0], height_edges[-1])
+        profile_ax.set_xlabel("Occupied voxels\nper 0.5 m band", fontsize=font_size, color=INK_SECONDARY)
+        if index == 0:
+            profile_ax.set_ylabel("Height above ground (m)", fontsize=font_size,
+                                  color=INK_SECONDARY)
+    bar = fig.colorbar(scatter, cax=fig.add_axes([0.97, 0.58, 0.008, 0.28]))
+    bar.set_label("returns per voxel", fontsize=font_size, color=INK_SECONDARY)
+    bar.ax.tick_params(colors=INK_SECONDARY, labelsize=font_size, which="both")
+    fig.suptitle(f"Tile {tile}, random sample of {len(points):,} returns", fontsize=font_size,
                  color=INK_SECONDARY)
     return save(fig, output)
 
 
 # ---------------------------------------------------------------------------
 
-def write_tables(per_tile: pd.DataFrame, profile: pd.DataFrame, label_quality: pd.DataFrame,
-                 path: Path) -> None:
+def write_tables(per_tile: pd.DataFrame, label_quality: pd.DataFrame, path: Path) -> None:
     sections: List[str] = [
         "# Reviewer response tables", "",
         "Generated by `figures.py` from the CSVs `sensitivity.py` writes. Cells are "
@@ -1161,24 +1213,12 @@ def write_tables(per_tile: pd.DataFrame, profile: pd.DataFrame, label_quality: p
         "## 1. Error budget (discussion 6.1)", "",
         "### Where the error comes from, on one scale", "", error_budget_table(per_tile, label_quality), "",
         "### Every step in its own units", "", error_sources_table(per_tile, label_quality), "",
-        "### Which classes the crown stages cost", "", class_attribution_table(per_tile), "",
-        "### Class heights: what a plan-view lookup carries upward", "",
-        class_height_table(profile), "",
         "## 2. Voxel size (3.2.2)", "",
-        "### The transfer (Stage 2)", "", table(per_tile, "voxel_size", TRANSFER_COLUMNS), "",
-        voxel_extremes(per_tile), "",
-        "### The final labels", "", table(per_tile, "voxel_size", FINAL_COLUMNS), "",
-        "### What a larger voxel buys and costs", "", coverage_cost_table(per_tile), "",
-        "### Agreement per class (Stage 2, mean across tiles)", "", class_iou_table(per_tile), "",
+        "### Selected transfer metrics", "", table(per_tile, "voxel_size", TRANSFER_COLUMNS), "",
         "### Voxel size against the spacing of labelled returns", "", spacing_table(per_tile), "",
-        "### How the voxel would scale with survey density", "", sensor_scaling_table(per_tile), "",
-        "### Returns per height band", "", vertical_table(profile), "",
         "## 3. What the pipeline is given (the matching radius)", "", input_table(per_tile), "",
         "## 4. The parameter values", "",
         "### The answer in brief", "", answer_table(per_tile), "",
-        "### Stages 3-5 at the defaults", "", crown_table(per_tile), "",
-        "### Inside Stage 4 (Medium site)", "", stage4_table(per_tile), "",
-        min_conf_extremes(per_tile), "",
         "### Final labels: the worst tile", "", worst_table(per_tile), "",
         invariance_sentences(per_tile), "",
     ]
@@ -1204,14 +1244,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     per_tile = pd.read_csv(args.assets / "parameter_sensitivity_per_tile.csv")
-    profile = pd.read_csv(args.assets / "vertical_profile.csv")
     label_quality = pd.read_csv(args.assets / "label_quality_summary.csv")
 
     plot_error_budget(per_tile, label_quality, args.assets / "supplementary_error_budget")
     plot_voxel_figure(per_tile, args.assets / "supplementary_voxel_size_sensitivity")
     plot_parameter_figure(per_tile, args.assets / "supplementary_parameter_sensitivity")
-    plot_vertical_profile(profile, args.assets / "supplementary_vertical_profile")
-    write_tables(per_tile, profile, label_quality, args.assets / "reviewer_response_tables.md")
+    write_tables(per_tile, label_quality, args.assets / "reviewer_response_tables.md")
 
     if not args.no_tile_figures:
         plot_transfer_window(args.data_root, args.site, args.tile,
