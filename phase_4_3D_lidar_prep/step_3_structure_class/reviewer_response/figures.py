@@ -178,7 +178,7 @@ def save(fig: plt.Figure, path: Path) -> Path:
 LADDER = [
     ("The annotator's 1 cm raster", "2D annotation", None, None),
     ("1 cm → 5 cm label grid", "2D annotation", "label_qa", "IoU 5 cm "),
-    ("5 cm labels → labelled lidar returns", "Onto the returns", "input",
+    ("5 cm label grid sampled at lidar return locations", "Onto the returns", "input",
      "Final vs 1 cm mIoU"),
     ("Stage 2: voxel transfer (10 cm)", "Voxel transfer", "default", "Stage 2 vs 1 cm mIoU"),
     ("Stages 3–5: crown detection, refinement, vote", "Crown stages", "default",
@@ -199,7 +199,13 @@ def ladder_levels(per_tile: pd.DataFrame, label_quality: pd.DataFrame,
         if source is None:
             value = 1.0
         elif source == "label_qa":
-            value = float(pooled(qa, column).mean())
+            # Match the later ladder stages: calculate mIoU within each tile,
+            # then give every tile equal weight in the across-tile mean.
+            class_columns = [name for name in qa.columns if name.startswith(column)]
+            if not class_columns:
+                raise KeyError(f"No label-quality columns start with {column!r}")
+            tile_miou = qa[class_columns].apply(pd.to_numeric, errors="coerce").mean(axis=1)
+            value = float(tile_miou.mean())
         else:
             frame = inputs if source == "input" else default
             value = float(frame[column].mean())
@@ -243,7 +249,6 @@ def error_sources_table(per_tile: pd.DataFrame, label_quality: pd.DataFrame) -> 
     """
     inputs = per_tile[per_tile["Parameter"] == "input"]
     default = defaults_only(per_tile)
-    voxel = per_tile[per_tile["Parameter"] == "voxel_size"]
 
     def qa(condition: str) -> pd.DataFrame:
         return label_quality[label_quality["Site condition"] == condition]
@@ -267,7 +272,7 @@ def error_sources_table(per_tile: pd.DataFrame, label_quality: pd.DataFrame) -> 
         ("1 cm → 5 cm grid", "How far a feature's centre moves",
          "Centroid RMSE per polygon",
          lambda c: f"{pd.to_numeric(qa(c)['Centroid RMSE 5 cm (m)'], errors='coerce').mean():.3f} m"),
-        ("5 cm labels → returns", "Labelled cells holding no lidar return cannot be labelled",
+        ("5 cm labels → returns", "The label grid sampled at lidar return locations",
          "Plan-view mIoU of the labelled returns against the 5 cm raster they came from",
          lambda c: mean_median(sweep(inputs, c), "Final vs input mIoU", 3)),
         ("5 cm labels → returns", "Returns on labelled cells missing from the structure cloud",
@@ -284,8 +289,8 @@ def error_sources_table(per_tile: pd.DataFrame, label_quality: pd.DataFrame) -> 
          "Share of the labels the transfer assigns",
          lambda c: mean_median(sweep(default, c), "Stage 2 vs input Outside footprint (%)", 1) + "%"),
         ("Stage 2: voxel transfer", "Labels lost inside their 2D footprint",
-         "100 − footprint recall, worst tile at any voxel size",
-         lambda c: f"{100 - sweep(voxel, c)['Stage 2 vs input Footprint recall (%)'].min():.2f}%"),
+         "100 − footprint recall, worst tile for the default 10 cm voxel size",
+         lambda c: f"{100 - sweep(default, c)['Stage 2 vs input Footprint recall (%)'].min():.2f}%"),
         ("Stage 2: voxel transfer", "Voxels holding more than one class, settled by majority",
          "Share of occupied voxels",
          lambda c: mean_median(sweep(default, c), "Mixed-class voxels (%)", 2) + "%"),
@@ -299,7 +304,7 @@ def error_sources_table(per_tile: pd.DataFrame, label_quality: pd.DataFrame) -> 
         ("Stage 5: crown vote", "Unlabelled returns promoted to mallee on height alone",
          "Share of all lidar points",
          lambda c: mean_median(sweep(default, c), "Stage-5 promoted points (%)", 3) + "%"),
-        ("Stage 5: crown vote", "Woody debris removed: it is not a growth form",
+        ("Stage 5: crown vote", "Woody debris consolidated or set to unlabelled by the Stage-5 rule",
          "Plan-view IoU, Stage 2 → final",
          lambda c: f"{sweep(default, c)['Stage 2 vs input IoU Woody debris'].mean():.3f} → "
                    f"{sweep(default, c)['Final vs input IoU Woody debris'].mean():.3f}"),
@@ -460,16 +465,17 @@ def table(per_tile: pd.DataFrame, parameter: str,
 
 
 def spacing_table(per_tile: pd.DataFrame) -> str:
-    """Each voxel size as a multiple of the mean spacing between labelled returns.
+    """Each voxel size as a multiple of nominal density-equivalent spacing.
 
-    Spacing is planimetric, 1/sqrt(labelled returns per m2). The transfer needs two
+    This is not an observed nearest-neighbour distance. It is the planimetric
+    density-equivalent spacing, 1/sqrt(labelled returns per m2). The transfer needs two
     labelled returns inside one cube, so it is *their* spacing that sets the useful
     voxel size, not the spacing of all returns.
     """
     inputs = per_tile[per_tile["Parameter"] == "input"]
     sizes = sorted(per_tile[per_tile["Parameter"] == "voxel_size"]["Value"].unique())
     area = TILE_SIDE_M ** 2
-    header = ("| Site | Labelled returns per m² | Mean spacing (cm) | "
+    header = ("| Site | Labelled returns per m² | Nominal density-equivalent spacing (cm) | "
               + " | ".join(f"{s * 100:g} cm" for s in sizes) + " |")
     lines = [header, "|---|---:|---:|" + "---:|" * len(sizes)]
     for condition in SITE_COLOURS:

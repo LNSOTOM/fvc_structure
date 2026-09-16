@@ -176,7 +176,9 @@ def as_codes(struct_ids: np.ndarray) -> np.ndarray:
 def majority_grid(fine: np.ndarray, transform: rasterio.Affine) -> Tuple[np.ndarray, rasterio.Affine]:
     """The 1 cm reference put on the 5 cm evaluation grid, coded 64-68 / NODATA."""
     factor = int(round(EVAL_CELL_M / abs(transform.a)))
-    shape = (fine.shape[0] // factor, fine.shape[1] // factor)
+    # Retain partial cells at the eastern and southern edges instead of silently
+    # dropping up to factor - 1 fine-resolution rows or columns.
+    shape = (math.ceil(fine.shape[0] / factor), math.ceil(fine.shape[1] / factor))
     grid_transform = transform * rasterio.Affine.scale(factor)
     return as_codes(majority_on_grid(fine, transform, grid_transform, shape)), grid_transform
 
@@ -530,7 +532,12 @@ def run_label_quality(args: argparse.Namespace) -> None:
     from the repository alone, and records which run they came from.
     """
     frames = []
-    for site, condition in SITES.items():
+    requested_sites = [site.strip() for site in args.sites.split(",") if site.strip()]
+    unknown_sites = set(requested_sites) - set(SITES)
+    if unknown_sites:
+        raise SystemExit(f"Unknown sites: {sorted(unknown_sites)}; choose from {list(SITES)}")
+    for site in requested_sites:
+        condition = SITES[site]
         path = args.data_root / site / LABEL_QA.format(site=site)
         if not path.exists():
             raise SystemExit(f"No label QA for {site}: {path}\n"

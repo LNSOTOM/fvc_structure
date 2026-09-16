@@ -7,10 +7,10 @@ on 30 tiles (15 per site). All values are generated from the sensitivity-analysi
 
 | Comment | Analysis | Evidence |
 |---|---|---|
-| 1 | Sensitivity to voxel sizes from 5 to 25 cm | Figure S2 |
-| 2 | Error propagation through the pipeline | Figure S1 and Table S1 |
-| 3 | Sensitivity to the 0.30 m matching radius | Figure S4(a, e) |
-| 4 | Impact of the selected parameter values | Figure S4 and Table S2 |
+| 1 | Sensitivity to voxel sizes from 5 to 25 cm | Figure S6 and Table S6 |
+| 2 | Error propagation through the pipeline | Figure S7 and Table S7 |
+| 3 | Sensitivity to the 0.30 m matching radius | Figure S8(a, e) and Table S8 |
+| 4 | Impact of the selected parameter values | Figure S8 and Table S8 |
 
 The reported metrics measure fidelity to the 2D annotation or change from the default
 configuration. They do not measure absolute 3D accuracy because independent 3D reference labels
@@ -23,7 +23,7 @@ are unavailable for these sites.
 > *In Section 6.1, could the authors explicitly quantify or at least qualitatively characterise
 > the error introduced at each step of the pipeline?*
 
-**Response.** We added an error-propagation analysis as Supplementary Figure S1 and Table S1.
+**Response.** We added an error-propagation analysis as Figure S7 and Table S7.
 Because the pipeline stages produce outputs in different units, every intermediate product was
 rasterised onto the 5 cm grid and compared with the annotator's 1 cm raster using plan-view mean
 intersection-over-union (mIoU).
@@ -31,8 +31,8 @@ intersection-over-union (mIoU).
 | Pipeline level | Medium site | Low site |
 |---|---:|---:|
 | Annotator's 1 cm raster | 1.000 | 1.000 |
-| After 1 cm to 5 cm downsampling | 0.806 (-0.194) | 0.996 (-0.004) |
-| After transfer to labelled lidar returns | 0.694 (-0.112) | 0.881 (-0.115) |
+| After 1 cm to 5 cm downsampling | 0.807 (-0.193) | 0.996 (-0.004) |
+| After transfer to labelled lidar returns | 0.694 (-0.113) | 0.881 (-0.116) |
 | After 10 cm voxel transfer | 0.531 (-0.162) | 0.691 (-0.190) |
 | After crown processing | 0.402 (-0.129) | 0.631 (-0.060) |
 
@@ -41,7 +41,7 @@ At the medium site, the four steps contributed 32%, 19%, 27%, and 22% of the tot
 Therefore, the dominant source differed between sites: downsampling was largest at the medium
 site, whereas voxel transfer was largest at the low site.
 
-Table S1 also characterises each stage using a stage-specific metric:
+Table S7 also characterises each stage using a stage-specific metric:
 
 - polygon-to-raster and grid conversion: class IoU and centroid displacement;
 - transfer to lidar returns: plan-view mIoU and missing labelled returns;
@@ -53,7 +53,7 @@ These are successive losses against one common reference, not statistically inde
 terms. A reduction in agreement with the 2D annotation also does not necessarily imply incorrect
 3D geometry because the annotation is both an input and the available reference.
 
-**Supplementary Figure S1 caption.** Error propagation through the label-generation pipeline at
+**Figure S7 caption.** Error propagation through the label-generation pipeline at
 the medium and low sites. Each bar is the change in plan-view mIoU against the annotator's 1 cm
 raster, averaged over 15 tiles. Percentages show each stage's contribution to the total loss.
 
@@ -64,7 +64,7 @@ raster, averaged over 15 tiles. Percentages show each stage's contribution to th
 > *In subsection 3.2.2, the choice of 10 cm voxel size appears empirical. Could the authors
 > provide a comparison of 5, 10, 15, 20, and 25 cm voxel sizes?*
 
-**Response.** We added Supplementary Figure S2 and repeated the complete workflow using voxel
+**Response.** We added Figure S6 and Table S6 and repeated the complete workflow using voxel
 sizes of 5, 10, 15, 20, and 25 cm on all 30 tiles.
 
 Increasing voxel size increased the proportion of labelled lidar points but also propagated more
@@ -81,7 +81,7 @@ and 0.92%). At larger sizes, mixed-class voxels increased steadily, reaching 1.6
 25 cm. Thus, 10 cm is a survey-density-based compromise rather than a value selected by optimizing
 against the same labels used as input.
 
-**Supplementary Figure S2 caption.** Sensitivity of the 2D-to-3D label transfer to voxel sizes of
+**Figure S6 caption.** Sensitivity of the 2D-to-3D label transfer to voxel sizes of
 5, 10, 15, 20, and 25 cm. Lines show site medians across 15 tiles and shading shows the
 interquartile range. Panels report labelled points, labels outside the 2D footprint, footprint
 recall, labelled points per voxel, plan-view mIoU, and final-label change relative to 10 cm.
@@ -135,7 +135,7 @@ The last three parameters changed at most 0.13% of final labels on any tile. Thi
 sensitivity around the selected defaults; it does not imply that those defaults were numerically
 optimized.
 
-**Supplementary Figure S4 caption.** One-at-a-time sensitivity to matching radius, out-of-range
+**Figure S8 caption.** One-at-a-time sensitivity to matching radius, out-of-range
 height weight, confidence threshold, and flip ratio. The top row shows Stage-4 label changes; the
 bottom row shows final-label changes relative to the default configuration on the worst tile.
 Grey lines mark the selected default values.
