@@ -105,6 +105,10 @@
     .metadata dl, .step-metadata { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px; margin: 0; }
     .metadata dt, .step-metadata dt { font-weight: 700; }
     .metadata dd, .step-metadata dd { margin: 0; overflow-wrap: anywhere; }
+    .analysis-table-wrap { overflow-x: auto; margin: 16px 0; }
+    .analysis-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    .analysis-table th, .analysis-table td { padding: 8px 10px; border: 1px solid var(--line); text-align: left; }
+    .analysis-table th { background: var(--paper); }
     .step-metadata { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
     .comparison-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
     .comparison-controls select, .comparison-controls button { font: inherit; color: var(--ink); background: white; border: 1px solid var(--accent); border-radius: 5px; padding: 6px 10px; }
@@ -277,6 +281,7 @@
         <a href="#phase-2">2. Co-registration</a>
         <a href="#phase-3">3. Imagery and labels</a>
         <a href="#phase-4">4. 3D LiDAR preparation</a>
+        <a class="subsection" href="#label-transfer-quality">Label transfer and error</a>
         <a href="#phase-5">5. Model input preparation</a>
         <a href="#models">Models and handoffs</a>
         <a class="subsection" href="#model-comparison-heading">Explore model results</a>
@@ -554,6 +559,8 @@
         <div class="command" data-label="Run Phase 3 workflow"><pre><code>python phase_3_2D_imagery_prep/imagery_prep.py --config phase_3_2D_imagery_prep/configs/imagery_prep_job.local.yml --stage all</code></pre></div>
         <p>To inspect each stage before continuing, replace <code>all</code> in the command with <code>tile</code>, <code>stack</code>, <code>classify</code>, <code>rasterize</code> and <code>downsample</code>, running it once for each in that order. Existing outputs are not overwritten.</p>
         <div class="note"><strong>Check grids and labels.</strong> The 5 cm labels do not automatically align with the predictor tiles. Inspect CRS, resolution, origin and extent, and run label QA before using the outputs. A 6 cm predictor needs particular care.</div>
+        <h3>4. Assess the 2D reference labels</h3>
+        <p>The paper checks polygon consistency and cross-class overlap, polygon-to-raster and label-to-predictor agreement, centroid displacement, and sensitivity to a ±5 cm boundary perturbation. It assesses 15 annotated tiles at each site. The perturbation is a sensitivity test, not a measured annotation error. Follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/README.md">label QA guide</a> to run the checks and save the per-tile summaries for the <a href="#label-transfer-quality">Phase 4 error analysis</a>.</p>
         <h3>Example output: clipped imagery tiles</h3>
         <figure>
           <a href="./figures/phase3-imagery-tiles.png"><img src="./figures/phase3-imagery-tiles.png" alt="Six example multispectral imagery tiles from DD0011, arranged in two rows of three." loading="lazy"></a>
@@ -663,6 +670,31 @@
         <div class="command" data-label="Run Phase 4 workflow"><pre><code>python phase_4_3D_lidar_prep/lidar_prep.py --config phase_4_3D_lidar_prep/configs/lidar_prep_job.local.yml --stage all</code></pre></div>
         <p>To inspect each stage before continuing, replace <code>all</code> with <code>mask</code>, <code>ground</code>, <code>normalize</code> and <code>fuse</code>, running once for each in order. Existing outputs are not overwritten.</p>
         <div class="note"><strong>Check alignment and results.</strong> Inputs must share a projected CRS in metres; no reprojection or resampling is performed. Inspect grid origins, extent, point counts, classes, heights and tree IDs. CRS and overlap checks alone do not prove registration.</div>
+        <p><strong>Inside the fusion step:</strong> derive class-height ranges, transfer labels by Cartesian voxel voting, detect mallee crowns and assign IDs, refine labels in crown-centred polar bins using height priors, then apply height and crown-consistency rules. Check the actual configuration and intermediate outputs against the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/README_phase4_step3.md">fusion workflow</a>; a successful run alone does not establish equivalence to the paper.</p>
+        <h3 id="label-transfer-quality">4. Evaluate label transfer and error propagation</h3>
+        <p>The paper examines how agreement with the 2D reference changes as labels are rasterised, sampled at LiDAR returns, transferred through 10 cm voxels and refined through crown processing. The analysis rasterises intermediate products onto a common 5 cm grid and compares them with the 1 cm annotation using plan-view mean intersection-over-union (mIoU). The values below are historical site averages over 15 tiles per site, not results from the commands on this page.</p>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table">
+            <caption>Agreement with the 1 cm annotation (paper Supplementary Figure S7)</caption>
+            <thead><tr><th scope="col">Stage</th><th scope="col">Medium mIoU</th><th scope="col">Low mIoU</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">1 cm reference</th><td>1.000</td><td>1.000</td></tr>
+              <tr><th scope="row">5 cm label grid</th><td>0.807</td><td>0.996</td></tr>
+              <tr><th scope="row">Sampled at LiDAR returns</th><td>0.694</td><td>0.881</td></tr>
+              <tr><th scope="row">10 cm voxel transfer</th><td>0.531</td><td>0.691</td></tr>
+              <tr><th scope="row">Crown processing and consolidation</th><td>0.402</td><td>0.631</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The largest stage-to-stage decrease was 1 cm to 5 cm aggregation at the medium site and voxel transfer at the low site. These are successive changes against the same 2D reference, not independent error terms or absolute 3D accuracy: the annotation also supplies the transferred labels, and independent 3D reference labels were not available.</p>
+        <p>The paper also checks voxel-level agreement between the Cartesian baseline and final labels, class-height plausibility, and retention of mallee crown IDs. These internal diagnostics were quantified on 15 medium-site tiles; low-site examples were inspected visually. The separate error-propagation and parameter-sensitivity analyses covered 15 tiles at each site. The <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/README_phase4_step3.md">Phase 4 Step 3 guide</a> describes validation summaries and figures.</p>
+        <p>For sensitivity, the study varied voxel size from 5 to 25 cm and tested the matching radius, height-prior weight, confidence threshold and flip ratio one at a time. Larger voxels increased label coverage but also extended labels beyond the 2D footprint. The 10 cm default is a density-based compromise, not an independently validated optimum. See the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/response_to_reviewers.md">analysis notes</a> and <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/04_reviewer_responses.ipynb">executed analysis notebook</a> for the tested values and outputs.</p>
+        <p>To regenerate the supplementary analysis, first run Phase 3 label QA for both sites and prepare the expected site folders, 1 cm and 5 cm label rasters, structure LAS and <code>Z_norm</code> LAS. The Phase 4 environment also needs GeoPandas, pandas and Matplotlib for these analyses. For the conda environment described above, activate it and install those packages:</p>
+        <div class="command" data-label="Install analysis dependencies"><pre><code>conda install -c conda-forge geopandas pandas matplotlib</code></pre></div>
+        <p>Replace both paths below, choose a new output directory and run from the repository root. The full sweep can be computationally expensive; adjust the worker count to your machine. The scripts use the historical site layout described in the analysis notes.</p>
+        <div class="command" data-label="Run error and sensitivity analysis"><pre><code>python phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/sensitivity.py all --data-root PATH_TO_DATA_ROOT --output-dir PATH_TO_ANALYSIS_OUTPUT --workers 2</code></pre></div>
+        <div class="command" data-label="Generate error and sensitivity figures"><pre><code>python phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/figures.py --assets PATH_TO_ANALYSIS_OUTPUT</code></pre></div>
+        <p>The analysis writes per-tile sensitivity and label-quality CSVs, supplementary error and sensitivity figures, and a summary table. Check inputs and tile coverage before comparing a new run with the paper.</p>
         <h3>Example output: height above ground</h3>
         <figure>
           <a href="./figures/phase4-height-model.png"><img src="./figures/phase4-height-model.png" alt="Canopy height model for DD0001 tile 109, with a height scale in metres." loading="lazy"></a>
