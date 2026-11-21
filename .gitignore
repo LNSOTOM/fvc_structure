@@ -102,6 +102,7 @@ coverage.xml
 !docs/figures/phase4-mask-points.png
 !docs/figures/phase4-ground-height.png
 !docs/figures/phase5-model-arrays.png
+!docs/figures/segmentanytree-medium-l1-f1-coverage.png
 
 # GIS extensions
 *.aux.xml

@@ -29,6 +29,13 @@ The historical workflow documented in the
    classes 0–4 to 64–68; 255 remains NoData.
 6. Assess the delivered polygons, 1 cm labels, 5 cm labels and predictor grids.
 
+The preprint's five native classes are forb (FO, 0), woody debris (WD, 1),
+grass hummock (GH, 2), shrub (SH, 3) and mallee (MA, 4). After remapping,
+these are 64–68 in the 5 cm mask and corresponding LAS classifications.
+NoData 255 is not a class. These five growth-form labels are distinct from the
+paper's three-class model formulation; see the
+[Phase 5 class conventions](../phase_5_3d_cnn_training/REPRODUCIBILITY.md#class-conventions).
+
 The 1 cm reference is not necessarily the predictor grid. Some predictor tiles
 are 5 cm and others 6 cm. A 5 cm label raster is not automatically aligned
 with either: compare CRS, pixel size, origin and extent before combining them.
