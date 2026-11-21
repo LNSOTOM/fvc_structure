@@ -43,8 +43,15 @@
     .top-search button:hover { background: #251b36; }
     .theme-toggle { display: grid; place-items: center; width: 40px; height: 40px; padding: 8px; border: 0; border-radius: 4px; background: transparent; color: white; cursor: pointer; }
     .theme-toggle:hover, .theme-toggle[aria-pressed="true"] { background: #251b3666; }
-    .top-search-status { position: absolute; top: 100%; right: 12px; max-width: min(350px, 90vw); padding: 8px 12px; background: #fff; color: var(--ink); box-shadow: 0 3px 8px #251b3633; }
+    .top-search-feedback { position: absolute; top: 100%; right: 12px; width: min(480px, calc(100vw - 24px)); max-height: min(65vh, 550px); overflow-y: auto; background: var(--paper); color: var(--ink); box-shadow: 0 3px 8px #251b3633; }
+    .top-search-status { padding: 10px 12px; font-size: .85rem; }
     .top-search-status:empty { display: none; }
+    .search-results button { display: block; width: 100%; padding: 10px 12px; border: 0; border-top: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+    .search-results button:hover { background: var(--wash); }
+    .top .search-results button:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+    .search-results strong, .search-results span { display: block; }
+    .search-results strong { font-size: .88rem; line-height: 1.4; }
+    .search-results span { margin-top: 4px; color: var(--muted); font-size: .8rem; line-height: 1.45; overflow-wrap: anywhere; }
     .top-repo { display: flex; align-items: center; gap: 7px; color: white; font-size: .9rem; font-weight: 650; line-height: 1.25; text-decoration: none; white-space: nowrap; }
     .top-repo svg { flex: none; }
     .top-repo small { display: block; font-size: .7rem; font-weight: 500; }
@@ -133,7 +140,7 @@
     [data-theme="dark"] a { color: #98e8de; }
     [data-theme="dark"] a:hover { color: #f0eef5; }
     [data-theme="dark"] a:focus-visible { outline-color: #98e8de; }
-    [data-theme="dark"] .top-menu nav, [data-theme="dark"] .top-search-status { background: var(--paper); }
+    [data-theme="dark"] .top-menu nav { background: var(--paper); }
     [data-theme="dark"] .top-menu nav a { color: var(--ink); }
     [data-theme="dark"] .top-menu nav a:hover, [data-theme="dark"] .top-menu nav a:focus-visible { background: #3e3e75; }
     [data-theme="dark"] .hero { background: #322642; border-color: var(--line); }
@@ -210,10 +217,13 @@
       </button>
       <a class="brand" href="#top">FVC STRUCTURE</a>
       <form class="top-search" role="search">
-        <input type="search" aria-label="Search guide sections" placeholder="Search guide" required>
+        <input type="search" aria-label="Search guide" placeholder="Search guide" aria-controls="search-results" autocomplete="off">
         <button type="submit" aria-label="Search guide"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg></button>
       </form>
-      <div class="top-search-status" role="status"></div>
+      <div class="top-search-feedback" hidden>
+        <div class="top-search-status" role="status"></div>
+        <div class="search-results" id="search-results" aria-label="Search results"></div>
+      </div>
       <button class="theme-toggle" type="button" aria-label="Dark mode" aria-pressed="false" title="Toggle dark mode">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 1.5 3.5L19 9l-3.5 1.5L14 14l-1.5-3.5L9 9l3.5-1.5L14 4ZM5 15l4-4M3 19l5-5M8 20l3-3M19 15v4M17 17h4"/></svg>
       </button>
@@ -974,6 +984,12 @@
     const searchForm = document.querySelector(".top-search");
     const searchInput = searchForm.querySelector("input");
     const searchStatus = document.querySelector(".top-search-status");
+    const searchFeedback = document.querySelector(".top-search-feedback");
+    const searchResults = document.querySelector(".search-results");
+    function showSearchStatus(message) {
+      searchStatus.textContent = message;
+      searchFeedback.hidden = false;
+    }
     const themeToggle = document.querySelector(".theme-toggle");
     const themeKey = "fvc-structure-theme";
     function setTheme(dark) {
@@ -984,7 +1000,8 @@
       setTheme(localStorage.getItem(themeKey) === "dark");
     } catch (error) {
       if (!(error instanceof DOMException) || error.name !== "SecurityError") throw error;
-      searchStatus.textContent = "Theme preference is unavailable in this browser.";
+      searchResults.replaceChildren();
+      showSearchStatus("Theme preference is unavailable in this browser.");
     }
     themeToggle.addEventListener("click", () => {
       const dark = document.documentElement.dataset.theme !== "dark";
@@ -993,27 +1010,99 @@
         localStorage.setItem(themeKey, dark ? "dark" : "light");
       } catch (error) {
         if (!(error instanceof DOMException) || !["SecurityError", "QuotaExceededError"].includes(error.name)) throw error;
-        searchStatus.textContent = "Theme preference could not be saved in this browser.";
+        searchResults.replaceChildren();
+        showSearchStatus("Theme preference could not be saved in this browser.");
       }
     });
-    searchInput.addEventListener("input", () => { searchStatus.textContent = ""; });
+    function searchGuide() {
+      const query = searchInput.value.trim().toLocaleLowerCase();
+      searchResults.replaceChildren();
+      if (!query) {
+        searchStatus.textContent = "";
+        searchFeedback.hidden = true;
+        return;
+      }
+      if (query.length < 2) {
+        showSearchStatus("Enter at least 2 characters.");
+        return;
+      }
+      const words = query.split(/\s+/);
+      const matches = [];
+      document.querySelectorAll("main > section[id]").forEach((section) => {
+        const sectionTitle = section.querySelector("h2").textContent.trim();
+        let heading = sectionTitle;
+        section.querySelectorAll(".phase-label, h2, h3, h4, p, li, dt, dd, pre, figcaption").forEach((element) => {
+          if (element.matches("h2, h3, h4")) heading = element.textContent.trim();
+          if (element.matches("li") && element.querySelector("li")) return;
+          if (!element.matches("li") && element.closest("li")) return;
+          const text = element.innerText.replace(/\s+/g, " ").trim();
+          const lowerText = text.toLocaleLowerCase();
+          if (!words.every((word) => lowerText.includes(word))) return;
+          matches.push({element, text, heading, sectionTitle,
+            rank: (element.matches(".phase-label, h2, h3, h4") ? 2 : 0) + (lowerText.includes(query) ? 1 : 0)});
+        });
+      });
+      matches.sort((a, b) => b.rank - a.rank);
+      function createResult(match) {
+        const button = document.createElement("button");
+        button.type = "button";
+        const title = document.createElement("strong");
+        title.textContent = match.heading === match.sectionTitle ? match.sectionTitle : `${match.sectionTitle} › ${match.heading}`;
+        const excerpt = document.createElement("span");
+        const start = Math.max(0, match.text.toLocaleLowerCase().indexOf(words[0]) - 55);
+        excerpt.textContent = `${start ? "…" : ""}${match.text.slice(start, start + 150)}${start + 150 < match.text.length ? "…" : ""}`;
+        button.append(title, excerpt);
+        button.addEventListener("click", () => {
+          searchFeedback.hidden = true;
+          match.element.setAttribute("tabindex", "-1");
+          match.element.focus({preventScroll: true});
+          window.scrollTo({top: window.scrollY + match.element.getBoundingClientRect().top - document.querySelector(".top").offsetHeight - 16, behavior: "smooth"});
+        });
+        return button;
+      }
+      let shown = 0;
+      function showMore() {
+        const more = searchResults.querySelector(".show-more-results");
+        if (more) more.remove();
+        const next = matches.slice(shown, shown + 12);
+        const buttons = next.map(createResult);
+        searchResults.append(...buttons);
+        shown += next.length;
+        if (shown < matches.length) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "show-more-results";
+          button.textContent = "Show more results";
+          button.addEventListener("click", () => { showMore().focus(); });
+          searchResults.append(button);
+        }
+        showSearchStatus(`Showing ${shown} of ${matches.length} matches. Select a result to go to it.`);
+        return buttons[0];
+      }
+      if (matches.length) showMore();
+      else showSearchStatus("No matches found. Try different words.");
+    }
+    searchInput.addEventListener("input", searchGuide);
+    searchInput.addEventListener("focus", () => { if (searchInput.value.trim()) searchGuide(); });
     searchForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      const query = searchInput.value.trim().toLocaleLowerCase();
-      if (!query) {
-        searchStatus.textContent = "Enter a search term.";
-        return;
+      if (!searchInput.value.trim()) {
+        searchResults.replaceChildren();
+        showSearchStatus("Enter a search term.");
+      } else {
+        searchGuide();
+        const firstResult = searchResults.querySelector("button");
+        if (firstResult) firstResult.focus();
       }
-      const section = [...document.querySelectorAll("main > section[id]")]
-        .find((item) => item.textContent.toLocaleLowerCase().includes(query));
-      if (!section) {
-        searchStatus.textContent = "No matching section found.";
-        return;
+    });
+    document.addEventListener("click", (event) => {
+      if (!event.composedPath().includes(searchForm) && !event.composedPath().includes(searchFeedback)) searchFeedback.hidden = true;
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !searchFeedback.hidden) {
+        searchInput.focus();
+        searchFeedback.hidden = true;
       }
-      searchStatus.textContent = `First match: ${section.querySelector("h2").textContent}.`;
-      location.hash = section.id;
-      section.setAttribute("tabindex", "-1");
-      section.focus({preventScroll: true});
     });
     if (window.isSecureContext && navigator.clipboard) {
       document.querySelectorAll(".command").forEach((command) => {
