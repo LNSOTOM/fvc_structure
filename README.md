@@ -6,6 +6,16 @@ segmentation models (ForestFormer3D, SegmentAnyTree).
 
 See the [research workflow guide](docs/index.html) for practical Phase 1–5 instructions.
 
+The guide's clone counter reports GitHub clones over the last 14 days, not all-time clones.
+To enable its daily update, create a fine-grained personal access token restricted to this
+repository with **Administration: read** and **Contents: read and write** permissions, and
+save it as the `REPO_TRAFFIC_TOKEN` [repository Actions secret](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
+The token's owner must be able to push to the default branch, including under any branch
+protection rules. Run **Actions → Update clone statistics → Run workflow** once; the workflow
+then updates the count daily and commits it to the default branch. The write permission lets
+that commit trigger the Pages deployment. Keep the token secret; the count itself is public.
+If the token expires or a run fails, the guide retains the last count and its update timestamp.
+
 ```
 LiDAR + UAS imagery → DSM → co-registration → 2D tiles + labels
                           → structure-classified LAS → model inputs → instance + semantic predictions
