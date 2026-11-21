@@ -776,6 +776,19 @@
         <div class="note"><strong>Keep the handoff auditable.</strong> Preserve the Phase 4 LAS and CRS, Phase 5 PLY and offset, scene IDs, class mapping and split lists. Model preprocessing may apply another offset. Match every prediction to its source tile and verify the full coordinate reconstruction before mapping results.</div>
         <p>Model runbooks use Linux and NVIDIA GPU/Docker environments. Windows users can continue using the earlier Windows workflow and, where supported, use a separately configured WSL/Linux GPU environment for these model instructions; native Windows model execution is not established here. Check your own GPU, dependencies, datasets and checkpoints before running.</p>
 
+        <h3 id="checkpoint-deliverables">Model checkpoint deliverables</h3>
+        <p><strong>Forest-pretrained baseline:</strong> The ForestFormer3D authors provide the pretrained model in <a href="https://zenodo.org/records/16742708">FOR-instanceV2 on Zenodo</a>. Download <code>clean_forestformer.zip</code> and follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/readme.md">ForestFormer3D setup instructions</a>. This is the forest baseline, not a rangeland fine-tuned model.</p>
+        <p><strong>Rangeland experiment checkpoints:</strong> The following final-epoch files exist in the saved experiment outputs. Paths are relative to the experiment <code>work_dirs</code>; they are not download links. These files are not tracked in this repository, and no public download for them is linked here.</p>
+        <ul>
+          <li>Experiment 2A, joint fine-tuning: <code>exp2A_epoch3000_train/epoch_3000_fix.pth</code>.</li>
+          <li>Experiment 2B, stage 1, medium: <code>exp2B_stage1_medium_train/epoch_3000_fix.pth</code>.</li>
+          <li>Experiment 2B, stage 2, low: <code>exp2B_stage2_low_train/epoch_3000_fix.pth</code>.</li>
+          <li>Experiment 3A, joint training from scratch: <code>exp3A_scratch_train/epoch_3000_fix.pth</code>.</li>
+          <li>Experiment 3B, medium training from scratch: <code>exp3B_scratch_medium_train/epoch_3000.pth</code>.</li>
+          <li>Experiment 3C, low training from scratch: <code>exp3C_scratch_low_train/epoch_3000_fix.pth</code>.</li>
+        </ul>
+        <p>The <a href="#model-comparison-heading">comparison examples</a> use the Experiment 2B stage-1 and stage-2 final-epoch checkpoints. The <code>_fix</code> suffix denotes a checkpoint converted for spconv compatibility; the 3B file listed above is unconverted. See the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md">experiment runbook</a> for checkpoint conversion and evaluation. Preserve each checkpoint with its config, class mapping, split lists, software environment, training provenance and checksum; verify the exact checkpoint before comparing results.</p>
+
         <h3 id="model-comparison-heading">Explore the model results</h3>
         <p>Compare saved ForestFormer3D reference labels and predictions for the held-out forest scene and medium and low L1 tiles. The forest example is Experiment 1A with the forest-trained model; the rangeland examples are Experiment 2B final-epoch results: stage 1 for the medium site and stage 2 for the low site. The paper reports the strongest semantic performance at these stages for their respective rangeland sites; this does not establish a universally best checkpoint.</p>
         <div id="model-comparison" class="panel" aria-labelledby="model-comparison-heading">
