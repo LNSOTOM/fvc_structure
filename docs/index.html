@@ -13,12 +13,26 @@
     a { color: #205e56; text-underline-offset: .18em; }
     a:hover { color: #102c2b; }
     a:focus-visible { outline: 3px solid #205e56; outline-offset: 3px; }
-    .top { background: #102c2b; color: white; }
-    .top-inner { max-width: 1200px; margin: auto; padding: 18px 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
-    .brand { color: white; font-weight: 750; letter-spacing: .03em; text-decoration: none; }
-    .top nav { display: flex; gap: 20px; flex-wrap: wrap; }
-    .top nav a { color: #effbf6; font-size: .9rem; }
-    .top a:focus-visible { outline-color: #effbf6; }
+    .top { position: sticky; top: 0; z-index: 20; background: #205e56; color: white; box-shadow: 0 2px 6px #102c2b33; }
+    .top-inner { max-width: 1200px; min-height: 60px; margin: auto; padding: 8px 28px; display: flex; align-items: center; gap: 16px; }
+    .brand { color: white; font-weight: 750; letter-spacing: .03em; text-decoration: none; white-space: nowrap; }
+    .brand:hover, .top a:hover { color: white; }
+    .top-menu summary { display: grid; place-items: center; width: 40px; height: 40px; cursor: pointer; border-radius: 4px; list-style: none; }
+    .top-menu summary::-webkit-details-marker { display: none; }
+    .top-menu summary:hover, .top-menu[open] summary { background: #102c2b66; }
+    .top-menu nav { position: absolute; top: 100%; left: max(0px, calc((100% - 1200px) / 2)); width: min(300px, 100vw); max-height: calc(100vh - 60px); overflow-y: auto; padding: 8px; background: #fff; box-shadow: 0 5px 12px #102c2b40; }
+    .top-menu nav a { display: block; padding: 8px 12px; color: var(--ink); text-decoration: none; border-radius: 4px; }
+    .top-menu nav a:hover, .top-menu nav a:focus-visible { color: var(--ink); background: #e6f3ed; }
+    .top-search { display: flex; align-items: center; margin-left: auto; }
+    .top-search input, .top-search button { font: inherit; border: 0; color: white; background: #174b45; padding: 8px 10px; }
+    .top-search input { width: min(230px, 25vw); min-width: 0; border-radius: 4px 0 0 4px; }
+    .top-search input::placeholder { color: #e1efeb; }
+    .top-search button { cursor: pointer; border-left: 1px solid #ffffff55; border-radius: 0 4px 4px 0; }
+    .top-search button:hover { background: #102c2b; }
+    .top-search-status { position: absolute; top: 100%; right: 12px; max-width: min(350px, 90vw); padding: 8px 12px; background: #fff; color: var(--ink); box-shadow: 0 3px 8px #102c2b33; }
+    .top-search-status:empty { display: none; }
+    .top-repo { color: white; font-size: .9rem; font-weight: 650; text-decoration: none; white-space: nowrap; }
+    .top a:focus-visible, .top summary:focus-visible, .top input:focus-visible, .top button:focus-visible { outline: 3px solid #effbf6; outline-offset: 2px; }
     .hero { background: #dcefe7; border-bottom: 1px solid #c1ded2; }
     .hero-inner { max-width: 1200px; margin: auto; padding: 52px 28px 44px; }
     .eyebrow { color: var(--accent); font-size: .76rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
@@ -29,11 +43,12 @@
     .button.primary { background: var(--accent); color: white; }
     .button.primary:hover { color: white; background: #102c2b; }
     .layout { max-width: 1200px; margin: auto; padding: 34px 28px 80px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 46px; }
-    .sidebar { align-self: start; position: sticky; top: 24px; font-size: .9rem; }
+    .sidebar { align-self: start; position: sticky; top: 84px; font-size: .9rem; }
     .sidebar strong { display: block; margin: 0 0 8px; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; }
     .sidebar a { display: block; padding: 6px 0; }
     main { min-width: 0; }
-    section { scroll-margin-top: 24px; margin-bottom: 46px; }
+    #top, section, h3[id] { scroll-margin-top: 84px; }
+    section { margin-bottom: 46px; }
     h2 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 12px; letter-spacing: -.025em; }
     h3 { font-size: 1.1rem; margin: 26px 0 8px; }
     p { margin: 8px 0 14px; }
@@ -106,7 +121,12 @@
       .flow, .facts, .phase-overview { grid-template-columns: 1fr; }
       .phase-overview .step-gallery { grid-template-columns: 1fr; }
       .comparison-views { grid-template-columns: 1fr; }
-      .top-inner { padding: 16px 20px; }
+      .top-inner { padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+      .top-search { order: 2; flex: 1 0 100%; margin-left: 0; }
+      .top-search input { flex: 1; width: auto; }
+      .top-repo { margin-left: auto; }
+      .top-menu nav { max-height: calc(100vh - 104px); }
+      #top, section, h3[id] { scroll-margin-top: 130px; }
     }
   </style>
 </head>
@@ -133,18 +153,29 @@
   </svg>
   <header class="top">
     <div class="top-inner">
+      <details class="top-menu">
+        <summary aria-label="Navigation menu" title="Navigation menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </summary>
+        <nav aria-label="Main navigation">
+          <a href="#overview">Workflow</a>
+          <a href="#setup">Setup</a>
+          <a href="#phase-1">Phase 1</a>
+          <a href="#phase-2">Phase 2</a>
+          <a href="#phase-3">Phase 3</a>
+          <a href="#phase-4">Phase 4</a>
+          <a href="#phase-5">Phase 5</a>
+          <a href="#models">Models</a>
+          <a href="#experiments">Experiments</a>
+        </nav>
+      </details>
       <a class="brand" href="#top">FVC STRUCTURE</a>
-      <nav aria-label="Main navigation">
-        <a href="#overview">Workflow</a>
-        <a href="#setup">Setup</a>
-        <a href="#phase-1">Phase 1</a>
-        <a href="#phase-2">Phase 2</a>
-        <a href="#phase-3">Phase 3</a>
-        <a href="#phase-4">Phase 4</a>
-        <a href="#phase-5">Phase 5</a>
-        <a href="#models">Models</a>
-        <a href="https://github.com/LNSOTOM/fvc_structure">GitHub</a>
-      </nav>
+      <form class="top-search" role="search">
+        <input type="search" aria-label="Search guide sections" placeholder="Search guide" required>
+        <button type="submit">Search</button>
+      </form>
+      <div class="top-search-status" role="status"></div>
+      <a class="top-repo" href="https://github.com/LNSOTOM/fvc_structure">GitHub ↗</a>
     </div>
   </header>
 
@@ -842,6 +873,39 @@
   </div>
   <footer>FVC Structure · Research workflow documentation</footer>
   <script>
+    const topMenu = document.querySelector(".top-menu");
+    topMenu.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => { topMenu.open = false; }));
+    document.addEventListener("click", (event) => {
+      if (!topMenu.contains(event.target)) topMenu.open = false;
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && topMenu.open) {
+        topMenu.open = false;
+        topMenu.querySelector("summary").focus();
+      }
+    });
+    const searchForm = document.querySelector(".top-search");
+    const searchInput = searchForm.querySelector("input");
+    const searchStatus = document.querySelector(".top-search-status");
+    searchInput.addEventListener("input", () => { searchStatus.textContent = ""; });
+    searchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const query = searchInput.value.trim().toLocaleLowerCase();
+      if (!query) {
+        searchStatus.textContent = "Enter a search term.";
+        return;
+      }
+      const section = [...document.querySelectorAll("main > section[id]")]
+        .find((item) => item.textContent.toLocaleLowerCase().includes(query));
+      if (!section) {
+        searchStatus.textContent = "No matching section found.";
+        return;
+      }
+      searchStatus.textContent = `First match: ${section.querySelector("h2").textContent}.`;
+      location.hash = section.id;
+      section.setAttribute("tabindex", "-1");
+      section.focus({preventScroll: true});
+    });
     if (window.isSecureContext && navigator.clipboard) {
       document.querySelectorAll(".command").forEach((command) => {
         const button = document.createElement("button");
