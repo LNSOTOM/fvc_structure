@@ -29,6 +29,8 @@
     .top-search input::placeholder { color: #e1efeb; }
     .top-search button { cursor: pointer; border-left: 1px solid #ffffff55; border-radius: 0 4px 4px 0; }
     .top-search button:hover { background: #102c2b; }
+    .theme-toggle { display: grid; place-items: center; width: 40px; height: 40px; padding: 8px; border: 0; border-radius: 4px; background: transparent; color: white; cursor: pointer; }
+    .theme-toggle:hover, .theme-toggle[aria-pressed="true"] { background: #102c2b66; }
     .top-search-status { position: absolute; top: 100%; right: 12px; max-width: min(350px, 90vw); padding: 8px 12px; background: #fff; color: var(--ink); box-shadow: 0 3px 8px #102c2b33; }
     .top-search-status:empty { display: none; }
     .top-repo { color: white; font-size: .9rem; font-weight: 650; text-decoration: none; white-space: nowrap; }
@@ -113,6 +115,24 @@
     figure img { display: block; max-width: 100%; height: auto; margin: auto; }
     figcaption { margin-top: 12px; color: var(--muted); font-size: .9rem; }
     footer { border-top: 1px solid var(--line); color: var(--muted); padding: 24px 28px; text-align: center; font-size: .86rem; }
+    [data-theme="dark"] { color-scheme: dark; --ink: #e2f0eb; --muted: #b7d0c8; --accent: #94d8c0; --line: #48665e; --paper: #1d3430; --wash: #0e201d; }
+    [data-theme="dark"] a { color: #a7e1cd; }
+    [data-theme="dark"] a:hover { color: #e2f0eb; }
+    [data-theme="dark"] a:focus-visible { outline-color: #a7e1cd; }
+    [data-theme="dark"] .top-menu nav, [data-theme="dark"] .top-search-status { background: var(--paper); }
+    [data-theme="dark"] .top-menu nav a { color: var(--ink); }
+    [data-theme="dark"] .top-menu nav a:hover, [data-theme="dark"] .top-menu nav a:focus-visible { background: #34554b; }
+    [data-theme="dark"] .hero { background: #1a3b34; border-color: var(--line); }
+    [data-theme="dark"] .lead { color: #c8dfd7; }
+    [data-theme="dark"] .button.primary { color: #102c2b; }
+    [data-theme="dark"] .button.primary:hover { color: white; }
+    [data-theme="dark"] .phase { border-color: var(--line); }
+    [data-theme="dark"] .metadata, [data-theme="dark"] .note { background: #1b3932; }
+    [data-theme="dark"] .note { border-color: var(--accent); }
+    [data-theme="dark"] .comparison-controls select, [data-theme="dark"] .comparison-controls button { background: var(--paper); }
+    [data-theme="dark"] .comparison-controls button[aria-pressed="true"] { background: var(--accent); color: #102c2b; }
+    [data-theme="dark"] .comparison-view { background: var(--paper); }
+    [data-theme="dark"] .comparison-swatch { border-color: #c8dfd7; }
     @media (max-width: 720px) {
       .hero-inner { padding: 34px 20px; }
       .layout { display: block; padding: 26px 20px 50px; }
@@ -172,9 +192,12 @@
       <a class="brand" href="#top">FVC STRUCTURE</a>
       <form class="top-search" role="search">
         <input type="search" aria-label="Search guide sections" placeholder="Search guide" required>
-        <button type="submit">Search</button>
+        <button type="submit" aria-label="Search guide"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg></button>
       </form>
       <div class="top-search-status" role="status"></div>
+      <button class="theme-toggle" type="button" aria-label="Dark mode" aria-pressed="false" title="Toggle dark mode">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 1.5 3.5L19 9l-3.5 1.5L14 14l-1.5-3.5L9 9l3.5-1.5L14 4ZM5 15l4-4M3 19l5-5M8 20l3-3M19 15v4M17 17h4"/></svg>
+      </button>
       <a class="top-repo" href="https://github.com/LNSOTOM/fvc_structure">GitHub ↗</a>
     </div>
   </header>
@@ -887,6 +910,28 @@
     const searchForm = document.querySelector(".top-search");
     const searchInput = searchForm.querySelector("input");
     const searchStatus = document.querySelector(".top-search-status");
+    const themeToggle = document.querySelector(".theme-toggle");
+    const themeKey = "fvc-structure-theme";
+    function setTheme(dark) {
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      themeToggle.setAttribute("aria-pressed", String(dark));
+    }
+    try {
+      setTheme(localStorage.getItem(themeKey) === "dark");
+    } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== "SecurityError") throw error;
+      searchStatus.textContent = "Theme preference is unavailable in this browser.";
+    }
+    themeToggle.addEventListener("click", () => {
+      const dark = document.documentElement.dataset.theme !== "dark";
+      setTheme(dark);
+      try {
+        localStorage.setItem(themeKey, dark ? "dark" : "light");
+      } catch (error) {
+        if (!(error instanceof DOMException) || !["SecurityError", "QuotaExceededError"].includes(error.name)) throw error;
+        searchStatus.textContent = "Theme preference could not be saved in this browser.";
+      }
+    });
     searchInput.addEventListener("input", () => { searchStatus.textContent = ""; });
     searchForm.addEventListener("submit", (event) => {
       event.preventDefault();
