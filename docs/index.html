@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A practical guide to the FVC structure LiDAR and imagery workflow.">
-  <title>FVC Structure | Research workflow guide</title>
+  <title>fvcStructureRangeland3D | Research workflow guide</title>
   <style>
     :root { color-scheme: light; --ink: #251b36; --muted: #505168; --accent: #3e3e75; --line: #cbd9dc; --paper: #fff; --wash: #f5fafa; }
     * { box-sizing: border-box; }
@@ -28,7 +28,8 @@
     .mobile-drawer { position: fixed; inset: 0 auto 0 0; width: min(300px, calc(100% - 48px)); height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); }
     .mobile-drawer::backdrop { background: #0009; }
     .drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; background: #3e3e75; color: white; font-weight: 750; }
-    .drawer-close { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 4px; background: transparent; color: white; font: inherit; font-size: 1.6rem; cursor: pointer; }
+    .drawer-header span { min-width: 0; overflow-wrap: anywhere; }
+    .drawer-close { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 0; border-radius: 4px; background: transparent; color: white; font: inherit; font-size: 1.6rem; cursor: pointer; }
     .drawer-close:hover { background: #251b3666; }
     .drawer-close:focus-visible { outline: 3px solid #98e8de; outline-offset: 2px; }
     .mobile-drawer nav { padding: 16px 20px; }
@@ -154,6 +155,12 @@
     [data-theme="dark"] .comparison-controls button[aria-pressed="true"] { background: var(--accent); color: #251b36; }
     [data-theme="dark"] .comparison-view { background: var(--paper); }
     [data-theme="dark"] .comparison-swatch { border-color: #ded8e8; }
+    @media (min-width: 721px) and (max-width: 900px) {
+      .top-inner { padding-inline: 16px; gap: 8px; }
+      .top-search { flex: 1 1 80px; min-width: 0; }
+      .top-search input { width: 100%; }
+      .top-search button { flex: none; }
+    }
     @media (max-width: 720px) {
       .hero-inner { padding: 34px 20px; }
       .layout { display: block; padding: 26px 20px 50px; }
@@ -165,6 +172,8 @@
       .phase-overview .step-gallery { grid-template-columns: 1fr; }
       .comparison-views { grid-template-columns: 1fr; }
       .top-inner { padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+      .brand { font-size: clamp(.75rem, 3.8vw, 1rem); }
+      .theme-toggle { margin-left: auto; }
       .top-search { order: 2; flex: 1 1 140px; margin-left: 0; }
       .top-search input { flex: 1; width: auto; }
       .top-repo { order: 2; margin-left: auto; }
@@ -215,7 +224,7 @@
       <button class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-haspopup="dialog">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
-      <a class="brand" href="#top">FVC STRUCTURE</a>
+      <a class="brand" href="#top">fvcStructureRangeland3D</a>
       <form class="top-search" role="search">
         <input type="search" aria-label="Search guide" placeholder="Search guide" aria-controls="search-results" autocomplete="off">
         <button type="submit" aria-label="Search guide"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg></button>
@@ -233,14 +242,14 @@
           <path d="M7 22h13M10 22v4M18 22v4M21 13c1.6-2 5.7-1.5 6.3.8 1.6.1 2.4 1.8 1.3 3.2-.3 2.5-2.2 4.5-4.6 4.5-2.7 0-4.5-2-4.5-4.5 0-1.7.5-3 1.5-4Z"/>
           <path d="m20 14-2-1M27 14l2-1M24.8 16h.1"/>
         </svg>
-        <span>GitHub <small>main branch · <span id="clone-count">14-day clones unavailable</span></small><small id="clone-updated"></small></span>
+        <span>fvc_structure GitHub <small>main branch · <span id="clone-count">14-day clones unavailable</span></small><small id="clone-updated"></small></span>
       </a>
     </div>
   </header>
 
   <dialog class="mobile-drawer" aria-label="Guide navigation">
     <div class="drawer-header">
-      <span>FVC STRUCTURE</span>
+      <span>fvcStructureRangeland3D</span>
       <button class="drawer-close" type="button" aria-label="Close navigation" autofocus>&times;</button>
     </div>
   </dialog>
@@ -937,7 +946,7 @@
       </section>
     </main>
   </div>
-  <footer>FVC Structure · Research workflow documentation</footer>
+  <footer>fvcStructureRangeland3D · Research workflow documentation</footer>
   <script src="./repo-stats.js"></script>
   <script>
     const cloneCount = document.querySelector("#clone-count");
