@@ -7,31 +7,22 @@ import pylab as pl
 from pathlib import Path
 from rasterio.warp import reproject, Resampling
 
-# === GeFolki dependencies ===
-# Workstation
-# sys.path.append('/media/laura/laura_usb/code/fvc_structure/phase_1_image_processing/gefolki/python')
-# === GeFolki dependencies === NVIDIA
-sys.path.append('/home/nvidia/projects/fvc_structure/phase_2_lidar_coregistration/gefolki/python')
+# === GeFolki dependencies (vendored library, resolved relative to this file) ===
+from phase2_config import add_gefolki_to_path, load_config
+
+add_gefolki_to_path()
 
 from python.algorithm import EFolki
 from python.tools import wrapData
 
-# === Configuration ===
-Base_band = 0
+# === Configuration (flow section of the job config) ===
+flow_cfg = load_config()["flow"]
+
+Base_band = int(flow_cfg.get("base_band", 0))
 
 # === Input paths ===
-# Workstation
-# base_image_path   = Path("/media/laura/laura_usb/uas_data/DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif")
-# moving_image_path = Path("/media/laura/laura_usb/uas_data/DD0001/lidar_l2/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03.tif")
-
-# NVIDIA
-# SITE 1
-# base_image_path = Path("/data/calperumResearch/site1_1_DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif")
-# moving_image_path = Path("/data/calperumResearch/site1_1_DD0001/lidar_l2/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03.tif")
-
-# SITE 11
-base_image_path = Path("/data/calperumResearch/site2_1_DD0011/imagery/dsm/SASMDD0011_rgb_dsm_03.tif")
-moving_image_path = Path("/data/calperumResearch/site2_1_DD0011/lidar_l2/dsm/crop_to_rgb/SASMDD0011_l2_dsm_03.tif")
+base_image_path = Path(flow_cfg["base_image"])
+moving_image_path = Path(flow_cfg["moving_image"])
 
 
 #%%
@@ -115,10 +106,10 @@ print("🔹 Calculating optical flow (EFolki)...")
 t0 = time.perf_counter()
 
 u, v = EFolki(base_norm, moving_norm,
-              iteration=8,
-              radius=[8, 4, 2],
-              rank=4,
-              levels=6)
+              iteration=int(flow_cfg.get("iteration", 8)),
+              radius=list(flow_cfg.get("radius", [8, 4, 2])),
+              rank=int(flow_cfg.get("rank", 4)),
+              levels=int(flow_cfg.get("levels", 6)))
 
 t1 = time.perf_counter()
 print(f"✅ Flow calculated in {(t1 - t0)/60:.3f} minutes")
@@ -167,7 +158,6 @@ pl.show()
 # === Save Results ===
 print("\n--- Saving Outputs ---")
 
-flow_dir = base_image_path.parent
 aligned_path = moving_image_path.with_name(moving_image_path.stem + "_coreg.tif")
 
 with rasterio.open(base_image_path) as src:
@@ -187,9 +177,13 @@ with rasterio.open(aligned_path, "w", **profile) as dst:
 print(f"✅ Registered DSM saved to: {aligned_path}")
 
 # Save optical flow fields
-np.save(flow_dir / "flow_u_03_l2.npy", u)
-np.save(flow_dir / "flow_v_03_l2.npy", v)
-print(f"💾 Flow fields saved to: {flow_dir}")
+flow_u_path = Path(flow_cfg["flow_u_output"])
+flow_v_path = Path(flow_cfg["flow_v_output"])
+flow_u_path.parent.mkdir(parents=True, exist_ok=True)
+flow_v_path.parent.mkdir(parents=True, exist_ok=True)
+np.save(flow_u_path, u)
+np.save(flow_v_path, v)
+print(f"💾 Flow fields saved to: {flow_u_path} and {flow_v_path}")
 
 #%%
 # === Optional: Residual Quality Check ===
@@ -201,8 +195,8 @@ pl.title("Residual (Base - Registered LiDAR)")
 pl.colorbar(label="m")
 pl.show()
 
-# Save difference GeoTIFF
-diff_path = moving_image_path.with_name(moving_image_path.stem + "_coreg.tif")
+# Save difference GeoTIFF (use a distinct name so the registered DSM is not overwritten)
+diff_path = moving_image_path.with_name(moving_image_path.stem + "_coreg_residual.tif")
 profile.update(dtype='float32')
 with rasterio.open(diff_path, "w", **profile) as dst:
     dst.write(residual.astype('float32'), 1)

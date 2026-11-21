@@ -18,8 +18,12 @@ The workflow was inspired by: https://github.com/RS-Haynes/efolki_coreg/blob/mai
 
 ```
 phase_2_lidar_coregistration/
+├── REPRODUCIBILITY.md                 # Step-by-step handoff checklist
+├── configs/
+│   └── coregistration_job.example.yml # Copy-and-edit job template
 ├── gefolki/
-│   ├── python_myscripts/              # Main processing scripts
+│   ├── python_myscripts/              # Main processing scripts (config-driven)
+│   │   ├── phase2_config.py           # Shared YAML config loader
 │   │   ├── gefolki_preprocess.py      # DSM preprocessing
 │   │   ├── gefolki_flow_l1.py         # Flow computation (L1 sensor)
 │   │   ├── gefolki_flow_l2.py         # Flow computation (L2 sensor)
@@ -57,18 +61,20 @@ jupyter notebook gefolki/stats_align_lidar_with_flow.py.ipynb
 
 ### Scripts
 ```bash
-# Edit paths in scripts, then run sequentially:
-python gefolki/python_myscripts/gefolki_preprocess.py
-python gefolki/python_myscripts/gefolki_flow_l1.py
-python gefolki/python_myscripts/align_lidar_with_flow_l1.py
+# Copy the config template and edit paths for your site/pass
+cp configs/coregistration_job.example.yml configs/coregistration_job.local.yml
+
+# Run sequentially (see REPRODUCIBILITY.md for details):
+cd gefolki/python_myscripts
+python gefolki_preprocess.py --config ../../configs/coregistration_job.local.yml
+python gefolki_flow_l1.py    --config ../../configs/coregistration_job.local.yml
+python align_lidar_with_flow_l1.py --config ../../configs/coregistration_job.local.yml
 ```
 
 ## Dependencies
 
-```bash
-conda install -c conda-forge numpy scipy rasterio laspy gdal matplotlib
-pip install scikit-image
-```
+Install the shared Python environment with `uv sync`; see
+[REPRODUCIBILITY.md](REPRODUCIBILITY.md) for setup and usage.
 
 ## GeFolki Algorithm
 

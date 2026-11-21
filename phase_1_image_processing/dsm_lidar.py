@@ -17,6 +17,8 @@ Notebook:
 
 from __future__ import annotations
 
+import argparse
+import importlib
 import json
 import os
 import subprocess
@@ -54,8 +56,61 @@ try:
 except Exception:
     HAS_NUMPY = False
 
+try:
+    yaml = importlib.import_module("yaml")
+
+    HAS_YAML = True
+except Exception:
+    yaml = None
+    HAS_YAML = False
+
 
 PathLike = Union[str, Path]
+
+
+@dataclass(frozen=True)
+class DsmJob:
+    """Reusable LAS/LAZ-to-DSM job definition."""
+
+    las_input: PathLike
+    dsm_output: PathLike
+    site_id: Optional[str] = None
+    product_level: Optional[str] = None
+    sensor: Optional[str] = None
+    # Optional upstream provenance metadata.
+    source_workflow: Optional[str] = None
+
+
+def _first_present(data: Dict[str, Any], keys: List[str], default: Any = None) -> Any:
+    for key in keys:
+        if key in data and data[key] is not None:
+            return data[key]
+    return default
+
+
+def load_dsm_config(config_path: PathLike) -> Dict[str, Any]:
+    """Load a DSM job config from YAML or JSON."""
+    config_path = Path(config_path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"DSM config not found: {config_path}")
+
+    suffix = config_path.suffix.lower()
+    with open(config_path, "r") as f:
+        if suffix in {".yml", ".yaml"}:
+            if not HAS_YAML:
+                raise ImportError("PyYAML is required for .yml/.yaml config files. Install with: pip install pyyaml")
+            data = yaml.safe_load(f) or {}
+        elif suffix == ".json":
+            data = json.load(f)
+        else:
+            if HAS_YAML:
+                data = yaml.safe_load(f) or {}
+            else:
+                data = json.load(f)
+
+    if not isinstance(data, dict):
+        raise ValueError(f"DSM config must contain a mapping/object: {config_path}")
+    return data
 
 
 # ---------------------------------------------------------------------
@@ -114,6 +169,54 @@ def estimate_processing_time(las_input: PathLike, resolution: float) -> Dict[str
             "file_size_mb": float(file_size_mb),
             "estimated_seconds": float(file_size_mb * 2.0),
         }
+
+
+def recommend_dsm_resolution(
+    las_input: PathLike,
+    candidate_resolutions: Optional[List[float]] = None,
+    max_estimated_minutes: float = 15.0,
+    max_grid_cells: Optional[int] = 250_000_000,
+) -> Dict[str, Any]:
+    """
+    Estimate candidate DSM resolutions and choose the finest one within limits.
+
+    Returns a dict with the chosen resolution and all per-resolution estimates.
+    """
+    if candidate_resolutions is None:
+        candidate_resolutions = [0.10, 0.05, 0.03]
+
+    if not candidate_resolutions:
+        raise ValueError("candidate_resolutions must contain at least one value")
+
+    candidates = sorted({float(res) for res in candidate_resolutions}, reverse=True)
+    if any(res <= 0 for res in candidates):
+        raise ValueError("candidate_resolutions must be positive")
+
+    estimates = []
+    for resolution in candidates:
+        estimate = estimate_processing_time(las_input, resolution)
+        estimate["resolution"] = resolution
+        estimate["estimated_minutes"] = float(estimate.get("estimated_seconds", 0.0)) / 60.0
+        grid_cells = estimate.get("grid_cells")
+        estimate["within_limits"] = (
+            estimate["estimated_minutes"] <= max_estimated_minutes
+            and (max_grid_cells is None or grid_cells is None or grid_cells <= max_grid_cells)
+        )
+        estimates.append(estimate)
+
+    eligible = [estimate for estimate in estimates if estimate["within_limits"]]
+    if eligible:
+        selected = min(eligible, key=lambda estimate: estimate["resolution"])
+    else:
+        selected = max(estimates, key=lambda estimate: estimate["resolution"])
+
+    return {
+        "selected_resolution": float(selected["resolution"]),
+        "selected_estimate": selected,
+        "estimates": estimates,
+        "max_estimated_minutes": float(max_estimated_minutes),
+        "max_grid_cells": max_grid_cells,
+    }
 
 
 # ---------------------------------------------------------------------
@@ -245,6 +348,25 @@ def create_dsm(
 
     finally:
         processing["done"] = True
+
+
+def create_dsm_from_job(
+    job: DsmJob,
+    resolution: float = 0.03,
+    stac: Optional[bool] = None,
+    **kwargs: Any,
+) -> bool:
+    """Create a DSM from a reusable job definition."""
+    write_stac = bool(job.site_id and job.product_level) if stac is None else stac
+    return create_dsm(
+        las_input=job.las_input,
+        dsm_output=job.dsm_output,
+        resolution=resolution,
+        stac=write_stac,
+        stac_site_id=job.site_id,
+        stac_product_level=job.product_level,
+        **kwargs,
+    )
 
 
 # ---------------------------------------------------------------------
@@ -589,25 +711,184 @@ SITE_CONFIGS = {
 }
 
 
-if __name__ == "__main__":
-    ACTIVE_SITE = "DD0011_L2"
-    cfg = SITE_CONFIGS[ACTIVE_SITE]
-    dsm_resolution = 0.03
+def job_from_site_config(site_name: str) -> DsmJob:
+    """Build a reusable job from one of the predefined site configs."""
+    if site_name not in SITE_CONFIGS:
+        available = ", ".join(sorted(SITE_CONFIGS))
+        raise KeyError(f"Unknown site config: {site_name}. Available: {available}")
 
-    print(f"{'=' * 70}")
-    print(f"Processing: {ACTIVE_SITE}")
-    print(f"{'=' * 70}\n")
+    cfg = SITE_CONFIGS[site_name]
+    return DsmJob(
+        las_input=cfg["input"],
+        dsm_output=cfg["output"],
+        site_id=cfg.get("site_id"),
+        product_level=cfg.get("level"),
+        sensor=site_name,
+    )
+
+
+def job_from_config(config_path: PathLike) -> DsmJob:
+    """Build a DSM job from a YAML/JSON config file."""
+    cfg = load_dsm_config(config_path)
+    job_cfg = cfg.get("job", cfg)
+    if not isinstance(job_cfg, dict):
+        raise ValueError("DSM config 'job' section must be a mapping/object")
+
+    site_name = _first_present(job_cfg, ["site"])
+    if site_name:
+        job = job_from_site_config(str(site_name))
+        return DsmJob(
+            las_input=_first_present(job_cfg, ["las_input", "input"], job.las_input),
+            dsm_output=_first_present(job_cfg, ["dsm_output", "output"], job.dsm_output),
+            site_id=_first_present(job_cfg, ["site_id"], job.site_id),
+            product_level=_first_present(job_cfg, ["product_level", "level"], job.product_level),
+            sensor=_first_present(job_cfg, ["sensor"], job.sensor),
+            source_workflow=_first_present(job_cfg, ["source_workflow"], job.source_workflow),
+        )
+
+    las_input = _first_present(job_cfg, ["las_input", "input"])
+    dsm_output = _first_present(job_cfg, ["dsm_output", "output"])
+    if not las_input or not dsm_output:
+        raise ValueError("DSM config must define las_input and dsm_output")
+
+    return DsmJob(
+        las_input=las_input,
+        dsm_output=dsm_output,
+        site_id=_first_present(job_cfg, ["site_id"]),
+        product_level=_first_present(job_cfg, ["product_level", "level"]),
+        sensor=_first_present(job_cfg, ["sensor"]),
+        source_workflow=_first_present(job_cfg, ["source_workflow"], DsmJob.source_workflow),
+    )
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Create a DSM GeoTIFF from a georeferenced LAS/LAZ point cloud."
+        )
+    )
+    parser.add_argument("--config", help="YAML/JSON config file with DSM input/output paths and defaults")
+    parser.add_argument("--site", choices=sorted(SITE_CONFIGS), help="Run one predefined site configuration")
+    parser.add_argument("--las-input", help="Input georeferenced LAS/LAZ file")
+    parser.add_argument("--dsm-output", help="Output DSM GeoTIFF path")
+    parser.add_argument("--site-id", help="Site identifier written to the optional STAC sidecar")
+    parser.add_argument("--product-level", help="Product level written to the optional STAC sidecar")
+    parser.add_argument("--datetime", dest="stac_datetime", help="STAC datetime, for example 2024-01-31T00:00:00Z")
+    parser.add_argument("--resolution", type=float, help="DSM grid resolution in metres (default: 0.03)")
+    parser.add_argument("--output-type", help="PDAL writers.gdal output_type, usually max for DSM")
+    parser.add_argument("--nodata", type=float, help="NoData value for the DSM (default: -9999.0)")
+    parser.add_argument("--compression", help="GeoTIFF compression option (default: LZW)")
+    parser.add_argument("--no-stac", action="store_true", help="Do not write a STAC sidecar")
+    parser.add_argument("--estimate-only", action="store_true", help="Print processing estimate without creating a DSM")
+    parser.add_argument("--list-sites", action="store_true", help="List predefined site configurations and exit")
+    parser.add_argument("--quiet", action="store_true", help="Reduce console output")
+    return parser
+
+
+def _job_from_args(args: argparse.Namespace, cfg: Optional[Dict[str, Any]] = None) -> DsmJob:
+    cfg = cfg or {}
+    job_cfg = cfg.get("job", cfg)
+    if not isinstance(job_cfg, dict):
+        raise ValueError("DSM config 'job' section must be a mapping/object")
+
+    if args.site:
+        job = job_from_site_config(args.site)
+        return DsmJob(
+            las_input=args.las_input or _first_present(job_cfg, ["las_input", "input"], job.las_input),
+            dsm_output=args.dsm_output or _first_present(job_cfg, ["dsm_output", "output"], job.dsm_output),
+            site_id=args.site_id or job.site_id,
+            product_level=args.product_level or job.product_level,
+            sensor=_first_present(job_cfg, ["sensor"], job.sensor),
+            source_workflow=_first_present(job_cfg, ["source_workflow"], job.source_workflow),
+        )
+
+    config_site = _first_present(job_cfg, ["site"])
+    if config_site:
+        job = job_from_site_config(str(config_site))
+        return DsmJob(
+            las_input=args.las_input or _first_present(job_cfg, ["las_input", "input"], job.las_input),
+            dsm_output=args.dsm_output or _first_present(job_cfg, ["dsm_output", "output"], job.dsm_output),
+            site_id=args.site_id or _first_present(job_cfg, ["site_id"], job.site_id),
+            product_level=args.product_level or _first_present(job_cfg, ["product_level", "level"], job.product_level),
+            sensor=_first_present(job_cfg, ["sensor"], job.sensor),
+            source_workflow=_first_present(job_cfg, ["source_workflow"], job.source_workflow),
+        )
+
+    las_input = args.las_input or _first_present(job_cfg, ["las_input", "input"])
+    dsm_output = args.dsm_output or _first_present(job_cfg, ["dsm_output", "output"])
+    if not las_input or not dsm_output:
+        raise ValueError("Provide --config, --site, or both --las-input and --dsm-output")
+
+    return DsmJob(
+        las_input=las_input,
+        dsm_output=dsm_output,
+        site_id=args.site_id or _first_present(job_cfg, ["site_id"]),
+        product_level=args.product_level or _first_present(job_cfg, ["product_level", "level"]),
+        sensor=_first_present(job_cfg, ["sensor"]),
+        source_workflow=_first_present(job_cfg, ["source_workflow"], DsmJob.source_workflow),
+    )
+
+
+def _processing_option(
+    args: argparse.Namespace,
+    cfg: Dict[str, Any],
+    name: str,
+    default: Any,
+) -> Any:
+    if getattr(args, name) is not None:
+        return getattr(args, name)
+    return cfg.get(name, default)
+
+
+def _datetime_option(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat().replace("+00:00", "Z")
+    return str(value)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = _build_arg_parser()
+    args = parser.parse_args(argv)
+
+    if args.list_sites:
+        print("Available site configurations:")
+        for name in sorted(SITE_CONFIGS):
+            cfg = SITE_CONFIGS[name]
+            print(f"  {name}: {cfg['input']} -> {cfg['output']}")
+        return 0
 
     try:
-        create_dsm(
-            las_input=cfg["input"],
-            dsm_output=cfg["output"],
-            resolution=dsm_resolution,
-            verbose=True,
-            stac=True,  # ✅ write STAC sidecar
-            stac_site_id=cfg["site_id"],
-            stac_product_level=cfg["level"],
+        cfg = load_dsm_config(args.config) if args.config else {}
+        job = _job_from_args(args, cfg)
+        resolution = float(_processing_option(args, cfg, "resolution", 0.03))
+        output_type = str(_processing_option(args, cfg, "output_type", "max"))
+        nodata = float(_processing_option(args, cfg, "nodata", -9999.0))
+        compression = str(_processing_option(args, cfg, "compression", "LZW"))
+        stac_datetime = _datetime_option(args.stac_datetime or cfg.get("stac_datetime") or cfg.get("datetime"))
+        stac = False if args.no_stac else cfg.get("stac")
+
+        if args.estimate_only:
+            estimate = estimate_processing_time(job.las_input, resolution)
+            print(json.dumps(estimate, indent=2))
+            return 0
+
+        create_dsm_from_job(
+            job,
+            resolution=resolution,
+            output_type=output_type,
+            nodata=nodata,
+            compression=compression,
+            verbose=not args.quiet,
+            stac=stac,
+            stac_datetime=stac_datetime,
         )
+        return 0
     except Exception as e:
-        print(f"\n❌ Error: {e}")
-        sys.exit(1)
+        print(f"\nError: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

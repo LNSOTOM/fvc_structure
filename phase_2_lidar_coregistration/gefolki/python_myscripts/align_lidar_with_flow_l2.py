@@ -10,58 +10,42 @@ from scipy.ndimage import map_coordinates, gaussian_filter
 import time
 from tqdm import tqdm
 
-# --- CONFIGURATION ---
+from phase2_config import load_config
 
-# Add the path to your gefolki python scripts if not in a standard location
-# GEFOLKI_PYTHON_PATH = '/media/laura/laura_usb/code/fvc_structure/phase_1_image_processing/gefolki/python'
-GEFOLKI_PYTHON_PATH = '/home/nvidia/projects/fvc_structure/phase_1_image_processing/gefolki/python'
-if GEFOLKI_PYTHON_PATH not in sys.path:
-    sys.path.append(GEFOLKI_PYTHON_PATH)
-    
+# --- CONFIGURATION (align section of the job config) ---
+align_cfg = load_config()["align"]
+
 # --- KEY PARAMETER: Control the direction of the correction ---
 # Use 1 to apply the flow as-is (e.g., X_new = X_old + dX).
 # Use -1 to invert the flow if visual checks show the correction is backwards.
-CORRECTION_DIRECTION = -1
+CORRECTION_DIRECTION = int(align_cfg.get("correction_direction", -1))
 
 # --- KEY PARAMETER: Control smoothing of the flow field ---
 # This is the most important parameter for fixing holes.
 # Start with a value like 2.0.
 # Increase it (e.g., 3.0, 4.0) if holes persist.
 # Decrease it (e.g., 1.0) if the correction seems "blurry" or "damped".
-GAUSSIAN_SIGMA = 3.0  #2.0 (resonable) #1.0 (less smoothing, more detail but risk holes)
+GAUSSIAN_SIGMA = float(align_cfg.get("gaussian_sigma", 3.0))
 
 # --- INPUT FILE PATHS ---
 # The original, full-density LAS/LAZ file to be corrected
-#L2 + site 1
-# LAS_INPUT_PATH = Path("/media/laura/laura_usb/uas_data/DD0001/lidar_l2/cloud2d765c57b8471e2c.las")
-# LAS_INPUT_PATH = Path("/data/calperumResearch/site1_1_DD0001/lidar_l2/cloud2d765c57b8471e2c.las")
-
-#L2 + site 11
-LAS_INPUT_PATH = Path("/data/calperumResearch/site2_1_DD0011/lidar_l2/cloud3358f88f2d9dc868.las")
+LAS_INPUT_PATH = Path(align_cfg["las_input"])
 
 # The raster grid that defines the coordinate system for the flow fields.
 # This MUST have the exact same dimensions as the flow field arrays.
-# L2 + site 1
-# REFERENCE_GRID_PATH = Path("/media/laura/laura_usb/uas_data/DD0001/lidar_l2/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03_coreg.tif")
-# REFERENCE_GRID_PATH = Path("/data/calperumResearch/site1_1_DD0001/lidar_l2/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03_coreg.tif")
-
-# L2 + site 11
-REFERENCE_GRID_PATH = Path("/data/calperumResearch/site2_1_DD0011/lidar_l2/dsm/crop_to_rgb/SASMDD0011_l2_dsm_03_coreg.tif")
-
+REFERENCE_GRID_PATH = Path(align_cfg["reference_grid"])
 
 # The displacement fields calculated by gefolki
-#L2 + site 1
-# FLOW_U_PATH = Path("/data/calperumResearch/site1_1_DD0001/imagery/dsm/flow_u_03_l2.npy")
-# FLOW_V_PATH = Path("/data/calperumResearch/site1_1_DD0001/imagery/dsm/flow_v_03_l2.npy")
-
-#L2 + site 11
-FLOW_U_PATH = Path("/data/calperumResearch/site2_1_DD0011/imagery/dsm/flow_u_03_l2.npy")
-FLOW_V_PATH = Path("/data/calperumResearch/site2_1_DD0011/imagery/dsm/flow_v_03_l2.npy")
-
+FLOW_U_PATH = Path(align_cfg["flow_u"])
+FLOW_V_PATH = Path(align_cfg["flow_v"])
 
 # --- OUTPUT FILE PATH ---
 # Where the new, fully coregistered LAS file will be saved
-LAS_OUTPUT_PATH = LAS_INPUT_PATH.with_name(LAS_INPUT_PATH.stem + "_coreg.las")
+LAS_OUTPUT_PATH = (
+    Path(align_cfg["las_output"])
+    if align_cfg.get("las_output")
+    else LAS_INPUT_PATH.with_name(LAS_INPUT_PATH.stem + "_coreg.las")
+)
 
 
 def apply_full_flow_to_las(las_in_path, las_out_path, grid_path, flow_u, flow_v, direction=1):

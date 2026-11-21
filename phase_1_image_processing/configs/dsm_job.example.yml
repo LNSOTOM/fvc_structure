@@ -1,0 +1,30 @@
+# Example DSM job config for a georeferenced LAS/LAZ point cloud.
+# Copy this file and replace the paths before running.
+job:
+  las_input: /path/to/georeferenced_input.las
+  dsm_output: /path/to/dsm/georeferenced_input_dsm_03.tif
+  site_id: DD0001
+  product_level: LIDAR_DSM
+  sensor: Ouster
+  # Optional provenance metadata (not currently written to the STAC sidecar).
+  # For the HySpex/Ouster/APX
+  # upstream workflow see:
+  # https://github.com/UQ-Drones-CRP/remote_sensing-analytics/blob/main/sensors_data/hyspec/dsm_package/dsm/README_phase1.md
+  # source_workflow: <upstream georeferencing workflow>
+
+# Sequential notebook batch example (WSL paths for the Windows I: drive).
+# On Windows, replace /mnt/i/ with I:/; elsewhere edit all paths as needed.
+# Outputs use new names to avoid overwriting the existing 3 cm DSMs. Check
+# output paths before every run. The CLI processes only the single job above.
+batch:
+  - input: /mnt/i/calperumResearch/SASMDD0011/20220517/l1/level_1/20220517_SASMDD0011/lidars/terra_las/20220517_SASMDD0011_AusGeoid20.las
+    output: /mnt/i/calperumResearch/site2_1_DD0011/lidar/dsm/SASMDD0011_l1_dsm_03_example.tif
+  - input: /mnt/i/calperumResearch/SASMDD0011/20240314/lidar/level_1/20240314_SASMDD0011/lidars/terra_las/cloud3358f88f2d9dc868.las
+    output: /mnt/i/calperumResearch/site2_1_DD0011/lidar_l2/dsm/SASMDD0011_l2_dsm_03_example.tif
+
+resolution: 0.03
+output_type: max
+nodata: -9999.0
+compression: LZW
+stac: true
+datetime: "2024-01-31T00:00:00Z"

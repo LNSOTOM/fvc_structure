@@ -6,31 +6,22 @@ import time
 import pylab as pl
 from pathlib import Path
 
-# === GeFolki dependencies === worksation
-# sys.path.append('/media/laura/laura_usb/code/fvc_structure/phase_1_image_processing/gefolki/python')
-# === GeFolki dependencies === NVIDIA
-sys.path.append('/home/nvidia/projects/fvc_structure/phase_2_lidar_coregistration/gefolki/python')
+# === GeFolki dependencies (vendored library, resolved relative to this file) ===
+from phase2_config import add_gefolki_to_path, load_config
+
+add_gefolki_to_path()
 
 from python.algorithm import EFolki
 from python.tools import wrapData
 
-# === Configuration ===
-Base_band = 0
+# === Configuration (flow section of the job config) ===
+flow_cfg = load_config()["flow"]
 
-# === Input paths === workstation
-# base_image_path = Path("/media/laura/laura_usb/uas_data/DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif")
+Base_band = int(flow_cfg.get("base_band", 0))
 
-# moving_image_path = Path("/media/laura/laura_usb/uas_data/DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l1_dsm_03.tif")
-
-
-# === Input paths === NVIDIA
-#L1 AND SITE 1
-# base_image_path = Path("/data/calperumResearch/site1_1_DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif")
-# moving_image_path = Path("/data/calperumResearch/site1_1_DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l1_dsm_03.tif")
-
-#L1 AND SITE 11
-base_image_path = Path("/data/calperumResearch/site2_1_DD0011/imagery/dsm/SASMDD0011_rgb_dsm_03.tif")
-moving_image_path = Path("/data/calperumResearch/site2_1_DD0011/lidar/dsm/crop_to_rgb/SASMDD0011_l1_dsm_03.tif")
+# === Input paths ===
+base_image_path = Path(flow_cfg["base_image"])
+moving_image_path = Path(flow_cfg["moving_image"])
 
 # === Simplified and Corrected Load Function ===
 def load_data_and_mask(path, band_idx):
@@ -73,19 +64,17 @@ pl.show()
 # === Calculate optical flow ===
 print("Calculating flow...\n")
 t0 = time.perf_counter()
-# --- BEFORE --- L1 displacement up to ~64 pixels
-u, v = EFolki(base_data, moving_data, iteration=8, radius=[16, 8, 4], rank=4, levels=6)
-
-# --- AFTER (for displacements > 64 pixels) ---
-# Increased levels to 7 (handles up to 128px displacement)
-# Added a larger radius '32' for the new, coarsest pyramid level
-# u, v = EFolki(base_data, moving_data, 
-#               iteration=8, 
-#               radius=[32, 16, 8, 4],  # Adjust list size/values
-#               rank=4, 
-#               levels=7)              # Key change for large displacement
-# t1 = time.perf_counter()
-# print(f"✅ Flow calculated in {(t1 - t0)/60:.3f} minutes")
+# EFolki parameters come from the config. L1 default handles displacement up
+# to ~64 px (radius [16, 8, 4], levels 6). For displacements > 64 px use
+# levels: 7 and radius: [32, 16, 8, 4] in the config.
+u, v = EFolki(
+    base_data,
+    moving_data,
+    iteration=int(flow_cfg.get("iteration", 8)),
+    radius=list(flow_cfg.get("radius", [16, 8, 4])),
+    rank=int(flow_cfg.get("rank", 4)),
+    levels=int(flow_cfg.get("levels", 6)),
+)
 
 # Mask the flow vectors for cleaner plotting
 u[~processing_mask] = 0
@@ -111,7 +100,6 @@ pl.show()
 #%%
 # === Save flow and the correctly registered image ===
 print("\n--- Saving Results ---")
-flow_dir = base_image_path.parent
 aligned_path = moving_image_path.with_name(moving_image_path.stem + "_coreg.tif")
 
 # 1. Get the metadata profile from the original base image to set the output grid.
@@ -132,8 +120,12 @@ print(f"✅ Registered image saved to: {aligned_path}")
 print("   (The output correctly preserves the smaller LiDAR footprint)")
 
 # --- Save the flow fields ---
-np.save(flow_dir / "flow_u_03_l1.npy", u)
-np.save(flow_dir / "flow_v_03_l1.npy", v)
-print(f"💾 Flow fields saved to: {flow_dir}")
+flow_u_path = Path(flow_cfg["flow_u_output"])
+flow_v_path = Path(flow_cfg["flow_v_output"])
+flow_u_path.parent.mkdir(parents=True, exist_ok=True)
+flow_v_path.parent.mkdir(parents=True, exist_ok=True)
+np.save(flow_u_path, u)
+np.save(flow_v_path, v)
+print(f"💾 Flow fields saved to: {flow_u_path} and {flow_v_path}")
 
 #%%

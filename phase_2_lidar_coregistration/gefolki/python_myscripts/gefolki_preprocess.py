@@ -1,56 +1,21 @@
 #%%
+# Grid comparison check: confirm the two DSMs share shape/CRS/transform.
+# Paths come from configs/coregistration_job.local.yml (see phase2_config.py).
 import rasterio
 
-#medium
-##L1
-# with rasterio.open("/media/laura/laura_usb/uas_data/DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif") as msrc, \
-#      rasterio.open("/media/laura/laura_usb/uas_data/DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l1_dsm_03.tif") as lsrc:
+from phase2_config import load_config
 
-# with rasterio.open("/data/calperumResearch/site1_1_DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif") as msrc, \
-#      rasterio.open("/data/calperumResearch/site1_1_DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l1_dsm_03.tif") as lsrc:
-    
-##L2
-# with rasterio.open("/media/laura/laura_usb/uas_data/DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif") as msrc, \
-#      rasterio.open("/media/laura/laura_usb/uas_data/DD0001/lidar_l2/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03.tif") as lsrc:
+_cfg = load_config()["preprocess"]
 
-# with rasterio.open("/data/calperumResearch/site1_1_DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif") as msrc, \
-#      rasterio.open("/data/calperumResearch/site1_1_DD0001/lidar_l2/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03.tif") as lsrc:
-   
-    
-#low
-# with rasterio.open("/media/laura/laura_usb/qgis/calperumResearch/site2_1_DD0011/lidar/sfm_dense/SASMDD0011_dsm_3cm.tif") as msrc, \
-#      rasterio.open("/media/laura/Extreme SSD/qgis/calperumResearch/site2_1_DD0011/lidar/cloud2453cf90763afd91_DSM_3cm.tif") as lsrc:
+with rasterio.open(_cfg["imagery_dsm"]) as msrc, \
+     rasterio.open(_cfg["lidar_dsm"]) as lsrc:
 
-#L1
-# with rasterio.open("/data/calperumResearch/site2_1_DD0011/imagery/dsm/SASMDD0011_rgb_dsm_03.tif") as msrc, \
-#      rasterio.open("/data/calperumResearch/site2_1_DD0011/lidar/dsm/crop_to_rgb/SASMDD0011_l1_dsm_03.tif") as lsrc:
-
-#L2  
-with rasterio.open("/data/calperumResearch/site2_1_DD0011/imagery/dsm/SASMDD0011_rgb_dsm_03.tif") as msrc, \
-     rasterio.open("/data/calperumResearch/site2_1_DD0011/lidar_l2/dsm/crop_to_rgb/SASMDD0011_l2_dsm_03.tif") as lsrc:
-    
-    print("📏 MicaSense DSM shape:", msrc.height, "x", msrc.width)
-    print("📏 LiDAR DEM shape    :", lsrc.height, "x", lsrc.width)
-    print("🧭 MicaSense bounds   :", msrc.bounds)
-    print("🧭 LiDAR bounds       :", lsrc.bounds)
-    print("📐 MicaSense transform:", msrc.transform)
-    print("📐 LiDAR transform    :", lsrc.transform)
-
-
-#%%
-import rasterio
-## check if the two rasters have the same shape and CRS
-#medium
-with rasterio.open("/media/laura/laura_usb/uas_data/DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif") as msrc, \
-    #  rasterio.open("/media/laura/laura_usb/uas_data/DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l1_dsm_03.tif") as lsrc:
-    rasterio.open("/media/laura/laura_usb/uas_data/DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03.tif") as lsrc:
-
-    print("📏 MicaSense DSM shape:", msrc.height, "x", msrc.width)
-    print("📏 LiDAR DEM shape    :", lsrc.height, "x", lsrc.width)
-    print("🧭 MicaSense bounds   :", msrc.bounds)
-    print("🧭 LiDAR bounds       :", lsrc.bounds)
-    print("📐 MicaSense transform:", msrc.transform)
-    print("📐 LiDAR transform    :", lsrc.transform)
+    print("📏 Imagery DSM shape:", msrc.height, "x", msrc.width)
+    print("📏 LiDAR DSM shape  :", lsrc.height, "x", lsrc.width)
+    print("🧭 Imagery bounds   :", msrc.bounds)
+    print("🧭 LiDAR bounds     :", lsrc.bounds)
+    print("📐 Imagery transform:", msrc.transform)
+    print("📐 LiDAR transform  :", lsrc.transform)
 
 
 #########################
@@ -138,38 +103,13 @@ def create_raster_with_reference_shape(
 
 
 if __name__ == "__main__":
-    # --- Define file paths ---
-    ##site 1
-    #l1
-    # lidar_dsm_path = "/media/laura/laura_usb/uas_data/DD0001/lidar/dsm/SASMDD0001_l1_dsm_03.tif"
-    # lidar_dsm_path = "/data/calperumResearch/site1_1_DD0001/lidar/dsm/SASMDD0001_l1_dsm_03.tif"
-    #l2
-    # lidar_dsm_path = "/media/laura/laura_usb/uas_data/DD0001/lidar_l2/dsm/SASMDD0001_l2_dsm_03.tif"
-    # lidar_dsm_path = "/data/calperumResearch/site1_1_DD0001/lidar_l2/dsm/SASMDD0001_l2_dsm_03.tif"
-    
-    # imagery_dsm_path = "/media/laura/laura_usb/uas_data/DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif"
-    # imagery_dsm_path = "/data/calperumResearch/site1_1_DD0001/imagery/dsm/SASMDD0001_rgb_dsm_03.tif"
-    
-    ##site 11
-    #l1
-    # lidar_dsm_path = "/data/calperumResearch/site2_1_DD0011/lidar/dsm/SASMDD0011_l1_dsm_03.tif"
-    
-    #L2
-    lidar_dsm_path = "/data/calperumResearch/site2_1_DD0011/lidar_l2/dsm/SASMDD0011_l2_dsm_03.tif"
-    
-    imagery_dsm_path = "/data/calperumResearch/site2_1_DD0011/imagery/dsm/SASMDD0011_rgb_dsm_03.tif"
-      
-    # The final output file path.
-    ##site 1
-    # output_path = "/media/laura/laura_usb/uas_data/DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l1_dsm_03.tif"
-    # output_path = "/data/calperumResearch/site1_1_DD0001/lidar/dsm/crop_to_rgb/SASMDD0001_l1_dsm_03.tif"
-    
-    # output_path = "/media/laura/laura_usb/uas_data/DD0001/lidar_l2/dsm/crop_to_l1/SASMDD0001_l2_dsm_03.tif"
-    # output_path = "/data/calperumResearch/site1_1_DD0001/lidar_l2/dsm/crop_to_rgb/SASMDD0001_l2_dsm_03.tif"
-    
-    ##site 11
-    # output_path = "/data/calperumResearch/site2_1_DD0011/lidar/dsm/crop_to_rgb/SASMDD0011_l1_dsm_03.tif"
-    output_path = "/data/calperumResearch/site2_1_DD0011/lidar_l2/dsm/crop_to_rgb/SASMDD0011_l2_dsm_03.tif"
+    # --- File paths come from the job config (preprocess section) ---
+    from phase2_config import load_config
+
+    preprocess_cfg = load_config()["preprocess"]
+    lidar_dsm_path = preprocess_cfg["lidar_dsm"]
+    imagery_dsm_path = preprocess_cfg["imagery_dsm"]
+    output_path = preprocess_cfg["output"]
 
 
     # --- Run the process ---

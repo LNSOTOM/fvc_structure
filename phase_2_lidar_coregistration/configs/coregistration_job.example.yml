@@ -1,0 +1,53 @@
+# Phase 2 co-registration job template.
+# Copy to coregistration_job.local.yml and edit the paths for one site + one
+# LiDAR pass (L1 or L2). Run the three scripts in order with this config:
+#   1. gefolki_preprocess.py       (resample LiDAR DSM onto the imagery DSM grid)
+#   2. gefolki_flow_l1.py / _l2.py (compute GeFolki optical flow)
+#   3. align_lidar_with_flow_l1.py / _l2.py (apply flow to the point cloud)
+
+job:
+  site_id: DD0011
+  lidar_pass: l2            # l1 or l2, informational only
+
+preprocess:
+  # LiDAR DSM from Phase 1 (source of pixel values).
+  lidar_dsm: /absolute/path/to/lidar/dsm/SASMDD0011_l2_dsm_03.tif
+  # Imagery (RGB) DSM that defines the target grid/shape.
+  imagery_dsm: /absolute/path/to/imagery/dsm/SASMDD0011_rgb_dsm_03.tif
+  # Output: LiDAR DSM resampled onto the imagery DSM grid.
+  output: /absolute/path/to/lidar/dsm/crop_to_rgb/SASMDD0011_l2_dsm_03.tif
+
+flow:
+  # Fixed reference image (imagery DSM).
+  base_image: /absolute/path/to/imagery/dsm/SASMDD0011_rgb_dsm_03.tif
+  # Moving image (the preprocess output above).
+  moving_image: /absolute/path/to/lidar/dsm/crop_to_rgb/SASMDD0011_l2_dsm_03.tif
+  base_band: 0
+  # EFolki parameters. L1 default: radius [16, 8, 4]; L2 default: radius [8, 4, 2].
+  # For displacements > 64 px use levels: 7 and radius [32, 16, 8, 4].
+  iteration: 8
+  radius: [8, 4, 2]
+  rank: 4
+  levels: 6
+  # Output displacement fields (NumPy .npy, same shape as base_image).
+  flow_u_output: /absolute/path/to/imagery/dsm/flow_u_03_l2.npy
+  flow_v_output: /absolute/path/to/imagery/dsm/flow_v_03_l2.npy
+
+align:
+  # Original full-density LAS/LAZ to correct.
+  las_input: /absolute/path/to/lidar_l2/SASMDD0011_l2.las
+  # Raster grid matching the flow field dimensions (the *_coreg.tif written by
+  # the flow step, or the preprocess output - same grid as base_image).
+  reference_grid: /absolute/path/to/lidar/dsm/crop_to_rgb/SASMDD0011_l2_dsm_03_coreg.tif
+  flow_u: /absolute/path/to/imagery/dsm/flow_u_03_l2.npy
+  flow_v: /absolute/path/to/imagery/dsm/flow_v_03_l2.npy
+  # 1 applies the flow as-is, -1 inverts it if visual checks show the
+  # correction is backwards.
+  correction_direction: -1
+  # Gaussian smoothing of the flow field before applying it to points.
+  # Increase (3.0-4.0) if holes appear in the corrected cloud, decrease (1.0)
+  # if the correction looks damped.
+  gaussian_sigma: 3.0
+  # Optional output path; leave empty to write <las_input stem>_coreg.las
+  # next to the input.
+  las_output: ""
