@@ -98,15 +98,7 @@ Outputs:
 - `{stem}_offset.npy` (when enabled)
 - `ply_list.txt`
 
-### B) ForestFormer export + reconstruction QC
-
-- `notebooks/02_lidar_preprocessing_forestformer.ipynb`
-	- exports the preprocessed PLY into ForestFormer-style NPY artifacts (when required by a downstream model)
-- `notebooks/03_lidarModelling_back_to_las.ipynb`
-	- reconstructs PLY→LAS and/or NPY→LAS for visualization
-  - applies `{stem}_offset.npy` when present to recover global coordinates
-
-### C) SegmentAnyTree instance visualization (PLY)
+### SegmentAnyTree instance visualization (PLY)
 
 In `notebooks/03_lidarModelling_back_to_las.ipynb`, the final section plots SegmentAnyTree instance IDs from a `.ply` output (instance-only coloring). It auto-detects a likely instance column name (e.g. `treeID`, `instance_id`, `ins_label`, …) and prints available columns if none are found.
 

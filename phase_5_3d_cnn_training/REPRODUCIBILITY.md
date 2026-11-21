@@ -2,11 +2,9 @@
 
 ## Scope and input
 
-This handoff prepares **one** Phase 4 structure-classified LAS tile as PLY.
-It does not train a model, create train/validation splits, or build the full
-ForestFormer3D dataset. Input must contain LAS `classification`, `Z_norm`
-and `treeID`; the runner fails rather than substituting approximate heights or
-zero IDs when those dimensions are missing.
+Prepare **one** Phase 4 LAS tile as PLY. This does not train a model or build
+the full dataset and splits. Input must contain `classification`, `Z_norm`
+and `treeID`; the runner fails if these are missing.
 
 ## Class conventions
 

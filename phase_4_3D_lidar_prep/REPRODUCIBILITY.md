@@ -2,13 +2,10 @@
 
 ## Input and scope
 
-This single-tile workflow starts with a **previously ICP-registered LiDAR
-tile**. The historical notebooks used ICP-registered tiles after Phase 2
-co-registration. This repository does not implement that ICP step here:
-Phase 2 GeFolki alignment alone is not a substitute. Provide the matching
-predictor raster and Phase 3 structure mask, and verify registration and tile
-identity before running. ICP output must be LAS 1.4, point format 6 or newer,
-with a projected CRS in metres.
+Provide a **previously ICP-registered LiDAR tile**, matching predictor raster
+and Phase 3 structure mask. Verify registration and tile identity before running.
+ICP is not implemented here; Phase 2 GeFolki is not a substitute. The ICP
+output must be LAS 1.4, point format 6 or newer, in a projected CRS in metres.
 
 The mask must be single-band, use classes 64–68 with an optional declared
 NoData value, overlap the LiDAR tile, and share its horizontal CRS. No

@@ -2,11 +2,9 @@
 
 ## Status
 
-This handoff records the historical method and how to inspect its products.
-The config-driven `imagery_prep.py` implements its preparation steps; the
-original scripts remain available as site-specific interactive research code.
-Validate regenerated products against the original inputs and results before
-using them in an analysis.
+`imagery_prep.py` implements the historical preparation steps; the original
+scripts remain as site-specific interactive research code. Validate regenerated
+products against the original inputs and results before analysis.
 
 ## Inputs and outputs
 
@@ -109,9 +107,8 @@ each step before continuing, run the same command separately, replacing
 `--stage all` with `--stage tile`, `--stage stack`, `--stage classify`,
 `--stage rasterize` and `--stage downsample`, in that order.
 
-The program refuses to overwrite existing output files and stops on errors. If a batch fails after
-writing some files, inspect its messages and use a new empty output directory
-for a retry. Preserve the console output as a run log.
+The program stops on errors and refuses to overwrite files. If a batch fails,
+inspect its messages and retry in a new empty output directory. Save the console log.
 
 Important details:
 

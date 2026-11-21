@@ -1,10 +1,10 @@
 # Phase 2: LiDAR-RGB Co-registration
 
-Tools for co-registering multi-temporal LiDAR point clouds using optical flow (GeFolki algorithm).
+Align LiDAR point clouds using GeFolki optical flow.
 
 ## Method
 
-LiDAR point clouds from different acquisition dates were co-registered using the **GeFolki optical flow algorithm**. DSMs generated from each LiDAR acquisition (Phase 1) were used as input to compute displacement fields between temporal pairs. The computed flow fields were then applied to shift LiDAR points, achieving precise spatial alignment between acquisitions.
+Compute a displacement field between DSMs and apply it to LiDAR points. Validate the resulting alignment for each acquisition.
 
 The workflow was inspired by: https://github.com/RS-Haynes/efolki_coreg/blob/main/efolki_coreg_example.ipynb (loads hyperspectral images in ENVI format, extracts matching wavelengths, then calculates optical flow)
 

@@ -1,20 +1,9 @@
 # fvc_structure
 
-Fractional vegetation cover / 3D structure pipeline: UAS LiDAR and imagery are processed
-phase by phase into structure-classified 3D tiles, which then feed the instance and semantic
-segmentation models (ForestFormer3D, SegmentAnyTree).
+UAS LiDAR and imagery are prepared as structure-labelled 3D tiles for
+ForestFormer3D and SegmentAnyTree.
 
 See the [research workflow guide](docs/index.html) for practical Phase 1–5 instructions.
-
-The guide's clone counter reports GitHub clones over the last 14 days, not all-time clones.
-To enable its daily update, create a fine-grained personal access token restricted to this
-repository with **Administration: read** and **Contents: read and write** permissions, and
-save it as the `REPO_TRAFFIC_TOKEN` [repository Actions secret](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
-The token's owner must be able to push to the default branch, including under any branch
-protection rules. Run **Actions → Update clone statistics → Run workflow** once; the workflow
-then updates the count daily and commits it to the default branch. The write permission lets
-that commit trigger the Pages deployment. Keep the token secret; the count itself is public.
-If the token expires or a run fails, the guide retains the last count and its update timestamp.
 
 ```
 LiDAR + UAS imagery → DSM → co-registration → 2D tiles + labels
@@ -38,16 +27,16 @@ fvc_structure/
 
 ## Pipeline phases
 
-Phases run in order; each consumes the previous phase's outputs. Every phase README documents
-its method, contents and usage.
+Follow the phase links for methods and the handoffs for reproducible commands.
+Phase 4 requires an ICP-registered tile; Phase 2 GeFolki is not ICP.
 
-| Phase | Does | Output |
+| Phase | Output | Handoff |
 |---|---|---|
-| [1 — DSM generation](phase_1_image_processing/README_phase1.md) | PDAL pipeline over LiDAR (`writers.gdal`, max elevation) | DSM GeoTIFF, 0.03 m |
-| [2 — Co-registration](phase_2_lidar_coregistration/README_phase2.md) | GeFolki optical flow on DSM pairs, applied to the point clouds | Aligned multi-temporal LiDAR |
-| [3 — 2D imagery prep](phase_3_2D_imagery_prep/README_phase3.md) | Ortho tiling, band stacking, FVC → structure labels, rasterization | Tiles + label rasters |
-| [4 — 3D LiDAR prep](phase_4_3D_lidar_prep/README_phase4.md) | Clipping, ground classification, 2D→3D label fusion | LAS 1.4 point format 6 or later (`classification` 64–68, `Z_norm`, `treeID`) |
-| [5 — Training prep](phase_5_3d_cnn_training/README.md) | LAS → model-ready tensors, predictions back to LAS | PLY / NPZ model inputs |
+| [1 — DSM generation](phase_1_image_processing/README_phase1.md) | Maximum-elevation DSM GeoTIFF | [Phase 1](phase_1_image_processing/REPRODUCIBILITY.md) |
+| [2 — Co-registration](phase_2_lidar_coregistration/README_phase2.md) | GeFolki-aligned LiDAR | [Phase 2](phase_2_lidar_coregistration/REPRODUCIBILITY.md) |
+| [3 — 2D imagery prep](phase_3_2D_imagery_prep/README_phase3.md) | Imagery tiles and label rasters | [Phase 3](phase_3_2D_imagery_prep/REPRODUCIBILITY.md) |
+| [4 — 3D LiDAR prep](phase_4_3D_lidar_prep/README_phase4.md) | Structure-classified LAS with `Z_norm` and `treeID` | [Phase 4](phase_4_3D_lidar_prep/REPRODUCIBILITY.md) |
+| [5 — Model input prep](phase_5_3d_cnn_training/README.md) | Labelled PLY and coordinate offset | [Phase 5](phase_5_3d_cnn_training/REPRODUCIBILITY.md) |
 
 Step and package docs:
 
@@ -72,3 +61,17 @@ Run on the Phase 5 outputs.
 
 - [Environment setup / Docker](SegmentAnyTree/README.md) — also on [GitHub](https://github.com/LNSOTOM/fvc_structure/tree/main/SegmentAnyTree)
 - [Multi-GPU Docker inference](SegmentAnyTree/README_ForAINetV2_multi_gpu_inference.md)
+
+<details>
+<summary>Maintainers: enable the guide's clone counter</summary>
+
+The counter shows GitHub clones over the last 14 days, not all-time clones.
+Create a fine-grained token restricted to this repository with **Administration: read**
+and **Contents: read and write**, and save it as the `REPO_TRAFFIC_TOKEN`
+[Actions secret](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
+Its owner must be able to push to the default branch, including under branch protection.
+Run **Actions → Update clone statistics → Run workflow** once. The daily workflow commits
+the public count to the default branch; the write permission lets that commit trigger Pages.
+Keep the token secret. If it expires or a run fails, the last count and timestamp remain.
+
+</details>

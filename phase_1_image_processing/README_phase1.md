@@ -1,14 +1,12 @@
 # Phase 1: DSM Generation
 
-Tools for creating Digital Surface Models (DSMs) from georeferenced LiDAR point clouds.
-
-This phase starts from a georeferenced `.las` or `.laz` point cloud. Upstream sensor
+Create a digital surface model (DSM) from a georeferenced `.las` or `.laz` point cloud. Upstream sensor
 conversion, trajectory processing and georeferencing (HySpex/Ouster/APX) are handled in the
 [remote_sensing-analytics DSM package](https://github.com/UQ-Drones-CRP/remote_sensing-analytics/blob/main/sensors_data/hyspec/dsm_package/dsm/README_phase1.md).
 
 ## Method
 
-A **Digital Surface Model (DSM) GeoTIFF** was generated from LiDAR point clouds using a PDAL pipeline. The `writers.gdal` stage was configured with `output_type: "max"` to ensure each pixel represented the **highest elevation point** within its grid cell. This output was used for LiDAR point cloud co-registration with RGB dense clouds.
+PDAL `writers.gdal` uses `output_type: "max"` to write the highest elevation in each grid cell. The DSM supports LiDAR co-registration with RGB dense clouds.
 
 **Key Parameters:**
 - Resolution: 0.03 m (3 cm)
@@ -96,11 +94,6 @@ from dsm_lidar import job_from_config, create_dsm_from_job
 job = job_from_config("phase_1_image_processing/configs/dsm_job.example.yml")
 
 create_dsm_from_job(job, resolution=0.03, output_type="max")
-```
-
-### Legacy script behavior
-```bash
-python3 phase_1_image_processing/dsm_lidar.py --site DD0011_L2
 ```
 
 ### Notebook
