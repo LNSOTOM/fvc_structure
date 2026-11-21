@@ -39,6 +39,10 @@ npz_files, ply_files, errors = batch_process(config)
 
 Open and run `notebooks/lidar_preprocessing_pipeline.ipynb` for an interactive workflow with visualizations.
 
+For the historical notebook's 1–5 mapping and the checked three-class HSM
+workflow, see [Phase 5 reproducibility](../REPRODUCIBILITY.md). The package
+defaults below use a different 0–4 class mapping.
+
 ## Output Formats
 
 ### NPZ Format (MINSU3D)
@@ -53,13 +57,15 @@ Each NPZ file contains:
 ### PLY Format (ForestFormer3D)
 
 Each PLY file contains point-level attributes:
-- `x, y, z`: Absolute coordinates
+- `x, y, z`: Local coordinates by default; optional global coordinates
 - `semantic_seg`: Class labels (0..K-1)
 - `treeID`: Tree instance IDs
 - `z_norm`: Height above ground
 - `intensity`: Normalized intensity [0, 1]
 
 **Note**: PLY files exclude points with `semantic_label == IGNORE_INDEX`
+and default local coordinates require the `{stem}_offset.npy` sidecar for
+global reconstruction.
 
 ## Configuration
 

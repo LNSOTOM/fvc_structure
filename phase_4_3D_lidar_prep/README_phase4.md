@@ -4,7 +4,9 @@ Tools for processing LiDAR point clouds to generate structure-classified 3D data
 
 ## Method
 
-Co-registered LiDAR point clouds (Phase 2) were processed to create 3D training datasets by:
+The historical tile workflows use LiDAR tiles with additional ICP registration,
+after Phase 2 co-registration. ICP is not implemented by this phase. These
+already ICP-registered tiles were processed to create 3D training datasets by:
 1. Clipping point clouds to match 2D orthomosaic tiles (3072×3072 px grid)
 2. Classifying ground points (CSF or SMRF) and computing height-above-ground as `Z_norm`
 3. Fusing 3D LiDAR geometry with 2D structure mask labels via voxel transfer + crown-centric polar refinement
@@ -15,7 +17,11 @@ The structure fusion pipeline combines Z-normalized LiDAR with 2D mask labels us
 - **Polar refinement**: Crown-centric analysis with data-driven height priors for mallee refinement
 - **Height-based validation**: Data-driven height ranges ensure label consistency
 
-All final products are written as **LAS 1.4 / Point Format 6 (PF6)** and preserve scale/offset.
+The fusion writer uses LAS 1.4 point format 6 or later and preserves scale/offset;
+an existing LAS 1.4 point format 6 or later is retained.
+
+For a reproducible single-tile workflow, including prerequisites, commands and
+validation notes, see [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
 
 ## Contents
 
@@ -44,13 +50,14 @@ phase_4_3D_lidar_prep/
 Use `rasterclip` to clip a large LAS to raster tile bounds, then `maskclip` to transfer 2D mask values into the LAS `Classification` field.
 
 - Interactive workflows live under `step_1_clipping/notebooks/`.
-- For details and APIs, see `step_1_clipping/README.md`.
+- For details and APIs, see `step_1_clipping/README_phase4_step1.md`. Mask
+  classification crops to the mask and does not reproject the LAS.
 
 ### Step 2: Ground Classification & Height Normalization
 This step writes a `Z_norm` ExtraBytes dimension (height above ground) into the LAS.
 
 ```bash
-# Examples (see step_2_csf_znorm/README.md for full CLI)
+# Examples (see step_2_csf_znorm/README_phase4_step2.md for full CLI)
 groundnorm csf input.las ground_csf.las
 groundnorm normalize input.las ground_csf.las z_norm_csf.las --k 3
 ```
@@ -117,7 +124,7 @@ pip install dask[distributed] tqdm
 - **Ground-only LAS**: Ground points only (CSF or SMRF)
 - **Z-normalized LAS**: Adds `Z_norm` ExtraBytes (height above ground)
 - **Fused vegetation-only LAS (training product)**:
-    - LAS 1.4 PF6
+    - LAS 1.4 point format 6 or later
     - non-zero structure classes (64–68)
     - `Z_norm` and `treeID` ExtraBytes
     - optional “full fused” product when enabled in config

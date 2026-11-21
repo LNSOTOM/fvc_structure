@@ -7,7 +7,16 @@ phase_3_models/lightning_logs/
 assets/
 libnabo/
 libs/
-phase_3_2D_imagery_prep/
+phase_3_2D_imagery_prep/*
+!phase_3_2D_imagery_prep/REPRODUCIBILITY.md
+!phase_3_2D_imagery_prep/phase3_config.py
+!phase_3_2D_imagery_prep/imagery_prep.py
+!phase_3_2D_imagery_prep/configs/
+phase_3_2D_imagery_prep/configs/*
+!phase_3_2D_imagery_prep/configs/imagery_prep_job.example.yml
+phase_4_3D_lidar_prep/configs/*.local.yml
+phase_5_3d_cnn_training/configs/*.local.yml
+!phase_3_2D_imagery_prep/tests/
 raycloudtools/
 
 # ForestFormer3D: keep code tracked, ignore generated artifacts/data
@@ -85,6 +94,14 @@ coverage.xml
 
 #images
 *.png
+!docs/figures/phase1-dsm.png
+!docs/figures/phase2-coregistration.png
+!docs/figures/phase3-imagery-tiles.png
+!docs/figures/phase3-label-quality.png
+!docs/figures/phase4-height-model.png
+!docs/figures/phase4-mask-points.png
+!docs/figures/phase4-ground-height.png
+!docs/figures/phase5-model-arrays.png
 
 # GIS extensions
 *.aux.xml

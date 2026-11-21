@@ -1,0 +1,22 @@
+# One previously ICP-registered LiDAR tile and its matching imagery and mask.
+# Copy to lidar_prep_job.local.yml and replace every path.
+# All output paths must be new; the workflow refuses to overwrite them.
+inputs:
+  icp_las: /absolute/path/to/registered_tile.las
+  predictor_raster: /absolute/path/to/predictor_tile.tif
+  mask_raster: /absolute/path/to/5cm_structure_mask.tif
+
+outputs:
+  masked_las: /absolute/path/to/output/masked_tile.las
+  ground_las: /absolute/path/to/output/ground_tile.las
+  normalized_las: /absolute/path/to/output/normalized_tile.las
+  fused_las: /absolute/path/to/output/structure_tile.las
+
+# Historical CSF and inverse-distance ground interpolation settings.
+csf:
+  resolution: 0.5
+  iterations: 500
+  threshold: 0.01
+  rigidness: 2
+normalization:
+  k: 3

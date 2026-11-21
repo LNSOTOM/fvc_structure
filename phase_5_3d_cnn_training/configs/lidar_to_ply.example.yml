@@ -1,0 +1,8 @@
+# Copy this file to lidar_to_ply.local.yml and replace the paths.
+# Input must be a Phase 4 LAS with Z_norm and treeID dimensions.
+input_las: /absolute/path/to/structure_tile.las
+output_dir: /absolute/path/to/new/output_directory
+
+# historical_five_class: PLY classes 1–5, as in the historical notebook.
+# three_class_hsm: PLY classes 3–5 (hummock, shrub, mallee); fail on 64 or 65.
+class_profile: three_class_hsm

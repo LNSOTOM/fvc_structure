@@ -2,18 +2,32 @@
 
 Tools for processing orthomosaic imagery into structured tiles with vegetation classification labels.
 
+For inputs, environment checks, historical settings and known reproducibility limitations, see
+the [Phase 3 handoff](REPRODUCIBILITY.md). The config-driven
+`imagery_prep.py` runs the preparation steps; the original scripts remain
+site-specific interactive examples.
+
 ## Method
 
 Orthomosaic imagery from UAS acquisitions was processed into gridded tiles with corresponding vegetation structure labels. The workflow involves:
 1. Clipping orthomosaics into regular non-overlapping grid tiles (30.72 × 30.72 m)
 2. Extracting and stacking multispectral bands
 3. Converting FVC (Fractional Vegetation Cover) annotations to structure-based classification
-4. Rasterizing vector labels to match tile resolution
+4. Rasterizing vector labels on a 1 cm reference grid
+5. Downsampling labels to 5 cm and remapping classes
+6. Assessing label quality and predictor-grid alignment separately
 
 ## Contents
 
 ```
 phase_3_2D_imagery_prep/
+├── imagery_prep.py                         # Config-driven preparation stages
+├── phase3_config.py                         # YAML config loader
+├── configs/
+│   └── imagery_prep_job.example.yml         # Copy-and-edit job template
+├── REPRODUCIBILITY.md                       # Setup and handoff guide
+├── tests/
+│   └── test_imagery_prep.py                 # Preparation workflow checks
 ├── step_1_orthomosaic_to_tiling/
 │   ├── 1_1_clip_shp_gridAnnotation_MULTISPECTRALsampling.py  # Clip rasters by annotated grid
 │   ├── 1_2_imageProcessing_stackedBandsRaster.py             # Stack multispectral bands
@@ -40,22 +54,31 @@ phase_3_2D_imagery_prep/
 
 ## Usage
 
-### Step 1: Orthomosaic Tiling
+### Config-driven preparation
+
+After setting up the environment and editing the example config as described in
+the [handoff](REPRODUCIBILITY.md), run all stages from the repository root:
+
+```bash
+python phase_3_2D_imagery_prep/imagery_prep.py --config phase_3_2D_imagery_prep/configs/imagery_prep_job.local.yml --stage all
+```
+
+This does not pause between stages. To inspect each stage before continuing,
+replace `all` with `tile`, `stack`, `classify`, `rasterize` and `downsample`
+in turn. Review the log and run label QA before using the results.
+
+### Original interactive workflow
 ```bash
 # Interactive workflow (recommended)
 jupyter notebook step_1_orthomosaic_to_tiling/notebooks/01_clip_orthomosaic_by_grid.ipynb
 
-# Or run scripts directly
-python step_1_orthomosaic_to_tiling/1_1_clip_shp_gridAnnotation_MULTISPECTRALsampling.py
-python step_1_orthomosaic_to_tiling/1_2_imageProcessing_stackedBandsRaster.py
+# The scripts contain site-specific paths; configure and run the relevant cells interactively.
 ```
 
 ### Step 2: Structure Classification
 ```bash
-# Process in sequence
-python step_2_structure_2D_labels/2_1_structure_2D_labels.py
-python step_2_structure_2D_labels/2_2_structure_2D_rasterLabels.py
-python step_2_structure_2D_labels/2_3_downsampling_labels.py
+# Configure paths and run the relevant cells interactively in sequence.
+# See REPRODUCIBILITY.md before running: these scripts have multiple example cells.
 ```
 
 ### Step 3: Reference-label quality assessment
@@ -114,7 +137,8 @@ No repeat annotation exists, so inter-annotator agreement is not measured or cla
 - **ID 3**: Shrubs (chenopod shrubs, all shrub types)
 - **ID 4**: Mallee
 
-**Excluded classes:** `bare_ground`, `shadow`
+**Excluded classes:** `bare_ground`, `shadow`, `be`, `unknowm` (spelling in the script).
+Other unrecognized values are removed when a type column is present; see the handoff.
 
 ## Dependencies
 
@@ -126,7 +150,7 @@ conda install -c conda-forge gdal rasterio geopandas
 
 - **Tiled rasters**: 30.72 × 30.72 m five-band multispectral tiles at each orthomosaic's
   native resolution — 5 cm at site1_1_DD0001 (614 × 614 px), 6 cm at site2_1_DD0011 (512 × 512 px)
-- **Vector labels**: Structure-classified shapefiles with `structure_id` attribute
+- **Vector labels**: Structure-classified shapefiles with `struct_id` attribute
 - **Raster labels**: multi-class rasters at 1 cm (3072 × 3072 px), downsampled to 5 cm
   (614 × 614 px) for model input
 - **Processing logs**: Classification statistics and polygon counts

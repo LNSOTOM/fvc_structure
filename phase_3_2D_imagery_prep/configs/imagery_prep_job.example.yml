@@ -1,0 +1,29 @@
+# Copy to imagery_prep_job.local.yml and replace every path.
+# Use paths appropriate to the Python environment (Windows or Linux/WSL).
+# Output directories must be new or empty; existing outputs are never overwritten.
+tile:
+  orthomosaic: /absolute/path/to/orthomosaic.tif
+  grid: /absolute/path/to/grid.shp
+  output_dir: /absolute/path/to/output/predictor_raw
+  grid_id_field: id
+  annotated_field: annotated
+  annotated_value: 1
+
+stack:
+  input_dir: /absolute/path/to/output/predictor_raw
+  output_dir: /absolute/path/to/output/predictor_stacked
+
+classify:
+  input_dir: /absolute/path/to/fvc_annotations
+  output_dir: /absolute/path/to/output/structure_shapefiles
+
+rasterize:
+  input_dir: /absolute/path/to/output/structure_shapefiles
+  # 1 cm reference tiles; this may differ from the predictor grid.
+  reference_dir: /absolute/path/to/1cm_reference_tiles
+  reference_pattern: "tiles_multispectral_{id}.tif"
+  output_dir: /absolute/path/to/output/labels_1cm
+
+downsample:
+  input_dir: /absolute/path/to/output/labels_1cm
+  output_dir: /absolute/path/to/output/labels_5cm

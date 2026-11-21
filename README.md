@@ -4,6 +4,8 @@ Fractional vegetation cover / 3D structure pipeline: UAS LiDAR and imagery are p
 phase by phase into structure-classified 3D tiles, which then feed the instance and semantic
 segmentation models (ForestFormer3D, SegmentAnyTree).
 
+See the [research workflow guide](docs/index.html) for practical Phase 1–5 instructions.
+
 ```
 LiDAR + UAS imagery → DSM → co-registration → 2D tiles + labels
                           → structure-classified LAS → model inputs → instance + semantic predictions
@@ -34,7 +36,7 @@ its method, contents and usage.
 | [1 — DSM generation](phase_1_image_processing/README_phase1.md) | PDAL pipeline over LiDAR (`writers.gdal`, max elevation) | DSM GeoTIFF, 0.03 m |
 | [2 — Co-registration](phase_2_lidar_coregistration/README_phase2.md) | GeFolki optical flow on DSM pairs, applied to the point clouds | Aligned multi-temporal LiDAR |
 | [3 — 2D imagery prep](phase_3_2D_imagery_prep/README_phase3.md) | Ortho tiling, band stacking, FVC → structure labels, rasterization | Tiles + label rasters |
-| [4 — 3D LiDAR prep](phase_4_3D_lidar_prep/README_phase4.md) | Clipping, ground classification, 2D→3D label fusion | LAS 1.4 PF6 (`classification` 64–68, `Z_norm`, `treeID`) |
+| [4 — 3D LiDAR prep](phase_4_3D_lidar_prep/README_phase4.md) | Clipping, ground classification, 2D→3D label fusion | LAS 1.4 point format 6 or later (`classification` 64–68, `Z_norm`, `treeID`) |
 | [5 — Training prep](phase_5_3d_cnn_training/README.md) | LAS → model-ready tensors, predictions back to LAS | PLY / NPZ model inputs |
 
 Step and package docs:

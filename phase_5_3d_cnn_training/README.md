@@ -19,7 +19,8 @@ Typical input LAS tiles come from Phase 4 Step 3 (fusion) and contain:
 ## Method / Key decisions
 
 1. **Class remap for training**
-	- LAS codes 64–68 are remapped to compact class IDs 0–4.
+	- The package default remaps LAS codes 64–68 to IDs 0–4; the historical
+	  batch notebook explicitly uses IDs 1–5. Verify the downstream exporter.
 	- LAS 0/background becomes `ignore_index` (default `-100`).
 
 2. **PLY is written in local tile coordinates (precision-safe)**
@@ -50,6 +51,11 @@ phase_5_3d_cnn_training/
 
 ## Usage
 
+For a checked, single-tile LAS-to-PLY command and the historical five-class
+and strict three-class HSM conventions, see
+[REPRODUCIBILITY.md](REPRODUCIBILITY.md). Three-class HSM means
+hummock/shrub/mallee, not the forest model's ground/wood/leaf classes.
+
 ### Notebook workflow (3 steps)
 
 The notebooks are intended to be used in this order:
@@ -72,12 +78,19 @@ from lidar_preprocessing import PreprocessingConfig, batch_process
 cfg = PreprocessingConfig(
 	 input_dir="/path/to/phase4/struct_polar_tiles",
 	 out_ply_dir="/path/to/preprocessed/forestformer3d_ply",
+	 save_npz=False,
+	 out_npz_dir=None,
+	 class_remap={0: -100, 64: 1, 65: 2, 66: 3, 67: 4, 68: 5},
 	 ply_use_local_coords=True,     # precision-safe
 	 save_ply_offset=True,          # write {stem}_offset.npy
 )
 
 batch_process(cfg, file_pattern="*.las")
 ```
+
+`batch_process` collects errors and may return paths for skipped empty PLYs;
+check errors and outputs explicitly. The single-tile handoff avoids this
+batch wrapper and rejects missing `Z_norm` and `treeID`.
 
 Outputs:
 

@@ -1,20 +1,647 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FVC Structure Apps</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A practical guide to the FVC structure LiDAR and imagery workflow.">
+  <title>FVC Structure | Research workflow guide</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 40px; background: #f4efe4; color: #1f2933; }
-    .card { max-width: 720px; margin: 0 auto; background: #fffdf8; border: 1px solid #d9d1c3; border-radius: 14px; padding: 24px; }
-    a.btn { display: inline-block; margin-top: 16px; padding: 12px 18px; border-radius: 999px; text-decoration: none; color: white; background: #1f5c5b; font-weight: 700; }
+    :root { color-scheme: light; --ink: #102c2b; --muted: #405b58; --accent: #205e56; --line: #cddfd9; --paper: #fff; --wash: #f5faf8; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: var(--wash); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    a { color: #205e56; text-underline-offset: .18em; }
+    a:hover { color: #102c2b; }
+    a:focus-visible { outline: 3px solid #205e56; outline-offset: 3px; }
+    .top { background: #102c2b; color: white; }
+    .top-inner { max-width: 1200px; margin: auto; padding: 18px 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+    .brand { color: white; font-weight: 750; letter-spacing: .03em; text-decoration: none; }
+    .top nav { display: flex; gap: 20px; flex-wrap: wrap; }
+    .top nav a { color: #effbf6; font-size: .9rem; }
+    .top a:focus-visible { outline-color: #effbf6; }
+    .hero { background: #dcefe7; border-bottom: 1px solid #c1ded2; }
+    .hero-inner { max-width: 1200px; margin: auto; padding: 52px 28px 44px; }
+    .eyebrow { color: var(--accent); font-size: .76rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { font-size: clamp(2.2rem, 5vw, 3.8rem); line-height: 1.08; letter-spacing: -.04em; max-width: 900px; margin: .25em 0; }
+    .lead { max-width: 760px; font-size: 1.12rem; color: #244740; }
+    .hero-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+    .button { display: inline-block; padding: 9px 16px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-weight: 650; }
+    .button.primary { background: var(--accent); color: white; }
+    .button.primary:hover { color: white; background: #102c2b; }
+    .layout { max-width: 1200px; margin: auto; padding: 34px 28px 80px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 46px; }
+    .sidebar { align-self: start; position: sticky; top: 24px; font-size: .9rem; }
+    .sidebar strong { display: block; margin: 0 0 8px; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; }
+    .sidebar a { display: block; padding: 6px 0; }
+    main { min-width: 0; }
+    section { scroll-margin-top: 24px; margin-bottom: 46px; }
+    h2 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 12px; letter-spacing: -.025em; }
+    h3 { font-size: 1.1rem; margin: 26px 0 8px; }
+    p { margin: 8px 0 14px; }
+    .muted { color: var(--muted); }
+    .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 22px 0; }
+    .flow > div, .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 17px 19px; }
+    .flow strong { display: block; color: var(--accent); }
+    .flow span { display: block; color: var(--muted); font-size: .88rem; }
+    .phase { border-top: 1px solid #c1ded2; padding-top: 36px; }
+    .phase-label { color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+    .facts p { margin-bottom: 0; }
+    .facts strong { color: var(--accent); }
+    .phase-overview { margin: 20px 0; }
+    .phase-overview > .panel + .panel { margin-top: 12px; }
+    .phase-overview h3 { margin: 0 0 8px; }
+    .phase-overview ol, .phase-overview ul { margin: 0; }
+    .phase-overview li { overflow-wrap: anywhere; }
+    .phase-overview .step-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0; list-style: none; counter-reset: step; }
+    .step-gallery li { min-width: 0; margin: 0; border: 1px solid var(--line); border-radius: 6px; padding: 12px; counter-increment: step; }
+    .step-gallery strong { display: block; margin-bottom: 8px; line-height: 1.4; }
+    .step-gallery strong::before { content: counter(step) ". "; }
+    .step-gallery img, .step-gallery svg { display: block; width: 100%; height: 140px; object-fit: contain; background: #f5faf8; border-radius: 4px; }
+    .step-gallery svg { color: #205e56; font: 14px system-ui, sans-serif; text-anchor: middle; }
+    .step-gallery .diagram-arrow { font-size: 30px; fill: #102c2b; }
+    .step-gallery small { display: block; color: var(--muted); line-height: 1.4; margin-top: 7px; }
+    .metadata { margin: 14px 0 0; padding: 12px 14px; background: #eaf5f0; border: 1px solid var(--line); border-radius: 6px; font-size: .88rem; line-height: 1.5; }
+    .metadata h3 { margin: 0 0 6px; font-size: .95rem; }
+    .metadata dl, .step-metadata { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px; margin: 0; }
+    .metadata dt, .step-metadata dt { font-weight: 700; }
+    .metadata dd, .step-metadata dd { margin: 0; overflow-wrap: anywhere; }
+    .step-metadata { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+    .note { border-left: 4px solid #205e56; background: #e6f3ed; padding: 12px 16px; margin: 18px 0; }
+    pre { overflow-x: auto; padding: 16px 18px; border-radius: 7px; background: #b5b9f0; color: #102c2b; font: .85rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .command { display: flow-root; position: relative; }
+    .command pre { padding-top: 48px; }
+    .copy-command { position: absolute; z-index: 1; top: 26px; right: 10px; padding: 5px 8px; border: 1px solid #102c2b; border-radius: 4px; background: rgba(255, 255, 255, .55); color: #102c2b; cursor: pointer; }
+    .copy-command:hover { background: rgba(255, 255, 255, .8); }
+    .copy-command:focus-visible { outline: 3px solid #102c2b; outline-offset: 3px; }
+    .copy-command svg { display: block; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; overflow-wrap: anywhere; }
+    pre code { font-size: inherit; overflow-wrap: normal; }
+    ol, ul { padding-left: 1.4em; }
+    li { margin: 5px 0; }
+    .resources { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 25px; }
+    figure { margin: 18px 0 0; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+    figure img { display: block; max-width: 100%; height: auto; margin: auto; }
+    figcaption { margin-top: 12px; color: var(--muted); font-size: .9rem; }
+    footer { border-top: 1px solid var(--line); color: var(--muted); padding: 24px 28px; text-align: center; font-size: .86rem; }
+    @media (max-width: 720px) {
+      .hero-inner { padding: 34px 20px; }
+      .layout { display: block; padding: 26px 20px 50px; }
+      .sidebar { position: static; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 30px; }
+      .sidebar a { display: inline-block; margin-right: 16px; }
+      .flow, .facts, .phase-overview { grid-template-columns: 1fr; }
+      .phase-overview .step-gallery { grid-template-columns: 1fr; }
+      .top-inner { padding: 16px 20px; }
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Forest Qualitative Viewer</h1>
-    <p>Open the production Dash app:</p>
-    <a class="btn" href="https://lauransotomayor.herokuapp.com/" target="_blank" rel="noopener">Open App</a>
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+    <symbol id="visual-file" viewBox="0 0 60 60">
+      <path d="M12 5h25l11 11v39H12z M37 5v12h11 M19 26h22 M19 33h22 M19 40h16" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    </symbol>
+    <symbol id="visual-points" viewBox="0 0 60 60">
+      <g fill="currentColor"><circle cx="11" cy="42" r="3"/><circle cx="20" cy="26" r="3"/><circle cx="29" cy="36" r="3"/><circle cx="38" cy="15" r="3"/><circle cx="47" cy="29" r="3"/><circle cx="51" cy="44" r="3"/><circle cx="15" cy="13" r="3"/><circle cx="33" cy="49" r="3"/><circle cx="28" cy="9" r="3"/></g>
+    </symbol>
+    <symbol id="visual-grid" viewBox="0 0 60 60">
+      <path d="M7 7h46v46H7z M7 22h46 M7 37h46 M22 7v46 M37 7v46" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    </symbol>
+    <symbol id="visual-polygons" viewBox="0 0 60 60">
+      <path d="M5 10 25 6 29 24 11 31z M34 10 53 7 55 27 35 25z M9 37 29 28 31 52 12 54z M36 32 53 32 50 53 35 51z" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    </symbol>
+    <symbol id="visual-stack" viewBox="0 0 60 60">
+      <path d="M7 20 30 8 53 20 30 32z M7 29 30 41 53 29 M7 38 30 50 53 38" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    </symbol>
+    <symbol id="visual-check" viewBox="0 0 60 60">
+      <circle cx="30" cy="30" r="23" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="m18 30 8 8 17-17" fill="none" stroke="currentColor" stroke-width="3"/>
+    </symbol>
+  </svg>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="#top">FVC STRUCTURE</a>
+      <nav aria-label="Main navigation">
+        <a href="#overview">Workflow</a>
+        <a href="#phase-1">Phase 1</a>
+        <a href="#phase-2">Phase 2</a>
+        <a href="#phase-3">Phase 3</a>
+        <a href="#phase-4">Phase 4</a>
+        <a href="#phase-5">Phase 5</a>
+        <a href="./forest-qualitative-viewer.html">Results viewer</a>
+        <a href="https://github.com/LNSOTOM/fvc_structure">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero" id="top">
+    <div class="hero-inner">
+      <div class="eyebrow">Research workflow guide</div>
+      <h1>From point clouds to aligned forest data</h1>
+      <p class="lead">A practical, phase-by-phase guide to preparing UAS LiDAR and imagery for vegetation structure analysis, from surface models to classified 3D point clouds.</p>
+      <div class="hero-links">
+        <a class="button primary" href="#setup">Start with setup</a>
+        <a class="button" href="https://github.com/LNSOTOM/fvc_structure">Explore the repository</a>
+      </div>
+    </div>
   </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav aria-label="On this page">
+        <strong>On this page</strong>
+        <a href="#overview">Overview</a>
+        <a href="#setup">0. Environment setup</a>
+        <a href="#phase-1">1. DSM generation</a>
+        <a href="#phase-2">2. Co-registration</a>
+        <a href="#phase-3">3. Imagery and labels</a>
+        <a href="#phase-4">4. 3D LiDAR preparation</a>
+        <a href="#phase-5">5. Model input preparation</a>
+        <a href="#next">Next phases</a>
+      </nav>
+    </aside>
+
+    <main>
+      <section id="overview">
+        <div class="eyebrow">Overview</div>
+        <h2>Prepare spatial data for analysis</h2>
+        <p>These guides cover the first five phases of the repository. Each phase describes the required inputs, commands and products; the linked handoff documents contain additional configuration details.</p>
+        <div class="flow" aria-label="Workflow from inputs to classified 3D LiDAR">
+          <div><strong>01 / Surface model</strong><span>Georeferenced LAS/LAZ to a DSM GeoTIFF.</span></div>
+          <div><strong>02 / Alignment</strong><span>Align LiDAR to imagery with optical flow.</span></div>
+          <div><strong>03 / Imagery and labels</strong><span>Prepare predictor tiles and structure masks.</span></div>
+          <div><strong>04 / 3D preparation</strong><span>Use ICP-registered tiles to create classified point clouds.</span></div>
+          <div><strong>05 / Model inputs</strong><span>Prepare local-coordinate PLY files and verify labels.</span></div>
+        </div>
+        <p class="muted">The examples below run locally; this page does not execute processing in the browser. Metadata describes documented inputs, defaults or examples—not values read from your files. Record your own CRS, grids, parameters and outputs. The saved figures retain their original notebook color maps, which may not be accessible to everyone with color-vision deficiencies.</p>
+      </section>
+
+      <section id="setup">
+        <div class="eyebrow">Step 0 / Before you begin</div>
+        <h2>Set up the environment</h2>
+        <p>Run these commands in a terminal, one step at a time. They work in Linux/WSL and Windows PowerShell. Use the same environment for setup and processing.</p>
+        <p class="muted">Copy buttons appear when your browser permits clipboard access; otherwise select the command text manually.</p>
+        <h3>1. Check the prerequisites</h3>
+        <p>Install <a href="https://git-scm.com/install/">Git</a> and <a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a> if needed, then check that both are available:</p>
+        <div class="command" data-label="Git version"><pre><code>git --version</code></pre></div>
+        <div class="command" data-label="uv version"><pre><code>uv --version</code></pre></div>
+        <h3>2. Get the repository</h3>
+        <p>Clone it once in the directory where you want to keep the project:</p>
+        <div class="command" data-label="Clone repository"><pre><code>git clone https://github.com/LNSOTOM/fvc_structure.git</code></pre></div>
+        <p>Enter the repository. If you already cloned it, start here from its parent directory instead.</p>
+        <div class="command" data-label="Enter repository"><pre><code>cd fvc_structure</code></pre></div>
+        <h3>3. Create and check the Python environment</h3>
+        <p>From the repository root, install the locked Python dependencies for Phases 1 and 2. The project requires Python 3.10 or 3.11; uv can obtain a compatible interpreter if needed.</p>
+        <div class="command" data-label="Install dependencies"><pre><code>uv sync</code></pre></div>
+        <p>Check that Python starts and the processing libraries import:</p>
+        <div class="command" data-label="Check Python version"><pre><code>uv run python --version</code></pre></div>
+        <div class="command" data-label="Check processing libraries"><pre><code>uv run python -c "import numpy, rasterio, scipy, skimage, laspy, yaml; print('Dependencies OK')"</code></pre></div>
+        <p>Continue when the first command reports Python 3.10 or 3.11 and the second prints <code>Dependencies OK</code>.</p>
+        <h3>4. Check PDAL for Phase 1</h3>
+        <p>DSM generation also needs the external <code>pdal</code> executable. Install it separately using the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/REPRODUCIBILITY.md">Phase 1 setup guide</a>, then check that it is on the terminal's PATH:</p>
+        <div class="command" data-label="Check PDAL"><pre><code>pdal --version</code></pre></div>
+        <p>If the command is not found, install PDAL and verify it again in the same terminal before running Phase 1. Phase 2's scripts do not require the PDAL executable.</p>
+        <div class="note"><strong>Paths are machine-specific.</strong> The example configs contain placeholders or site-specific paths. Copy and edit them for your own data; on Windows and WSL use paths appropriate to the environment running Python.</div>
+        <p><a class="button" href="#phase-1">Continue to Phase 1</a></p>
+      </section>
+
+      <section id="phase-1" class="phase">
+        <div class="phase-label">Phase 1 / DSM generation</div>
+        <h2>Build a digital surface model</h2>
+        <p>Generate a raster of maximum LiDAR elevation using PDAL. The DSM can then be used as the moving surface in Phase 2.</p>
+        <div class="facts">
+          <div class="panel"><strong>Inputs</strong><p>A georeferenced LAS/LAZ point cloud and a writable output location.</p></div>
+          <div class="panel"><strong>Output</strong><p>A DSM GeoTIFF, optionally accompanied by a STAC sidecar. The example uses a 0.03 m grid.</p></div>
+        </div>
+        <div class="metadata">
+          <h3>Phase metadata</h3>
+          <dl><dt>CRS</dt><dd>Georeferenced input CRS; inspect the output CRS for your run.</dd>
+            <dt>Example settings</dt><dd>0.03 m grid; maximum elevation; NoData −9999; LZW compression.</dd>
+            <dt>Metadata</dt><dd>Site, product level, sensor and acquisition datetime can be configured; STAC output is optional.</dd></dl>
+        </div>
+        <div class="phase-overview">
+          <div class="panel">
+            <h3>Processing steps</h3>
+            <ol class="step-gallery">
+              <li><strong>Configure the point cloud and DSM output.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Point-cloud file and DSM output specified in a job configuration"><use href="#visual-points" x="48" y="5" width="60" height="60"/><text x="78" y="92">LAS / LAZ</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-file" x="252" y="5" width="60" height="60"/><text x="282" y="92">Job config</text></svg>
+                <small>Diagram: choose input and output paths.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Georeferenced LAS/LAZ and job metadata.</dd><dt>Settings</dt><dd>Example grid 0.03 m; input and output paths are user-supplied.</dd><dt>Output</dt><dd>Configured DSM job.</dd></dl>
+              </li>
+              <li><strong>Estimate the DSM grid, then run PDAL.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="LiDAR points converted to a surface raster with PDAL"><use href="#visual-points" x="48" y="5" width="60" height="60"/><text x="78" y="92">LiDAR points</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-grid" x="252" y="5" width="60" height="60"/><text x="282" y="92">DSM grid</text></svg>
+                <small>Diagram: estimate the grid before generating the DSM.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>LAS/LAZ and configured resolution.</dd><dt>Settings</dt><dd>PDAL maximum elevation; NoData −9999 and LZW in the example.</dd><dt>Output</dt><dd>DSM GeoTIFF; optional STAC sidecar.</dd></dl>
+              </li>
+              <li><strong>Inspect the raster and optional metadata.</strong>
+                <a href="./figures/phase1-dsm.png"><img src="./figures/phase1-dsm.png" alt="DSM elevation and hillshade for DD0011." loading="lazy"></a>
+                <small>Historical DD0011 output; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/notebooks/01_create_dsm_from_las.ipynb">DSM notebook</a>. Select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Generated DSM and optional metadata.</dd><dt>Checks</dt><dd>CRS, extent, resolution, elevation and NoData.</dd><dt>Output</dt><dd>Inspection findings before co-registration.</dd></dl>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h3>Repository contents</h3>
+            <ul>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/dsm_lidar.py"><code>dsm_lidar.py</code></a> — DSM generator</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_1_image_processing/configs"><code>configs/</code></a> — job template</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_1_image_processing/notebooks"><code>notebooks/</code></a> — examples and visualisation</li>
+            </ul>
+          </div>
+        </div>
+        <h3>1. Configure a job</h3>
+        <p>From the repository root, copy the template and edit its <code>job</code> paths and metadata:</p>
+        <div class="command" data-label="Phase 1 config"><pre><code>cp phase_1_image_processing/configs/dsm_job.example.yml phase_1_image_processing/configs/dsm_job.local.yml</code></pre></div>
+        <h3>2. Estimate and run</h3>
+        <div class="command" data-label="Estimate DSM"><pre><code>uv run python phase_1_image_processing/dsm_lidar.py --config phase_1_image_processing/configs/dsm_job.local.yml --estimate-only</code></pre></div>
+        <div class="command" data-label="Generate DSM"><pre><code>uv run python phase_1_image_processing/dsm_lidar.py --config phase_1_image_processing/configs/dsm_job.local.yml</code></pre></div>
+        <p>Inspect the resulting raster's extent, CRS, resolution and NoData before continuing. The optional sequential batch example in the notebook reads the <code>batch</code> section of the local config; the CLI processes the single <code>job</code>.</p>
+        <h3>Example output: DSM elevation and hillshade</h3>
+        <figure>
+          <a href="./figures/phase1-dsm.png"><img src="./figures/phase1-dsm.png" alt="DSM elevation and hillshade views for the DD0011 site." loading="lazy"></a>
+          <figcaption>Saved output from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/notebooks/01_create_dsm_from_las.ipynb">DSM notebook</a> for site DD0011. The notebook reports a 0.03 m pixel size, elevation range of 25.08–38.19 m and mean elevation of 29.61 m. This is an existing example, not an output generated by this page. Select the image to view it at full size.</figcaption>
+        </figure>
+        <div class="resources">
+          <strong>Resources:</strong>
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/REPRODUCIBILITY.md">Reproducibility guide</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/README_phase1.md">Phase README</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/notebooks/01_create_dsm_from_las.ipynb">DSM notebook</a>
+        </div>
+      </section>
+
+      <section id="phase-2" class="phase">
+        <div class="phase-label">Phase 2 / Co-registration</div>
+        <h2>Align LiDAR to the imagery DSM</h2>
+        <p>Resample the LiDAR DSM onto the imagery grid, compute a GeFolki optical-flow field, then apply the field to the original point cloud.</p>
+        <div class="facts">
+          <div class="panel"><strong>Inputs</strong><p>An imagery DSM, a LiDAR DSM and its original georeferenced LAS/LAZ file. Check their CRS and spatial overlap.</p></div>
+          <div class="panel"><strong>Outputs</strong><p>A resampled and registered DSM, two flow arrays and an aligned point cloud. The L2 flow script also writes a residual raster.</p></div>
+        </div>
+        <div class="metadata">
+          <h3>Phase metadata</h3>
+          <dl><dt>CRS / grid</dt><dd>Check matching input CRS; the imagery DSM defines the resampled grid and resolution.</dd>
+            <dt>Example settings</dt><dd>L2 radii 8/4/2 pixels, 6 levels and 8 iterations; smoothing sigma 3.0 and correction direction −1.</dd>
+            <dt>Outputs</dt><dd>Flow arrays share the imagery-grid shape; points outside the flow interpolation extent are omitted.</dd></dl>
+        </div>
+        <div class="phase-overview">
+          <div class="panel">
+            <h3>Processing steps</h3>
+            <ol class="step-gallery">
+              <li><strong>Check CRS and configure the site and LiDAR pass.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Check input coordinate systems and prepare the site configuration"><use href="#visual-file" x="48" y="5" width="60" height="60"/><text x="78" y="92">Input CRS</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-check" x="252" y="5" width="60" height="60"/><text x="282" y="92">Check &amp; config</text></svg>
+                <small>Diagram: verify coordinates and select the pass.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Imagery and LiDAR DSMs, LAS/LAZ.</dd><dt>Checks</dt><dd>Matching CRS, spatial overlap and L1/L2 pass.</dd><dt>Output</dt><dd>Configured site and pass.</dd></dl>
+              </li>
+              <li><strong>Resample the LiDAR DSM onto the imagery grid.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Resample the LiDAR surface to the imagery raster grid"><use href="#visual-grid" x="48" y="5" width="60" height="60"/><text x="78" y="92">LiDAR DSM</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-grid" x="252" y="5" width="60" height="60"/><text x="282" y="92">Imagery grid</text></svg>
+                <small>Diagram: place both surfaces on the same grid.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>LiDAR DSM and imagery DSM.</dd><dt>Grid</dt><dd>Imagery DSM defines target CRS, transform, shape and resolution.</dd><dt>Output</dt><dd>Resampled LiDAR DSM.</dd></dl>
+              </li>
+              <li><strong>Compute optical flow and apply it to the point cloud.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Use the displacement field to adjust LiDAR point positions"><use href="#visual-grid" x="48" y="5" width="60" height="60"/><text x="78" y="92">Flow field</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-points" x="252" y="5" width="60" height="60"/><text x="282" y="92">Aligned points</text></svg>
+                <small>Diagram: apply GeFolki displacements.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Matched DSMs and original point cloud.</dd><dt>Settings</dt><dd>L2 example: radii 8/4/2, 6 levels, sigma 3.0.</dd><dt>Output</dt><dd>Flow arrays, registered DSM and aligned LAS.</dd></dl>
+              </li>
+              <li><strong>Inspect alignment and retained point count.</strong>
+                <a href="./figures/phase2-coregistration.png"><img src="./figures/phase2-coregistration.png" alt="DSM comparison, difference and displacement diagnostics for DD0001." loading="lazy"></a>
+                <small>Historical DD0001 diagnostic; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/1_gefolki_preprocess.ipynb">preprocessing notebook</a>. Select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Registered DSM, flow and aligned LAS.</dd><dt>Checks</dt><dd>Alignment, flow direction, extent and retained point count.</dd><dt>Output</dt><dd>Diagnostic plots and validation findings.</dd></dl>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h3>Repository contents</h3>
+            <ul>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_2_lidar_coregistration/configs"><code>configs/</code></a> — job template</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_2_lidar_coregistration/step_0_checks"><code>step_0_checks/</code></a> — CRS checks</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_2_lidar_coregistration/gefolki/python_myscripts"><code>gefolki/python_myscripts/</code></a> — processing scripts</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_2_lidar_coregistration/gefolki/notebooks"><code>gefolki/notebooks/</code></a> — examples and validation</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_2_lidar_coregistration/gefolki/python"><code>gefolki/python/</code></a> — vendored GeFolki library</li>
+            </ul>
+          </div>
+        </div>
+        <h3>1. Configure one site and pass</h3>
+        <div class="command" data-label="Phase 2 config"><pre><code>cp phase_2_lidar_coregistration/configs/coregistration_job.example.yml phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
+        <p>Edit the <code>preprocess</code>, <code>flow</code> and <code>align</code> sections. Connect the output paths of each step to the input paths of the next. The supplied template uses L2 flow parameters; use the documented L1 parameters for L1 data.</p>
+        <h3>2. Run the steps</h3>
+        <p>This example uses the L2 scripts. For L1 data, choose the corresponding <code>_l1.py</code> scripts instead.</p>
+        <div class="command" data-label="Resample LiDAR DSM"><pre><code>uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/gefolki_preprocess.py --config phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
+        <div class="command" data-label="Compute L2 flow"><pre><code>uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/gefolki_flow_l2.py --config phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
+        <div class="command" data-label="Align L2 point cloud"><pre><code>uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/align_lidar_with_flow_l2.py --config phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
+        <h3>3. Inspect the alignment</h3>
+        <p>Review the registered surface, flow direction and alignment statistics for your site. The scripts show diagnostic plots; the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/stats_align_lidar_with_flow.py.ipynb">validation notebook</a> provides a starting point for further checks.</p>
+        <div class="note"><strong>Check the output point count.</strong> The alignment scripts omit points outside the flow grid's interpolation extent. Confirm that the retained extent is appropriate for your analysis.</div>
+        <h3>Example output: DSM and displacement diagnostics</h3>
+        <figure>
+          <a href="./figures/phase2-coregistration.png"><img src="./figures/phase2-coregistration.png" alt="Six-panel co-registration diagnostic showing reference, before and after DSMs, differences and displacement magnitude." loading="lazy"></a>
+          <figcaption>Saved output from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/1_gefolki_preprocess.ipynb">preprocessing notebook</a> for site DD0001. Top row, left to right: imagery DSM, LiDAR DSM before alignment, LiDAR DSM after alignment. Bottom row: absolute DSM differences before and after, then flow displacement magnitude. This historical figure is illustrative; validate the results of your own run. Select the image to view it at full size.</figcaption>
+        </figure>
+        <div class="resources">
+          <strong>Resources:</strong>
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/REPRODUCIBILITY.md">Reproducibility guide</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/README_phase2.md">Phase README</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/README.md">GeFolki documentation and citations</a>
+        </div>
+      </section>
+
+      <section id="phase-3" class="phase">
+        <div class="phase-label">Phase 3 / Imagery and labels</div>
+        <h2>Prepare imagery tiles and structure labels</h2>
+        <p>Clip annotated grid cells, select five multispectral bands and create structure labels using the historical 1 cm to 5 cm workflow.</p>
+        <div class="facts">
+          <div class="panel"><strong>Inputs</strong><p>An orthomosaic, annotated grid, FVC shapefiles and matching 1 cm reference tiles.</p></div>
+          <div class="panel"><strong>Outputs</strong><p>Five-band predictor tiles, classified polygons and label rasters at 1 cm and 5 cm.</p></div>
+        </div>
+        <div class="metadata">
+          <h3>Phase metadata</h3>
+          <dl><dt>CRS / grid</dt><dd>Matching projected CRS in metres for labels and reference tiles; check each grid's origin and extent.</dd>
+            <dt>Resolution</dt><dd>1 cm label reference, 5 cm label output; predictor resolution depends on the source.</dd>
+            <dt>Classes</dt><dd>Forb 0→64, woody debris 1→65, hummock 2→66, shrub 3→67, mallee 4→68; NoData 255.</dd></dl>
+        </div>
+        <div class="phase-overview">
+          <div class="panel">
+            <h3>Processing steps</h3>
+            <ol class="step-gallery">
+              <li><strong>Tile the imagery using the annotated grid.</strong>
+                <a href="./figures/phase3-imagery-tiles.png"><img src="./figures/phase3-imagery-tiles.png" alt="Six example multispectral imagery tiles from DD0011." loading="lazy"></a>
+                <small>Historical DD0011 raw tiles; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_1_orthomosaic_to_tiling/notebooks/01_clip_orthomosaic_by_grid.ipynb">tiling notebook</a>. Select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Orthomosaic and annotated grid.</dd><dt>Settings</dt><dd>Matching CRS; default selection <code>annotated=1</code>; historical cells 30.72 m.</dd><dt>Output</dt><dd>Clipped imagery tiles.</dd></dl>
+              </li>
+              <li><strong>Stack the selected multispectral bands.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Select multispectral bands 2, 4, 6, 8 and 10 and create a five-band stack"><use href="#visual-stack" x="48" y="5" width="60" height="60"/><text x="78" y="92">2, 4, 6, 8, 10</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-file" x="252" y="5" width="60" height="60"/><text x="282" y="92">5-band tile</text></svg>
+                <small>Diagram: select the five predictor bands.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Raw multispectral tiles with at least 10 bands.</dd><dt>Settings</dt><dd>Select bands 2, 4, 6, 8 and 10; preserve source grid.</dd><dt>Output</dt><dd>Five-band predictor tiles.</dd></dl>
+              </li>
+              <li><strong>Classify FVC polygons by structure.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Assign structure class IDs to vegetation polygons"><use href="#visual-polygons" x="48" y="5" width="60" height="60"/><text x="78" y="92">FVC polygons</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-polygons" x="252" y="5" width="60" height="60"/><text x="282" y="92">Class IDs 0–4</text></svg>
+                <small>Diagram: assign structure IDs to annotations.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>FVC annotation polygons.</dd><dt>Classes</dt><dd>Forb 0, woody debris 1, hummock 2, shrub 3, mallee 4.</dd><dt>Output</dt><dd>Classified polygons; excluded types reported.</dd></dl>
+              </li>
+              <li><strong>Rasterize labels on the 1 cm reference grid.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Rasterize classified polygons onto the one-centimetre reference grid"><use href="#visual-polygons" x="48" y="5" width="60" height="60"/><text x="78" y="92">Class polygons</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-grid" x="252" y="5" width="60" height="60"/><text x="282" y="92">1 cm labels</text></svg>
+                <small>Diagram: use the matching 1 cm reference tile.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Classified polygons and matching 1 cm reference.</dd><dt>Settings</dt><dd>Projected metre CRS; <code>all_touched=True</code>; NoData 255.</dd><dt>Output</dt><dd>1 cm label raster, classes 0–4.</dd></dl>
+              </li>
+              <li><strong>Downsample labels to 5 cm and remap classes.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Downsample one-centimetre labels using nearest neighbour and remap classes zero to four to 64 to 68"><use href="#visual-grid" x="48" y="5" width="60" height="60"/><text x="78" y="92">1 cm: 0–4</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-grid" x="252" y="5" width="60" height="60"/><text x="282" y="92">5 cm: 64–68</text></svg>
+                <small>Diagram: nearest-neighbour resampling and class remapping.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>1 cm label raster.</dd><dt>Settings</dt><dd>5 cm nearest-neighbour; 0–4 → 64–68; NoData 255.</dd><dt>Output</dt><dd>5 cm label raster; not automatically aligned to predictors.</dd></dl>
+              </li>
+              <li><strong>Run label quality assessment separately.</strong>
+                <a href="./figures/phase3-label-quality.png"><img src="./figures/phase3-label-quality.png" alt="Vegetation polygons and label and predictor footprints for DD0001 tile 26." loading="lazy"></a>
+                <small>Historical DD0001 tile 26 assessment; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/notebooks/01_label_quality_assessment.ipynb">label QA notebook</a>. Select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Polygons, label rasters and predictor tiles.</dd><dt>Checks</dt><dd>CRS, grid alignment, footprints and annotations.</dd><dt>Output</dt><dd>Separate QA summary and issues CSVs.</dd></dl>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h3>Repository contents</h3>
+            <ul>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/imagery_prep.py"><code>imagery_prep.py</code></a> — preparation workflow</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_3_2D_imagery_prep/configs"><code>configs/</code></a> — job template</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_3_2D_imagery_prep/step_1_orthomosaic_to_tiling"><code>step_1_orthomosaic_to_tiling/</code></a> — original tiling examples</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_3_2D_imagery_prep/step_2_structure_2D_labels"><code>step_2_structure_2D_labels/</code></a> — original label examples</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_3_2D_imagery_prep/step_3_label_quality"><code>step_3_label_quality/</code></a> — label assessment</li>
+            </ul>
+          </div>
+        </div>
+        <h3>1. Set up Phase 3</h3>
+        <p>Phase 3 needs a separate geospatial environment with GDAL, GeoPandas and Rasterio; the Phase 1–2 <code>uv</code> environment does not include them. Follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/REPRODUCIBILITY.md">Phase 3 setup guide</a>, then activate it in your terminal.</p>
+        <h3>2. Configure a job</h3>
+        <p>From the repository root, copy the template and replace every path. Set the 1 cm reference directory and filename pattern to match your annotation tile IDs. Use new output directories.</p>
+        <div class="command" data-label="Phase 3 config"><pre><code>cp phase_3_2D_imagery_prep/configs/imagery_prep_job.example.yml phase_3_2D_imagery_prep/configs/imagery_prep_job.local.yml</code></pre></div>
+        <h3>3. Run the workflow</h3>
+        <p>This command runs all five stages in order without pausing. Review the messages, including excluded or unrecognized classes, and inspect the outputs afterwards.</p>
+        <div class="command" data-label="Run Phase 3 workflow"><pre><code>python phase_3_2D_imagery_prep/imagery_prep.py --config phase_3_2D_imagery_prep/configs/imagery_prep_job.local.yml --stage all</code></pre></div>
+        <p>To inspect each stage before continuing, replace <code>all</code> in the command with <code>tile</code>, <code>stack</code>, <code>classify</code>, <code>rasterize</code> and <code>downsample</code>, running it once for each in that order. Existing outputs are not overwritten.</p>
+        <div class="note"><strong>Check grids and labels.</strong> The 5 cm labels do not automatically align with the predictor tiles. Inspect CRS, resolution, origin and extent, and run label QA before using the outputs. A 6 cm predictor needs particular care.</div>
+        <h3>Example output: clipped imagery tiles</h3>
+        <figure>
+          <a href="./figures/phase3-imagery-tiles.png"><img src="./figures/phase3-imagery-tiles.png" alt="Six example multispectral imagery tiles from DD0011, arranged in two rows of three." loading="lazy"></a>
+          <figcaption>Saved output from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_1_orthomosaic_to_tiling/notebooks/01_clip_orthomosaic_by_grid.ipynb">tiling notebook</a> for DD0011. It shows six of 18 clipped raw tiles, each 512 × 512 pixels at 6 cm resolution, with bands 10, 6 and 2 shown as a stretched false-colour composite. These are historical examples, not results produced by this page. Select the image for full size.</figcaption>
+        </figure>
+        <h3>Example output: label-grid quality</h3>
+        <figure>
+          <a href="./figures/phase3-label-quality.png"><img src="./figures/phase3-label-quality.png" alt="DD0001 tile 26: examples of vegetation polygons and their label and predictor footprints on imagery, with centroid shifts." loading="lazy"></a>
+          <figcaption>Saved output from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/notebooks/01_label_quality_assessment.ipynb">label quality notebook</a> for DD0001 tile 26. Columns show example growth forms; the top row uses 1 cm imagery and the bottom row uses the 5 cm predictor. Outlines, hatching and centroid symbols distinguish the reference, label and predictor footprints. This is a historical example; check your own label grids and source annotations.</figcaption>
+        </figure>
+        <p class="muted">These saved figures retain their original colours, which may not be accessible to everyone with colour-vision deficiencies. They illustrate different sites and do not establish the quality of a new run.</p>
+        <div class="resources">
+          <strong>Resources:</strong>
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/REPRODUCIBILITY.md">Reproducibility guide</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/README.md">Label QA guide</a>
+        </div>
+      </section>
+
+      <section id="phase-4" class="phase">
+        <div class="phase-label">Phase 4 / 3D LiDAR preparation</div>
+        <h2>Prepare structure-classified point clouds</h2>
+        <p>Transfer 2D structure labels to a LiDAR tile, calculate height above ground and fuse the labels into a 3D vegetation product.</p>
+        <div class="facts">
+          <div class="panel"><strong>Inputs</strong><p>An already ICP-registered LiDAR tile, matching predictor raster and Phase 3 structure mask.</p></div>
+          <div class="panel"><strong>Outputs</strong><p>Mask-classified, ground-only, height-normalized and vegetation-only fused LAS files.</p></div>
+        </div>
+        <div class="metadata">
+          <h3>Phase metadata</h3>
+          <dl><dt>CRS / format</dt><dd>Same horizontal projected CRS in metres; input LAS 1.4, point format 6 or later. DD0001 tile 109 example: EPSG:7854.</dd>
+            <dt>Defaults</dt><dd>CSF resolution 0.5 m, iterations 500, threshold 0.01, rigidness 2; normalization k=3; 0.10 m fusion voxels.</dd>
+            <dt>Classes</dt><dd>Mask classes 64–68; fused vegetation LAS includes <code>Z_norm</code> and <code>treeID</code>.</dd></dl>
+        </div>
+        <div class="note"><strong>ICP is a prerequisite.</strong> Phase 2 GeFolki alignment is not the additional ICP registration used in the historical tile workflow. This guide does not perform ICP.</div>
+        <div class="phase-overview">
+          <div class="panel">
+            <h3>Processing steps</h3>
+            <ol class="step-gallery">
+              <li><strong>Check the ICP tile, mask and predictor alignment.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Check alignment between the already ICP-registered point cloud, mask and predictor"><use href="#visual-points" x="38" y="5" width="55" height="55"/><text x="65" y="92">ICP tile</text><use href="#visual-grid" x="152" y="5" width="55" height="55"/><text x="180" y="92">Mask &amp; raster</text><use href="#visual-check" x="267" y="5" width="55" height="55"/><text x="294" y="92">Inspect</text></svg>
+                <small>Diagram: check CRS, extents and visual alignment.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>ICP-registered LAS, predictor and mask.</dd><dt>Checks</dt><dd>Projected metre CRS, overlap, grid origins and registration.</dd><dt>Output</dt><dd>Inputs reviewed for the same tile.</dd></dl>
+              </li>
+              <li><strong>Transfer mask classes to the LiDAR points.</strong>
+                <a href="./figures/phase4-mask-points.png"><img src="./figures/phase4-mask-points.png" alt="Mask-classified LiDAR shown by structure class, RGB and point source ID." loading="lazy"></a>
+                <small>Historical DD0001 example; the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_1_clipping/notebooks/04_maskCoreg_site01_L1.ipynb">mask notebook</a> is configured for tile 109 but may fall back to another tile. Select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>ICP LAS and structure mask.</dd><dt>Settings</dt><dd>Crop to mask bounds; transfer classifications 64–68; no reprojection.</dd><dt>Output</dt><dd>Mask-classified LAS.</dd></dl>
+              </li>
+              <li><strong>Extract ground points using CSF.</strong>
+                <a href="./figures/phase4-ground-height.png"><img src="./figures/phase4-ground-height.png" alt="DD0001 tile 109 original elevation, CSF ground classification, and normalized height." loading="lazy"></a>
+                <small>Historical DD0001 tile 109: the middle panel shows ground classification. See the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_2_csf_znorm/notebooks/01_ground_classification_site01.ipynb">ground notebook</a>; select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>ICP-registered LAS.</dd><dt>Defaults</dt><dd>CSF 0.5 m, 500 iterations, threshold 0.01, rigidness 2.</dd><dt>Output</dt><dd>Ground-only LAS and PDAL pipeline JSON.</dd></dl>
+              </li>
+              <li><strong>Calculate height above ground as <code>Z_norm</code>.</strong>
+                <a href="./figures/phase4-height-model.png"><img src="./figures/phase4-height-model.png" alt="Height model from normalized LiDAR for DD0001 tile 109." loading="lazy"></a>
+                <small>Historical DD0001 tile 109 height model; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/notebooks/01_run_pipeline_site01_workflow.ipynb">fusion notebook</a>. Select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>ICP LAS and ground-only LAS.</dd><dt>Default</dt><dd>Inverse-distance interpolation with k=3; negative heights clamped to zero.</dd><dt>Output</dt><dd>Full-tile LAS with <code>Z_norm</code>.</dd></dl>
+              </li>
+              <li><strong>Fuse structure labels and assign crown <code>treeID</code>s.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Combine normalized points and mask-classified points to produce structure classes and crown IDs"><use href="#visual-points" x="38" y="5" width="55" height="55"/><text x="65" y="92">Z_norm</text><use href="#visual-points" x="152" y="5" width="55" height="55"/><text x="180" y="92">Mask classes</text><use href="#visual-stack" x="267" y="5" width="55" height="55"/><text x="294" y="92">Class + treeID</text></svg>
+                <small>Diagram: voxel transfer and crown-based refinement.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Mask-classified and normalized LAS.</dd><dt>Defaults</dt><dd>0.10 m XY/Z voxels; 0.30 m height-match radius.</dd><dt>Output</dt><dd>Vegetation-only LAS with structure class and <code>treeID</code>.</dd></dl>
+              </li>
+              <li><strong>Inspect the outputs and their alignment.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Inspect the fused point cloud, its labels, heights and alignment"><use href="#visual-points" x="48" y="5" width="60" height="60"/><text x="78" y="92">Fused LAS</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-check" x="252" y="5" width="60" height="60"/><text x="282" y="92">Quality checks</text></svg>
+                <small>Diagram: check counts, classes, heights and tree IDs.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Intermediate and fused LAS outputs.</dd><dt>Checks</dt><dd>CRS, alignment, counts, classes, heights and IDs.</dd><dt>Output</dt><dd>Quality assessment of each tile.</dd></dl>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h3>Repository contents</h3>
+            <ul>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/lidar_prep.py"><code>lidar_prep.py</code></a> — single-tile workflow</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_4_3D_lidar_prep/configs"><code>configs/</code></a> — job template</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_4_3D_lidar_prep/step_1_clipping"><code>step_1_clipping/</code></a> — mask transfer</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_4_3D_lidar_prep/step_2_csf_znorm"><code>step_2_csf_znorm/</code></a> — ground and height normalization</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_4_3D_lidar_prep/step_3_structure_class"><code>step_3_structure_class/</code></a> — 3D fusion</li>
+            </ul>
+          </div>
+        </div>
+        <h3>1. Set up Phase 4</h3>
+        <p>Use a geospatial environment with PDAL, its Python bindings and the other dependencies listed in the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/REPRODUCIBILITY.md">Phase 4 setup guide</a>. Activate it before running these commands.</p>
+        <h3>2. Configure a tile</h3>
+        <p>From the repository root, copy the template and replace every path with your own input tile, mask, predictor and new output paths.</p>
+        <div class="command" data-label="Phase 4 config"><pre><code>cp phase_4_3D_lidar_prep/configs/lidar_prep_job.example.yml phase_4_3D_lidar_prep/configs/lidar_prep_job.local.yml</code></pre></div>
+        <h3>3. Run the workflow</h3>
+        <div class="command" data-label="Run Phase 4 workflow"><pre><code>python phase_4_3D_lidar_prep/lidar_prep.py --config phase_4_3D_lidar_prep/configs/lidar_prep_job.local.yml --stage all</code></pre></div>
+        <p>To inspect each stage before continuing, replace <code>all</code> with <code>mask</code>, <code>ground</code>, <code>normalize</code> and <code>fuse</code>, running once for each in order. Existing outputs are not overwritten.</p>
+        <div class="note"><strong>Check alignment and results.</strong> Inputs must share a projected CRS in metres; no reprojection or resampling is performed. Inspect grid origins, extent, point counts, classes, heights and tree IDs. CRS and overlap checks alone do not prove registration.</div>
+        <h3>Example output: height above ground</h3>
+        <figure>
+          <a href="./figures/phase4-height-model.png"><img src="./figures/phase4-height-model.png" alt="Canopy height model for DD0001 tile 109, with a height scale in metres." loading="lazy"></a>
+          <figcaption>Saved output from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/notebooks/01_run_pipeline_site01_workflow.ipynb">fusion workflow notebook</a> for DD0001 tile 109. The map shows maximum normalized point height in 10 cm grid cells. This historical figure is illustrative, not output from the command above. Select the image for full size.</figcaption>
+        </figure>
+        <p class="muted">The saved figure retains its original colour map; check your own output with accessible visualizations and numerical summaries.</p>
+        <div class="resources">
+          <strong>Resources:</strong>
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/REPRODUCIBILITY.md">Reproducibility guide</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/README_phase4.md">Phase README</a>
+        </div>
+      </section>
+
+      <section id="phase-5" class="phase">
+        <div class="phase-label">Phase 5 / Model input preparation</div>
+        <h2>Prepare classified LiDAR for modelling</h2>
+        <p>Convert one Phase 4 tile to local-coordinate PLY, retain its coordinate offset and check its labels before creating a model dataset.</p>
+        <div class="facts">
+          <div class="panel"><strong>Input</strong><p>A classified LAS tile with <code>Z_norm</code> and <code>treeID</code>.</p></div>
+          <div class="panel"><strong>Outputs</strong><p>A PLY file and an offset sidecar. Dataset splits, model arrays and training are separate steps.</p></div>
+        </div>
+        <div class="metadata">
+          <h3>Phase metadata</h3>
+          <dl><dt>Coordinates</dt><dd>Local PLY coordinates plus a saved XYZ offset; retain the LAS CRS separately. The PLY runner does not voxelize.</dd>
+            <dt>Historical classes</dt><dd>LAS 64–68 → PLY 1–5; LAS background 0 is excluded.</dd>
+            <dt>Three-class HSM</dt><dd>LAS 66/67/68 → PLY 3/4/5 → current ForestFormer exporter 0/1/2. LAS 64 and 65 are rejected.</dd></dl>
+        </div>
+        <div class="note"><strong>Choose a class profile.</strong> The strict three-class profile accepts hummock, shrub and mallee; it stops on forb or woody debris. These vegetation classes are not the base forest model's ground, wood and leaf classes.</div>
+        <div class="phase-overview">
+          <div class="panel">
+            <h3>Processing steps</h3>
+            <ol class="step-gallery">
+              <li><strong>Inspect the Phase 4 tile and select a class profile.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Check input point labels, normalized heights and tree IDs"><use href="#visual-points" x="48" y="5" width="60" height="60"/><text x="78" y="92">Classified LAS</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-check" x="252" y="5" width="60" height="60"/><text x="282" y="92">Check fields</text></svg>
+                <small>Diagram: validate classifications, <code>Z_norm</code> and <code>treeID</code>.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Phase 4 LAS with <code>Z_norm</code> and <code>treeID</code>.</dd><dt>Profile</dt><dd>Historical five-class or strict three-class HSM.</dd><dt>Output</dt><dd>Validated tile and selected mapping.</dd></dl>
+              </li>
+              <li><strong>Convert labels and write the PLY.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Map LAS classes 66, 67, 68 to PLY codes 3, 4, 5 for the strict three-class profile"><use href="#visual-points" x="48" y="5" width="60" height="60"/><text x="78" y="92">LAS: 66–68</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-file" x="252" y="5" width="60" height="60"/><text x="282" y="92">PLY: 3–5</text></svg>
+                <small>Diagram: the strict HSM profile; the historical profile also retains 64 and 65.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Structure-classified LAS.</dd><dt>Classes</dt><dd>Historical: 64–68 → 1–5; HSM: 66–68 → 3–5; background 0 excluded.</dd><dt>Output</dt><dd>PLY with local XYZ, class, tree ID, height and intensity.</dd></dl>
+              </li>
+              <li><strong>Keep the offset and check coordinates and labels.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Local PLY coordinates plus the saved offset reconstruct original global coordinates"><use href="#visual-file" x="38" y="5" width="55" height="55"/><text x="65" y="92">Local PLY</text><use href="#visual-file" x="152" y="5" width="55" height="55"/><text x="180" y="92">Offset</text><use href="#visual-check" x="267" y="5" width="55" height="55"/><text x="294" y="92">Verify XYZ</text></svg>
+                <small>Diagram: retain the original CRS separately; check point and class counts.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>PLY, offset sidecar and original LAS.</dd><dt>Checks</dt><dd>Counts, labels and XYZ reconstruction within 0.1 mm.</dd><dt>Output</dt><dd>Verified PLY and offset; retain source CRS separately.</dd></dl>
+              </li>
+              <li><strong>Prepare and inspect model data separately.</strong>
+                <a href="./figures/phase5-model-arrays.png"><img src="./figures/phase5-model-arrays.png" alt="Historical model-array visualization for DD0001 tile 106: semantic classes, tree instances, bounding boxes and global location." loading="lazy"></a>
+                <small>Historical DD0001 tile 106 NPY inspection from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/notebooks/02_lidar_preprocessing_forestformer.ipynb">export notebook</a>. It is not produced by the PLY command below. Select the image to enlarge.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>PLY, offsets and model-specific dataset setup.</dd><dt>Classes</dt><dd>Current HSM exporter: PLY 3/4/5 → 0/1/2; check model taxonomy.</dd><dt>Output</dt><dd>Model dataset and evaluation outputs from a separate workflow.</dd></dl>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h3>Repository contents</h3>
+            <ul>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/prepare_lidar.py"><code>prepare_lidar.py</code></a> — checked single-tile PLY preparation</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_5_3d_cnn_training/configs"><code>configs/</code></a> — job template</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_5_3d_cnn_training/lidar_preprocessing"><code>lidar_preprocessing/</code></a> — LAS-to-PLY package</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/phase_5_3d_cnn_training/notebooks"><code>notebooks/</code></a> — historical exports and quality checks</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/tree/main/ForestFormer3D"><code>ForestFormer3D/</code></a> — model dataset preparation and experiments</li>
+            </ul>
+          </div>
+        </div>
+        <h3>1. Set up Phase 5</h3>
+        <p>Create and activate the separate Python environment described in the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/REPRODUCIBILITY.md">Phase 5 handoff</a>. ForestFormer training requires additional dependencies.</p>
+        <h3>2. Configure a tile</h3>
+        <p>Copy the template from the repository root, edit the paths, and choose <code>three_class_hsm</code> or <code>historical_five_class</code>.</p>
+        <div class="command" data-label="Phase 5 config"><pre><code>cp phase_5_3d_cnn_training/configs/lidar_to_ply.example.yml phase_5_3d_cnn_training/configs/lidar_to_ply.local.yml</code></pre></div>
+        <h3>3. Prepare the PLY</h3>
+        <div class="command" data-label="Run Phase 5 preparation"><pre><code>python phase_5_3d_cnn_training/prepare_lidar.py --config phase_5_3d_cnn_training/configs/lidar_to_ply.local.yml</code></pre></div>
+        <p>The command reports excluded background and verifies the PLY, labels, heights and reconstructed coordinates. It refuses to overwrite an existing PLY or offset.</p>
+        <h3>4. Check the three-class model handoff</h3>
+        <p>For HSM tiles, LAS 66/67/68 become PLY 3/4/5. The current ForestFormer exporter maps them to 0/1/2: hummock/shrub/mallee. Verify the dataset, exporter, instance policy and checkpoint before training; the base forest model uses different class meanings. Follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md">model experiment runbook</a> for subsequent dataset and training steps.</p>
+        <div class="note"><strong>Retain coordinate metadata.</strong> Save the PLY offset and original LAS/CRS. The model exporter may apply another offset; both are needed for global reconstruction unless combined explicitly.</div>
+        <h3>Example output: model-array inspection</h3>
+        <figure>
+          <a href="./figures/phase5-model-arrays.png"><img src="./figures/phase5-model-arrays.png" alt="Four views of saved model arrays: semantic labels, instance labels, bounding boxes and global XY location." loading="lazy"></a>
+          <figcaption>Saved DD0001 tile 106 visualization from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/notebooks/02_lidar_preprocessing_forestformer.ipynb">historical export notebook</a>. The panels show semantic labels, tree instances, bounding boxes and a global-coordinate view. These NPY arrays were produced separately; they are not generated by the single-tile PLY command. Select the image for full size.</figcaption>
+        </figure>
+        <p class="muted">The historical figure retains its original colours, which may not be accessible to everyone with colour-vision deficiencies. Inspect your own classes and coordinates numerically as well.</p>
+        <div class="resources">
+          <strong>Resources:</strong>
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/REPRODUCIBILITY.md">Reproducibility guide</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/README.md">Phase README</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md">Model experiments</a>
+        </div>
+      </section>
+
+      <section id="next" class="phase">
+        <div class="eyebrow">Beyond alignment</div>
+        <h2>Next phases</h2>
+        <p>Model training and evaluation are documented in the <a href="https://github.com/LNSOTOM/fvc_structure#models">repository overview</a> and the linked experiment runbooks.</p>
+      </section>
+    </main>
+  </div>
+  <footer>FVC Structure · Research workflow documentation · <a href="./forest-qualitative-viewer.html">Forest qualitative viewer</a></footer>
+  <script>
+    if (window.isSecureContext && navigator.clipboard) {
+      document.querySelectorAll(".command").forEach((command) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "copy-command";
+        button.setAttribute("aria-label", `Copy ${command.dataset.label} command`);
+        button.title = `Copy ${command.dataset.label} command`;
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.setAttribute("width", "18");
+        svg.setAttribute("height", "18");
+        svg.setAttribute("fill", "none");
+        svg.setAttribute("stroke", "currentColor");
+        svg.setAttribute("stroke-width", "2");
+        svg.setAttribute("stroke-linecap", "round");
+        svg.setAttribute("stroke-linejoin", "round");
+        svg.setAttribute("aria-hidden", "true");
+        const page = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        page.setAttribute("x", "8");
+        page.setAttribute("y", "8");
+        page.setAttribute("width", "13");
+        page.setAttribute("height", "13");
+        page.setAttribute("rx", "2");
+        const behind = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        behind.setAttribute("d", "M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3");
+        svg.append(page, behind);
+        button.append(svg);
+        const status = document.createElement("span");
+        status.className = "muted";
+        status.setAttribute("role", "status");
+        command.append(status);
+        button.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(command.querySelector("code").textContent);
+            status.textContent = `${command.dataset.label} command copied.`;
+          } catch (error) {
+            status.textContent = "Copy failed. Select the command text and copy it manually.";
+          }
+        });
+        command.prepend(button);
+      });
+    }
+  </script>
 </body>
 </html>
