@@ -495,6 +495,8 @@ For example, medium tile 106: `znorm_3Dlabels_106.las` ->
 `znorm_3Dlabels_m_L1_106.ply`.
 """
     code = manifest.get("code")
+    code_licence_row = "" if not code else (
+        "| `fvc_structure_code.zip` | MIT for original code; third-party folders under their own licences |\n")
     code_section = "" if not code else f"""
 ## Code
 
@@ -519,8 +521,11 @@ Rangeland tiles come from two Calperum (South Australia) TERN sites:
 a medium-density site (grass hummock, shrub, mallee) and a low-density site
 (forb, shrub, sparse mallee). Each tile is 30.70 x 30.70 m.
 
+Step-by-step workflow guide: https://lnsotom.github.io/fvc_structure/
+
 Code, setup and the full experiment runbook:
-https://github.com/LNSOTOM/fvc_structure
+https://github.com/LNSOTOM/fvc_structure (archived as a separate Zenodo
+software record; see Related works on this record's page)
 (see `ForestFormer3D/README_ForAINetV2_experiments.md`).
 
 ## Data
@@ -599,8 +604,7 @@ The forest-pretrained starting point for Experiment 2 is not included; download
 |---|---|
 | `test_data_*.zip`, `meta_data.zip`, `label_transfer_inputs_*.zip` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
 | `segmentanytree_predictions_*.zip` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
-| `fvc_structure_code.zip` | MIT for original code; third-party folders under their own licences |
-| `model_*.zip`, `forestformer3d_predictions_rangeland.zip` | CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/) |
+{code_licence_row}| `model_*.zip`, `forestformer3d_predictions_rangeland.zip` | CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/) |
 
 The models and their predictions derive from ForestFormer3D, which is licensed
 CC BY-NC 4.0, so they are licensed for non-commercial use only.
