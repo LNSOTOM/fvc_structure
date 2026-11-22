@@ -66,6 +66,9 @@
     .button { display: inline-block; padding: 9px 16px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-weight: 650; }
     .button.primary { background: var(--accent); color: white; }
     .button.primary:hover { color: white; background: #4e1f6e; }
+    .button { display: inline-flex; align-items: center; gap: 6px; }
+    .button ion-icon { font-size: 1.15em; }
+    .button.disabled { opacity: .55; cursor: not-allowed; }
     .layout { max-width: 1200px; margin: auto; padding: 34px 28px 80px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 46px; }
     .sidebar { align-self: start; position: sticky; top: 84px; font-size: .9rem; }
     .sidebar strong { display: block; margin: 0 0 8px; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; }
@@ -186,6 +189,8 @@
       #top, section, h3[id] { scroll-margin-top: 180px; }
     }
   </style>
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 </head>
 <body>
   <svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
@@ -266,7 +271,9 @@
       <p class="lead">A phase-by-phase guide to transferring 2D vegetation labels to co-registered UAS LiDAR and benchmarking 3D models in rangeland ecosystems.</p>
       <div class="hero-links">
         <a class="button primary" href="#setup">Start with setup</a>
-        <a class="button" href="https://github.com/LNSOTOM/fvc_structure">Explore the repository</a>
+        <a class="button" href="https://eartharxiv.org/repository/view/12889/"><ion-icon name="document-attach-outline" aria-hidden="true"></ion-icon> Preprint on EarthArXiv</a>
+        <a class="button" href="https://github.com/LNSOTOM/fvc_structure"><ion-icon name="logo-github" aria-hidden="true"></ion-icon> Code</a>
+        <a class="button disabled" aria-disabled="true" title="Link pending"><ion-icon name="cloud-download-outline" aria-hidden="true"></ion-icon> Datasets &amp; pre-trained models on Zenodo</a>
       </div>
     </div>
   </div>
