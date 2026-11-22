@@ -1,4 +1,4 @@
-# fvc_structure
+# fvcStructureRangeland3D
 
 UAS LiDAR and imagery are prepared as structure-labelled 3D tiles for
 ForestFormer3D and SegmentAnyTree.
