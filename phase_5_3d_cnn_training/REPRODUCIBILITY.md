@@ -129,7 +129,7 @@ model predictions.
 
 ## Rebuild the guide's comparison examples
 
-The [guide](../docs/index.html#model-comparison-heading) displays sampled
+The [guide](https://lnsotom.github.io/fvc_structure/#model-comparison-heading) displays sampled
 historical ForestFormer3D Experiment 1A and 2B results, not Phase 5 PLY inputs. The
 medium tiles 93 and 192 are from `exp2B_stage1_eval_medium_L1`, evaluated
 with the stage-1 `epoch_3000_fix.pth`. Low tiles 43 and 75 are from
