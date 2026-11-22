@@ -86,9 +86,11 @@ LABEL_TRANSFER = {
          "2D growth-form label rasters"),
         ("3_structure_labelled_image_points", "imagery/clipped/mask/mask_tiles_multispectral.*.las",
          "image-derived points labelled with growth-form classes 64-68"),
-        ("4_lidar_znorm", "lidar/clipped/raster/z_norm/csf/z_norm_csf_tiles_multispectral.*.las",
-         "co-registered UAS L1 LiDAR with CSF height above ground (Z_norm)"),
-        ("5_fused_3d_labels", "lidar/clipped/3d_structure_mask_malleid/znorm_3Dlabels_*.las",
+        ("4_lidar_ground_csf", "lidar/clipped/raster/ground_classification/csf/csf_tiles_multispectral.*",
+         "CSF ground points (class 2) per tile, with the PDAL pipeline and parameters (.json)"),
+        ("5_lidar_znorm", "lidar/clipped/raster/z_norm/csf/z_norm_csf_tiles_multispectral.*.las",
+         "co-registered UAS L1 LiDAR with height above the CSF ground (Z_norm)"),
+        ("6_fused_3d_labels", "lidar/clipped/3d_structure_mask_malleid/znorm_3Dlabels_*.las",
          "label-transfer output: LiDAR with growth-form class, Z_norm and treeID"),
     ]),
     "low": ("site2_1_DD0011", [
@@ -98,9 +100,11 @@ LABEL_TRANSFER = {
          "2D growth-form label rasters"),
         ("3_structure_labelled_image_points", "imagery/clipped/mask/mask_tiles_multispectral.*.las",
          "image-derived points labelled with growth-form classes 64-68"),
-        ("4_lidar_znorm", "lidar/clipped/raster/z_norm/csf/z_norm_csf_tiles_multispectral.*.las",
-         "co-registered UAS L1 LiDAR with CSF height above ground (Z_norm)"),
-        ("5_fused_3d_labels", "lidar/clipped/3d_structure_mask_malleid/znorm_3Dlabels_l_*.las",
+        ("4_lidar_ground_csf", "lidar/clipped/raster/ground_classification/csf/csf_tiles_multispectral.*",
+         "CSF ground points (class 2) per tile, with the PDAL pipeline and parameters (.json)"),
+        ("5_lidar_znorm", "lidar/clipped/raster/z_norm/csf/z_norm_csf_tiles_multispectral.*.las",
+         "co-registered UAS L1 LiDAR with height above the CSF ground (Z_norm)"),
+        ("6_fused_3d_labels", "lidar/clipped/3d_structure_mask_malleid/znorm_3Dlabels_l_*.las",
          "label-transfer output: LiDAR with growth-form class, Z_norm and treeID"),
     ]),
 }
@@ -111,7 +115,8 @@ def label_transfer_members(calperum_root: Path, site: str, problems: list[str]) 
     members = []
     for folder, pattern, _ in parts:
         files = sorted(f for f in (calperum_root / site_dir).glob(pattern) if f.is_file())
-        n_tiles = len({f.stem for f in files}) if folder.endswith("shp") else len(files)
+        n_tiles = len({f.name.split(".")[0] + "." + f.name.split(".")[1] for f in files}) \
+            if folder.endswith(("shp", "csf")) else len(files)
         if n_tiles != 15:
             problems.append(f"label transfer {site}/{folder}: expected 15 tiles, found {n_tiles} ({pattern})")
         members += [(f, f"label_transfer_{site}/{folder}/{f.name}") for f in files]
@@ -471,7 +476,7 @@ Each archive has one folder per stage, in processing order:
 {lt_parts}
 
 Growth-form classes are 64 forb, 65 woody debris, 66 grass hummock, 67 shrub
-and 68 mallee (see Class mapping). `5_fused_3d_labels` is the input to the
+and 68 mallee (see Class mapping). `6_fused_3d_labels` is the input to the
 PLY tiles in `test_data_*_L1.zip` (same tiles, same points).
 """
     code = manifest.get("code")
