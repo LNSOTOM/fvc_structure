@@ -3,7 +3,7 @@
 UAS LiDAR and imagery are prepared as structure-labelled 3D tiles for
 ForestFormer3D and SegmentAnyTree.
 
-See the [research workflow guide](docs/index.html) for practical Phase 1–5 instructions.
+See the [research workflow guide](https://lnsotom.github.io/fvc_structure/) for practical Phase 1–5 instructions.
 
 ## Citation
 
