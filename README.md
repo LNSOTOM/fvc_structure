@@ -87,17 +87,3 @@ Third-party code keeps its own licence: [ForestFormer3D](ForestFormer3D/LICENSE)
 (CC BY-NC 4.0), [SegmentAnyTree](SegmentAnyTree/LICENSE) (MIT, with BSD-licensed
 parts) and [GeFolki](phase_2_lidar_coregistration/gefolki/LICENSE) (GPL-3.0).
 Data and models are licensed separately in their Zenodo records.
-
-<details>
-<summary>Maintainers: enable the guide's clone counter</summary>
-
-The counter shows GitHub clones over the last 14 days, not all-time clones.
-Create a fine-grained token restricted to this repository with **Administration: read**
-and **Contents: read and write**, and save it as the `REPO_TRAFFIC_TOKEN`
-[Actions secret](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
-Its owner must be able to push to the default branch, including under branch protection.
-Run **Actions → Update clone statistics → Run workflow** once. The daily workflow commits
-the public count to the default branch; the write permission lets that commit trigger Pages.
-Keep the token secret. If it expires or a run fails, the last count and timestamp remain.
-
-</details>

@@ -252,7 +252,7 @@
           <path d="M7 22h13M10 22v4M18 22v4M21 13c1.6-2 5.7-1.5 6.3.8 1.6.1 2.4 1.8 1.3 3.2-.3 2.5-2.2 4.5-4.6 4.5-2.7 0-4.5-2-4.5-4.5 0-1.7.5-3 1.5-4Z"/>
           <path d="m20 14-2-1M27 14l2-1M24.8 16h.1"/>
         </svg>
-        <span>fvc_structure GitHub <small>main branch · <span id="clone-count">14-day clones unavailable</span></small><small id="clone-updated"></small></span>
+        <span>fvc_structure GitHub <small>main branch</small></span>
       </a>
     </div>
   </header>
@@ -981,15 +981,7 @@
     </main>
   </div>
   <footer>fvcStructureRangeland3D · Research workflow documentation</footer>
-  <script src="./repo-stats.js"></script>
   <script>
-    const cloneCount = document.querySelector("#clone-count");
-    const cloneStats = window.fvcCloneStats;
-    if (cloneStats && Number.isSafeInteger(cloneStats.count) && cloneStats.count >= 0 &&
-        typeof cloneStats.updatedAt === "string" && !Number.isNaN(Date.parse(cloneStats.updatedAt))) {
-      cloneCount.textContent = `${cloneStats.count.toLocaleString()} clones / 14 days`;
-      document.querySelector("#clone-updated").textContent = `Updated ${cloneStats.updatedAt.slice(0, 10)} UTC`;
-    }
     const mobileDrawer = document.querySelector(".mobile-drawer");
     if (typeof mobileDrawer.showModal === "function") {
       mobileDrawer.append(document.querySelector(".sidebar nav").cloneNode(true));
