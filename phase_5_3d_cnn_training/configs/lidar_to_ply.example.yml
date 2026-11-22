@@ -3,6 +3,8 @@
 input_las: /absolute/path/to/structure_tile.las
 output_dir: /absolute/path/to/new/output_directory
 
-# historical_five_class: PLY classes 1–5, as in the historical notebook.
-# three_class_hsm: PLY classes 3–5 (hummock, shrub, mallee); fail on 64 or 65.
-class_profile: three_class_hsm
+# historical_five_class: PLY classes 1–5; reproduces the released Zenodo tiles
+#   (doi:10.5281/zenodo.24431573) and accepts all sites, including forb.
+# three_class_hsm: PLY classes 3–5 (hummock, shrub, mallee); fails on 64 or 65,
+#   so it stops on low-site tiles.
+class_profile: historical_five_class
