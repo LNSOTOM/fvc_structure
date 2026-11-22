@@ -67,7 +67,7 @@ Run on the Phase 5 outputs.
 The original code in this repository is released under the [MIT License](LICENSE).
 Third-party code keeps its own licence: [ForestFormer3D](ForestFormer3D/LICENSE)
 (CC BY-NC 4.0), [SegmentAnyTree](SegmentAnyTree/LICENSE) (MIT, with BSD-licensed
-parts) and [GeFolki](phase_2_lidar_coregistration/gefolki/README.md) (GPL).
+parts) and [GeFolki](phase_2_lidar_coregistration/gefolki/LICENSE) (GPL-3.0).
 Data and models are licensed separately in their Zenodo records.
 
 <details>

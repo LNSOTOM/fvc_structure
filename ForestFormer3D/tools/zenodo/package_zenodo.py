@@ -12,6 +12,7 @@ Output (in ``--out``)::
     forestformer3d_predictions_rangeland.zip
                               ForestFormer3D test predictions behind Tables 7-10
                               (final-epoch checkpoints), configs, logs, metrics
+    fvc_structure_code.zip    snapshot of the code repository (with --code-repo)
     segmentanytree_predictions_rangeland.zip
                               zero-shot SegmentAnyTree predictions, metrics, logs
                               (with --segmentanytree-root; forest runs with --sat-forest)
@@ -42,6 +43,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 import zipfile
 from datetime import date
@@ -118,6 +120,20 @@ def human(n: float) -> str:
     return f"{n:.1f} GB"
 
 
+def write_code_zip(repo: Path, ref: str, out: Path) -> dict:
+    """Snapshot tracked files at ``ref`` with git archive; return provenance."""
+    commit = subprocess.run(["git", "-C", str(repo), "rev-parse", f"{ref}^{{commit}}"],
+                            check=True, capture_output=True, text=True).stdout.strip()
+    tags = subprocess.run(["git", "-C", str(repo), "tag", "--points-at", commit],
+                          check=True, capture_output=True, text=True).stdout.split()
+    tmp = out.with_suffix(".zip.part")
+    subprocess.run(["git", "-C", str(repo), "archive", "--format=zip", "--prefix=fvc_structure/",
+                    "-o", str(tmp), commit], check=True)
+    tmp.replace(out)
+    return {"file": out.name, "commit": commit, "tags": tags,
+            "repository": "https://github.com/LNSOTOM/fvc_structure"}
+
+
 def write_zip(out: Path, members: list[tuple[Path, str]]) -> None:
     tmp = out.with_suffix(".zip.part")
     with zipfile.ZipFile(tmp, "w", allowZip64=True) as zf:
@@ -154,6 +170,9 @@ def main() -> int:
     p.add_argument("--skip-models", action="store_true", help="Package data and lists only")
     p.add_argument("--segmentanytree-root", type=Path,
                    help="SegmentAnyTree output dir (has calperum/ and ForAINetV2/forest/) to package predictions")
+    p.add_argument("--code-repo", type=Path,
+                   help="Git repository to snapshot into fvc_structure_code.zip (tracked files only)")
+    p.add_argument("--code-ref", default="HEAD", help="Commit, branch or tag to snapshot (default: HEAD)")
     p.add_argument("--skip-ff3d-predictions", action="store_true",
                    help="Do not package the ForestFormer3D test predictions")
     p.add_argument("--sat-forest", action="store_true",
@@ -299,6 +318,10 @@ def main() -> int:
         write_zip(args.out / f"{zname}.zip", members)
         manifest["predictions"].append({"file": f"{zname}.zip", "description": desc})
 
+    if args.code_repo:
+        print("writing fvc_structure_code.zip ...", flush=True)
+        manifest["code"] = write_code_zip(args.code_repo, args.code_ref, args.out / "fvc_structure_code.zip")
+
     release = sorted(f for f in args.out.glob("*.zip"))
     sums = {f.name: sha256(f) for f in release}
     sizes = {f.name: f.stat().st_size for f in release}
@@ -306,6 +329,9 @@ def main() -> int:
         for entry in manifest[section]:
             entry["sha256"] = sums[entry["file"]]
             entry["bytes"] = sizes[entry["file"]]
+    if "code" in manifest:
+        manifest["code"]["sha256"] = sums[manifest["code"]["file"]]
+        manifest["code"]["bytes"] = sizes[manifest["code"]["file"]]
     (args.out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (args.out / "README.md").write_text(render_readme(manifest, sizes), encoding="utf-8")
     sums["README.md"] = sha256(args.out / "README.md")
@@ -358,6 +384,18 @@ inference logs (`runs/`). It covers all 15 tiles per site.
 Compare the two models on Experiment 1 (both zero-shot, all 15 tiles); for
 the fine-tuned and from-scratch ForestFormer3D models, compare on the held-out
 test tiles only.
+"""
+    code = manifest.get("code")
+    code_section = "" if not code else f"""
+## Code
+
+`{code['file']}` ({human(code['bytes'])}) is a snapshot of
+{code['repository']} at commit `{code['commit'][:12]}`{' (tag ' + ', '.join(code['tags']) + ')' if code['tags'] else ''},
+containing the full workflow: 2D-to-3D label transfer (phases 1-5), the
+ForestFormer3D and SegmentAnyTree setups and the experiment runbook
+(`ForestFormer3D/README_ForAINetV2_experiments.md`). Original code is MIT;
+vendored third-party code keeps its own licence (see `LICENSE` in the zip):
+ForestFormer3D CC BY-NC 4.0, SegmentAnyTree MIT/BSD, GeFolki GPL-3.0.
 """
     rows_lists = "\n".join(f"| `{n}` | {k} |" for n, k in manifest["lists"].items())
     return f"""\
@@ -432,7 +470,7 @@ converted for spconv compatibility (3B is unconverted).
 The forest-pretrained starting point for Experiment 2 is not included; download
 `clean_forestformer.zip` from FOR-instanceV2 (https://doi.org/10.5281/zenodo.16742708).
 
-{pred_section}
+{pred_section}{code_section}
 ## Class mapping
 
 {CLASS_MAPPING}
@@ -452,6 +490,7 @@ The forest-pretrained starting point for Experiment 2 is not included; download
 |---|---|
 | `test_data_*.zip`, `meta_data.zip` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
 | `segmentanytree_predictions_*.zip` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
+| `fvc_structure_code.zip` | MIT for original code; third-party folders under their own licences |
 | `model_*.zip`, `forestformer3d_predictions_rangeland.zip` | CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/) |
 
 The models and their predictions derive from ForestFormer3D, which is licensed

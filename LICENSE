@@ -32,8 +32,8 @@ licence, as stated in the files inside each directory:
   SegmentAnyTree/                         SegmentAnyTree (NIBIO), MIT; includes
                                           code under BSD, see SegmentAnyTree/LICENSE
                                           and SegmentAnyTree/LICENSE.md
-  phase_2_lidar_coregistration/gefolki/   GeFolki (Plyer et al.), GPL,
-                                          see phase_2_lidar_coregistration/gefolki/README.md
+  phase_2_lidar_coregistration/gefolki/   GeFolki (Plyer et al.), GPL-3.0,
+                                          see phase_2_lidar_coregistration/gefolki/LICENSE
 
 Changes made to these components in this repository are distributed under the
 licence of the component they modify.
