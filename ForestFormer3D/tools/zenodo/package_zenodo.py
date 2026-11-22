@@ -12,6 +12,9 @@ Output (in ``--out``)::
     forestformer3d_predictions_rangeland.zip
                               ForestFormer3D test predictions behind Tables 7-10
                               (final-epoch checkpoints), configs, logs, metrics
+    label_transfer_inputs_<site>.zip
+                              per-tile inputs and output of the 2D-to-3D label
+                              transfer (with --calperum-root)
     fvc_structure_code.zip    snapshot of the code repository (with --code-repo)
     segmentanytree_predictions_rangeland.zip
                               zero-shot SegmentAnyTree predictions, metrics, logs
@@ -71,6 +74,48 @@ EXPERIMENTS = [
     ("exp3C_scratch_low", "exp3C_scratch_low_train", "epoch_3000_fix.pth",
      "Experiment 3C: trained from scratch on low L1"),
 ]
+
+
+# Per-tile inputs and output of the 2D-to-3D label transfer (Phases 3-4), by
+# site: (folder in zip, glob relative to the site directory, description).
+LABEL_TRANSFER = {
+    "medium": ("site1_1_DD0001", [
+        ("1_structure_annotations_shp", "inputs/masks/tiles_3072/raw/structure_class/annotations_shp/*",
+         "2D growth-form annotation polygons"),
+        ("2_structure_label_raster", "inputs/masks/tiles_3072/raw/structure_class/annotation_raster/*",
+         "2D growth-form label rasters"),
+        ("3_structure_labelled_image_points", "imagery/clipped/mask/mask_tiles_multispectral.*.las",
+         "image-derived points labelled with growth-form classes 64-68"),
+        ("4_lidar_znorm", "lidar/clipped/raster/z_norm/csf/z_norm_csf_tiles_multispectral.*.las",
+         "co-registered UAS L1 LiDAR with CSF height above ground (Z_norm)"),
+        ("5_fused_3d_labels", "lidar/clipped/3d_structure_mask_malleid/znorm_3Dlabels_*.las",
+         "label-transfer output: LiDAR with growth-form class, Z_norm and treeID"),
+    ]),
+    "low": ("site2_1_DD0011", [
+        ("1_structure_annotations_shp", "inputs/masks/tiles_3072/raw/structure_class/annotation_shp/*",
+         "2D growth-form annotation polygons"),
+        ("2_structure_label_raster", "inputs/masks/tiles_3072/raw/structure_class/annotation_raster/*",
+         "2D growth-form label rasters"),
+        ("3_structure_labelled_image_points", "imagery/clipped/mask/mask_tiles_multispectral.*.las",
+         "image-derived points labelled with growth-form classes 64-68"),
+        ("4_lidar_znorm", "lidar/clipped/raster/z_norm/csf/z_norm_csf_tiles_multispectral.*.las",
+         "co-registered UAS L1 LiDAR with CSF height above ground (Z_norm)"),
+        ("5_fused_3d_labels", "lidar/clipped/3d_structure_mask_malleid/znorm_3Dlabels_l_*.las",
+         "label-transfer output: LiDAR with growth-form class, Z_norm and treeID"),
+    ]),
+}
+
+
+def label_transfer_members(calperum_root: Path, site: str, problems: list[str]) -> list[tuple[Path, str]]:
+    site_dir, parts = LABEL_TRANSFER[site]
+    members = []
+    for folder, pattern, _ in parts:
+        files = sorted(f for f in (calperum_root / site_dir).glob(pattern) if f.is_file())
+        n_tiles = len({f.stem for f in files}) if folder.endswith("shp") else len(files)
+        if n_tiles != 15:
+            problems.append(f"label transfer {site}/{folder}: expected 15 tiles, found {n_tiles} ({pattern})")
+        members += [(f, f"label_transfer_{site}/{folder}/{f.name}") for f in files]
+    return members
 
 
 # ForestFormer3D test runs behind the main-manuscript tables, all using the
@@ -170,6 +215,8 @@ def main() -> int:
     p.add_argument("--skip-models", action="store_true", help="Package data and lists only")
     p.add_argument("--segmentanytree-root", type=Path,
                    help="SegmentAnyTree output dir (has calperum/ and ForAINetV2/forest/) to package predictions")
+    p.add_argument("--calperum-root", type=Path,
+                   help="Root with site1_1_DD0001/ and site2_1_DD0011/ to package label-transfer inputs")
     p.add_argument("--code-repo", type=Path,
                    help="Git repository to snapshot into fvc_structure_code.zip (tracked files only)")
     p.add_argument("--code-ref", default="HEAD", help="Commit, branch or tag to snapshot (default: HEAD)")
@@ -245,7 +292,13 @@ def main() -> int:
                           "ForestFormer3D test predictions and metrics, final-epoch checkpoints "
                           "(Experiments 1A, 2 and 3; Tables 7-10)", members))
 
-    # 5. SegmentAnyTree zero-shot predictions (no new weights: the model is Wielgosz et al.'s)
+    # 5. Label-transfer inputs and outputs per site
+    lt_plan: list[tuple[str, list[tuple[Path, str]]]] = []
+    if args.calperum_root:
+        for site in LABEL_TRANSFER:
+            lt_plan.append((site, label_transfer_members(args.calperum_root, site, problems)))
+
+    # 6. SegmentAnyTree zero-shot predictions (no new weights: the model is Wielgosz et al.'s)
     if args.segmentanytree_root:
         groups = [("rangeland", "calperum", "rangeland UAS L1 tiles (medium and low)")]
         if args.sat_forest:
@@ -287,6 +340,10 @@ def main() -> int:
         for r in runs:
             print(f"      {r}")
 
+    for site, members in lt_plan:
+        print(f"  label_transfer_inputs_{site}.zip  {len(members)} files, "
+              f"{human(sum(s.stat().st_size for s, _ in members))}")
+
     if problems:
         print("\nProblems:")
         for line in problems:
@@ -318,6 +375,13 @@ def main() -> int:
         write_zip(args.out / f"{zname}.zip", members)
         manifest["predictions"].append({"file": f"{zname}.zip", "description": desc})
 
+    manifest["label_transfer"] = []
+    for site, members in lt_plan:
+        print(f"writing label_transfer_inputs_{site}.zip ...", flush=True)
+        write_zip(args.out / f"label_transfer_inputs_{site}.zip", members)
+        manifest["label_transfer"].append({"file": f"label_transfer_inputs_{site}.zip", "site": site,
+                                           "site_id": LABEL_TRANSFER[site][0]})
+
     if args.code_repo:
         print("writing fvc_structure_code.zip ...", flush=True)
         manifest["code"] = write_code_zip(args.code_repo, args.code_ref, args.out / "fvc_structure_code.zip")
@@ -325,8 +389,8 @@ def main() -> int:
     release = sorted(f for f in args.out.glob("*.zip"))
     sums = {f.name: sha256(f) for f in release}
     sizes = {f.name: f.stat().st_size for f in release}
-    for section in ("data", "models", "predictions"):
-        for entry in manifest[section]:
+    for section in ("data", "models", "predictions", "label_transfer"):
+        for entry in manifest.get(section, []):
             entry["sha256"] = sums[entry["file"]]
             entry["bytes"] = sizes[entry["file"]]
     if "code" in manifest:
@@ -384,6 +448,31 @@ inference logs (`runs/`). It covers all 15 tiles per site.
 Compare the two models on Experiment 1 (both zero-shot, all 15 tiles); for
 the fine-tuned and from-scratch ForestFormer3D models, compare on the held-out
 test tiles only.
+"""
+    lt = manifest.get("label_transfer") or []
+    lt_rows = "\n".join(f"| `{e['file']}` | {e['site']} ({e['site_id']}) | {human(e['bytes'])} |" for e in lt)
+    lt_parts = "\n".join(f"| `{folder}/` | {desc} |" for folder, _, desc in LABEL_TRANSFER["medium"][1])
+    lt_section = "" if not lt else f"""
+## Label-transfer inputs (Phases 3-4)
+
+The per-tile inputs and output of the 2D-to-3D label transfer for the same
+15 + 15 tiles, so the label transfer can be rerun or checked tile by tile.
+LAS files are in EPSG:7854 (GDA2020 / MGA zone 54). The 5-band predictor
+tiles and full orthomosaics are in https://doi.org/10.5281/zenodo.15036860.
+
+| File | Site | Size |
+|---|---|---|
+{lt_rows}
+
+Each archive has one folder per stage, in processing order:
+
+| Folder | Contents |
+|---|---|
+{lt_parts}
+
+Growth-form classes are 64 forb, 65 woody debris, 66 grass hummock, 67 shrub
+and 68 mallee (see Class mapping). `5_fused_3d_labels` is the input to the
+PLY tiles in `test_data_*_L1.zip` (same tiles, same points).
 """
     code = manifest.get("code")
     code_section = "" if not code else f"""
@@ -470,7 +559,7 @@ converted for spconv compatibility (3B is unconverted).
 The forest-pretrained starting point for Experiment 2 is not included; download
 `clean_forestformer.zip` from FOR-instanceV2 (https://doi.org/10.5281/zenodo.16742708).
 
-{pred_section}{code_section}
+{pred_section}{lt_section}{code_section}
 ## Class mapping
 
 {CLASS_MAPPING}
@@ -488,7 +577,7 @@ The forest-pretrained starting point for Experiment 2 is not included; download
 
 | Files | Licence |
 |---|---|
-| `test_data_*.zip`, `meta_data.zip` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
+| `test_data_*.zip`, `meta_data.zip`, `label_transfer_inputs_*.zip` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
 | `segmentanytree_predictions_*.zip` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
 | `fvc_structure_code.zip` | MIT for original code; third-party folders under their own licences |
 | `model_*.zip`, `forestformer3d_predictions_rangeland.zip` | CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/) |
