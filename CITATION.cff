@@ -18,6 +18,29 @@ keywords:
   - 3D point cloud segmentation
   - ForestFormer3D
   - rangeland
+references:
+  - type: data
+    title: "Calperum rangeland 3D dataset and pre-trained ForestFormer3D models in paper entitled \"From 2D labels to 3D structure: Scalable label transfer and benchmarking of 3D vegetation models in rangeland ecosystems\""
+    authors:
+      - family-names: Sotomayor
+        given-names: Laura N.
+        orcid: "https://orcid.org/0000-0001-9791-2193"
+      - family-names: Lucieer
+        given-names: Arko
+        orcid: "https://orcid.org/0000-0002-9468-4516"
+      - family-names: Turner
+        given-names: Darren
+        orcid: "https://orcid.org/0000-0002-3029-6717"
+      - family-names: Barthélemy
+        given-names: Johan
+        orcid: "https://orcid.org/0000-0002-7800-5309"
+      - family-names: Kattenborn
+        given-names: Teja
+        orcid: "https://orcid.org/0000-0001-7381-3828"
+    year: 2026
+    doi: "10.5281/zenodo.24431573"
+    publisher:
+      name: Zenodo
 preferred-citation:
   type: article
   status: preprint
@@ -34,6 +57,7 @@ preferred-citation:
       orcid: "https://orcid.org/0000-0002-3029-6717"
     - family-names: Barthelemy
       given-names: Johan
+      orcid: "https://orcid.org/0000-0002-7800-5309"
     - family-names: Kattenborn
       given-names: Teja
       orcid: "https://orcid.org/0000-0001-7381-3828"

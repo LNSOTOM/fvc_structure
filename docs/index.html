@@ -273,7 +273,7 @@
         <a class="button primary" href="#setup">Start with setup</a>
         <a class="button" href="https://eartharxiv.org/repository/view/12889/"><ion-icon name="document-attach-outline" aria-hidden="true"></ion-icon> Preprint on EarthArXiv</a>
         <a class="button" href="https://github.com/LNSOTOM/fvc_structure"><ion-icon name="logo-github" aria-hidden="true"></ion-icon> Code</a>
-        <a class="button disabled" aria-disabled="true" title="Link pending"><ion-icon name="cloud-download-outline" aria-hidden="true"></ion-icon> Datasets &amp; pre-trained models on Zenodo</a>
+        <a class="button" href="https://doi.org/10.5281/zenodo.24431573"><ion-icon name="cloud-download-outline" aria-hidden="true"></ion-icon> Datasets &amp; pre-trained models on Zenodo</a>
       </div>
     </div>
   </div>
@@ -311,7 +311,7 @@
         </div>
         <h3>Data products and acknowledgements</h3>
         <p>We thank Megan Lewis for her expertise and contributions in rangeland remote sensing and ecology, including her contribution to the reference-labelling dataset. We also acknowledge the Terrestrial Ecosystem Research Network (TERN), particularly its Ecosystem Surveillance team and Landscapes program. We thank Ben Sparrow, Poornima Sivanandam and Juan Carlos Montes-Herrera for drone operation and data processing, and the Australian Landscape Trust's Calperum Station managers for access to the study sites.</p>
-        <p>The paper's manual labels and UAS imagery are available in <a href="https://doi.org/10.5281/zenodo.15036860">Sotomayor et al. (2025), <em>Fractional Vegetation Cover Mapping</em>, Zenodo</a>. The dataset credits TERN Landscapes and TERN Surveillance Monitoring for RGB and multispectral orthomosaic processing, and acknowledges contributors to reference labelling. See the record for the full creator list, citation and licence. The forest benchmark uses <a href="https://zenodo.org/records/16742708">FOR-instanceV2</a>.</p>
+        <p>The paper's manual labels and UAS imagery are available in <a href="https://doi.org/10.5281/zenodo.15036860">Sotomayor et al. (2025), <em>Fractional Vegetation Cover Mapping</em>, Zenodo</a>. The dataset credits TERN Landscapes and TERN Surveillance Monitoring for RGB and multispectral orthomosaic processing, and acknowledges contributors to reference labelling. See the record for the full creator list, citation and licence. The labelled 3D tiles, label-transfer data, split lists, pre-trained models and predictions are available in <a href="https://doi.org/10.5281/zenodo.24431573">Sotomayor et al. (2026), Zenodo</a>. The forest benchmark uses <a href="https://zenodo.org/records/16742708">FOR-instanceV2</a>.</p>
         <p>We also acknowledge the developers of <a href="https://bxiang233.github.io/FF3D/">ForestFormer3D</a> (Xiang et al., 2025) and <a href="https://github.com/SmartForest-no/SegmentAnyTree">SegmentAnyTree</a> (<a href="https://doi.org/10.1016/j.rse.2024.114367">Wielgosz et al., 2024</a>) for the models used in the experiments.</p>
         <div class="flow" aria-label="Workflow from inputs to classified 3D LiDAR">
           <div><strong>01 / Surface model</strong><span>Georeferenced LAS/LAZ to a DSM GeoTIFF.</span></div>
@@ -806,7 +806,7 @@
 
         <h3 id="checkpoint-deliverables">Model checkpoint deliverables</h3>
         <p><strong>Forest-pretrained baseline:</strong> The ForestFormer3D authors provide the pretrained model in <a href="https://zenodo.org/records/16742708">FOR-instanceV2 on Zenodo</a>. Download <code>clean_forestformer.zip</code> and follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/readme.md">ForestFormer3D setup instructions</a>. This is the forest baseline, not a rangeland fine-tuned model.</p>
-        <p><strong>Rangeland experiment checkpoints:</strong> The following final-epoch files exist in the saved experiment outputs. Paths are relative to the experiment <code>work_dirs</code>; they are not download links. These files are not tracked in this repository, and no public download for them is linked here.</p>
+        <p><strong>Rangeland experiment checkpoints:</strong> The following final-epoch files exist in the saved experiment outputs. Paths are relative to the experiment <code>work_dirs</code>. They are not tracked in this repository; download them, with their configs, training logs and test predictions, from the <a href="https://doi.org/10.5281/zenodo.24431573">Zenodo record</a> (<code>model_exp*.zip</code>).</p>
         <ul>
           <li>Experiment 2A, joint fine-tuning: <code>exp2A_epoch3000_train/epoch_3000_fix.pth</code>.</li>
           <li>Experiment 2B, stage 1, medium: <code>exp2B_stage1_medium_train/epoch_3000_fix.pth</code>.</li>

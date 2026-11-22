@@ -16,6 +16,13 @@ If you use this code, please cite the paper that describes it:
 
 GitHub's **Cite this repository** button gives the same reference (see [CITATION.cff](CITATION.cff)).
 
+## Data and models
+
+Labelled 3D tiles, label-transfer data, split lists, the six pre-trained
+ForestFormer3D models and test predictions are on Zenodo:
+[doi:10.5281/zenodo.24431573](https://doi.org/10.5281/zenodo.24431573).
+UAS imagery and FVC labels: [doi:10.5281/zenodo.15036860](https://doi.org/10.5281/zenodo.15036860).
+
 ```
 LiDAR + UAS imagery → DSM → co-registration → 2D tiles + labels
                           → structure-classified LAS → model inputs → instance + semantic predictions
