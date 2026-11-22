@@ -5,6 +5,17 @@ ForestFormer3D and SegmentAnyTree.
 
 See the [research workflow guide](docs/index.html) for practical Phase 1–5 instructions.
 
+## Citation
+
+If you use this code, please cite the paper that describes it:
+
+> Sotomayor, L.N., Lucieer, A., Turner, D., Barthelemy, J., Kattenborn, T. (2026).
+> From 2D labels to 3D structure: Scalable label transfer and benchmarking of 3D
+> vegetation models in rangeland ecosystems. *EarthArXiv* (preprint).
+> https://doi.org/10.31223/X5948M
+
+GitHub's **Cite this repository** button gives the same reference (see [CITATION.cff](CITATION.cff)).
+
 ```
 LiDAR + UAS imagery → DSM → co-registration → 2D tiles + labels
                           → structure-classified LAS → model inputs → instance + semantic predictions

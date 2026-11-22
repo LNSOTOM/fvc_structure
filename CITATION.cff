@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the paper that describes it
+  (preferred citation below).
+title: "fvcStructureRangeland3D: 2D-to-3D label transfer and 3D vegetation model benchmarking for rangelands"
+type: software
+authors:
+  - family-names: Sotomayor
+    given-names: Laura N.
+    orcid: "https://orcid.org/0000-0001-9791-2193"
+    affiliation: University of Tasmania
+license: MIT
+repository-code: "https://github.com/LNSOTOM/fvc_structure"
+url: "https://lnsotom.github.io/fvc_structure/"
+keywords:
+  - UAS LiDAR
+  - label transfer
+  - 3D point cloud segmentation
+  - ForestFormer3D
+  - rangeland
+preferred-citation:
+  type: article
+  status: preprint
+  title: "From 2D labels to 3D structure: Scalable label transfer and benchmarking of 3D vegetation models in rangeland ecosystems"
+  authors:
+    - family-names: Sotomayor
+      given-names: Laura N.
+      orcid: "https://orcid.org/0000-0001-9791-2193"
+    - family-names: Lucieer
+      given-names: Arko
+      orcid: "https://orcid.org/0000-0002-9468-4516"
+    - family-names: Turner
+      given-names: Darren
+      orcid: "https://orcid.org/0000-0002-3029-6717"
+    - family-names: Barthelemy
+      given-names: Johan
+    - family-names: Kattenborn
+      given-names: Teja
+      orcid: "https://orcid.org/0000-0001-7381-3828"
+  year: 2026
+  doi: "10.31223/X5948M"
+  publisher:
+    name: EarthArXiv
+  url: "https://doi.org/10.31223/X5948M"
