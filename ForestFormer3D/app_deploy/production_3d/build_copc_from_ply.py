@@ -73,6 +73,12 @@ def parse_args() -> argparse.Namespace:
         help="Maximum absolute XYZ difference allowed when verifying row-aligned work_dirs-to-structure mapping.",
     )
     parser.add_argument(
+        "--experiments",
+        nargs="+",
+        default=None,
+        help="Only convert these top-level experiment folders under --input-root (default: all).",
+    )
+    parser.add_argument(
         "--use-z-dimension",
         default="",
         help="Optional LAS/LAZ dimension name to copy into Z before writing COPC, for example Z_norm.",
@@ -89,14 +95,19 @@ def require_pdal() -> str:
     return pdal_path
 
 
-def discover_sources(input_root: Path) -> list[Path]:
+def discover_sources(input_root: Path, experiments: list[str] | None = None) -> list[Path]:
     if not input_root.exists():
         raise FileNotFoundError(f"Input root does not exist: {input_root}")
+    if experiments:
+        missing = [name for name in experiments if not (input_root / name).is_dir()]
+        if missing:
+            raise FileNotFoundError(f"Experiment folders not found under {input_root}: {', '.join(missing)}")
 
     scene_paths = sorted(
         path
         for path in input_root.rglob("*")
         if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+        and (not experiments or path.relative_to(input_root).parts[0] in experiments)
     )
     if not scene_paths:
         raise RuntimeError(f"No supported scene files were found under {input_root}")
@@ -529,7 +540,7 @@ def run_pipeline(pdal_path: str, pipeline: dict) -> None:
 def main() -> None:
     args = parse_args()
     pdal_path = require_pdal()
-    scene_paths = discover_sources(args.input_root)
+    scene_paths = discover_sources(args.input_root, args.experiments)
 
     with tempfile.TemporaryDirectory(prefix="production_3d_merge_") as temp_dir_name:
         temp_dir = Path(temp_dir_name)
