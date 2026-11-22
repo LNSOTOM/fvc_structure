@@ -476,8 +476,23 @@ Each archive has one folder per stage, in processing order:
 {lt_parts}
 
 Growth-form classes are 64 forb, 65 woody debris, 66 grass hummock, 67 shrub
-and 68 mallee (see Class mapping). `6_fused_3d_labels` is the input to the
-PLY tiles in `test_data_*_L1.zip` (same tiles, same points).
+and 68 mallee (see Class mapping).
+
+### From label transfer to model input
+
+`6_fused_3d_labels` is converted to the PLY tiles in `test_data_*_L1.zip`
+(Phase 5, `prepare_lidar.py`): same tiles, same points, with classes
+remapped 64->1, 65->2, 66->3, 67->4, 68->5. The ForestFormer3D loader then
+maps them to the model classes 0 ground, 1 wood, 2 leaf. The tile number
+links the files:
+
+| Site | Stage 6 (LAS, classes 64-68) | Released PLY (classes 1-5) |
+|---|---|---|
+| Medium | `label_transfer_medium/6_fused_3d_labels/znorm_3Dlabels_<tile>.las` | `test_data_medium_L1/znorm_3Dlabels_m_L1_<tile>.ply` |
+| Low | `label_transfer_low/6_fused_3d_labels/znorm_3Dlabels_l_<tile>.las` | `test_data_low_L1/znorm_3Dlabels_l_L1_<tile>.ply` |
+
+For example, medium tile 106: `znorm_3Dlabels_106.las` ->
+`znorm_3Dlabels_m_L1_106.ply`.
 """
     code = manifest.get("code")
     code_section = "" if not code else f"""
