@@ -2,6 +2,7 @@
 name = "fvc-structure-dsm"
 version = "0.1.0"
 description = "Reusable DSM generation helpers for georeferenced LAS/LAZ point clouds."
+license = { text = "MIT" }
 requires-python = ">=3.10,<3.12"
 dependencies = [
     "dask>=2024.0",

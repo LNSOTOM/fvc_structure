@@ -62,6 +62,14 @@ Run on the Phase 5 outputs.
 - [Environment setup / Docker](SegmentAnyTree/README.md) — also on [GitHub](https://github.com/LNSOTOM/fvc_structure/tree/main/SegmentAnyTree)
 - [Multi-GPU Docker inference](SegmentAnyTree/README_ForAINetV2_multi_gpu_inference.md)
 
+## Licence
+
+The original code in this repository is released under the [MIT License](LICENSE).
+Third-party code keeps its own licence: [ForestFormer3D](ForestFormer3D/LICENSE)
+(CC BY-NC 4.0), [SegmentAnyTree](SegmentAnyTree/LICENSE) (MIT, with BSD-licensed
+parts) and [GeFolki](phase_2_lidar_coregistration/gefolki/README.md) (GPL).
+Data and models are licensed separately in their Zenodo records.
+
 <details>
 <summary>Maintainers: enable the guide's clone counter</summary>
 
