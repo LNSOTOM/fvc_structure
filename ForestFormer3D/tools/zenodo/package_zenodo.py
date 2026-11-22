@@ -524,8 +524,7 @@ a medium-density site (grass hummock, shrub, mallee) and a low-density site
 Step-by-step workflow guide: https://lnsotom.github.io/fvc_structure/
 
 Code, setup and the full experiment runbook:
-https://github.com/LNSOTOM/fvc_structure (archived as a separate Zenodo
-software record; see Related works on this record's page)
+https://github.com/LNSOTOM/fvc_structure
 (see `ForestFormer3D/README_ForAINetV2_experiments.md`).
 
 ## Data
