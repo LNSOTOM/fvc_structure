@@ -479,9 +479,8 @@
         <p>Edit the <code>preprocess</code>, <code>flow</code> and <code>align</code> sections. Connect the output paths of each step to the input paths of the next. The supplied template uses L2 flow parameters; use the documented L1 parameters for L1 data.</p>
         <h3>2. Run the steps</h3>
         <p>This example uses the L2 scripts. For L1 data, choose the corresponding <code>_l1.py</code> scripts instead.</p>
-        <div class="command" data-label="Resample LiDAR DSM"><pre><code>uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/gefolki_preprocess.py --config phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
-        <div class="command" data-label="Compute L2 flow"><pre><code>uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/gefolki_flow_l2.py --config phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
-        <div class="command" data-label="Align L2 point cloud"><pre><code>uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/align_lidar_with_flow_l2.py --config phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
+        <p>The scripts read <code>coregistration_job.local.yml</code> by default. They resample the LiDAR DSM, compute the flow, then align the point cloud:</p>
+        <div class="command" data-label="Run Phase 2 (L2)"><pre><code>for step in gefolki_preprocess gefolki_flow_l2 align_lidar_with_flow_l2; do uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/$step.py || break; done</code></pre></div>
         <h3>3. Inspect the alignment</h3>
         <p>Check the registered surface, flow direction and alignment statistics using the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/stats_align_lidar_with_flow.py.ipynb" target="_blank" rel="noopener">validation notebook</a>.</p>
         <div class="note"><strong>Check the output point count.</strong> The alignment scripts omit points outside the flow grid's interpolation extent. Confirm that the retained extent is appropriate for your analysis.</div>
