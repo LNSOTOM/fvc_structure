@@ -10,8 +10,7 @@ rather than assumed.
 | `make_label_qa_table.py` | the summary CSVs | the same answer as two LaTeX tables, for the manuscript |
 | `plot_centroids.py` | the delivered artefacts | the centroid figure: what each grid does to a feature's shape and to its centre |
 
-`label_qa.py` needs nothing but the delivered files, and it carries the answer to the
-reviewer. **No repeat annotation has been made and none is claimed**; `label_qa.py`'s
+`label_qa.py` needs nothing but the delivered files. **No repeat annotation has been made and none is claimed**; `label_qa.py`'s
 `Delineation IoU` columns are what stands in for one, bounding how much a different outline
 could change without anyone drawing one.
 [`notebooks/01_label_quality_assessment.ipynb`](notebooks/01_label_quality_assessment.ipynb)
@@ -47,7 +46,7 @@ Writes two files into `--output-dir`:
 | `label_quality_tables.tex` | the manuscript tables, and the figures when `--figure` is passed |
 | `<site>_qa_issues.csv` | one row per individual problem, so a flagged polygon can be opened in QGIS |
 
-The answer to the reviewer is assembled from those two CSVs in
+The results are assembled from those two CSVs in
 [`notebooks/01_label_quality_assessment.ipynb`](notebooks/01_label_quality_assessment.ipynb),
 which is the deliverable; the script deliberately does not generate a second prose copy of the
 same numbers.

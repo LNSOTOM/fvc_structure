@@ -243,7 +243,7 @@ def plot_parameter_figure(per_tile: pd.DataFrame, path: Path) -> None:
     save(fig, path)
 
 
-# What each parameter decides, for the one-line answer to the three review comments.
+# What each parameter decides, for the summary table.
 WHAT_IT_DECIDES = {
     "voxel_size": "how far a 2D label extends to neighbouring returns",
     "height_match_radius": "how far a point may look for its height above ground",
@@ -252,7 +252,7 @@ WHAT_IT_DECIDES = {
     "min_flip_ratio": "whether an existing label is overturned",
 }
 # Values carrying a unit in the answer table; the rest are dimensionless. Voxel size is
-# quoted in centimetres there, as the manuscript and the review comments do.
+# quoted in centimetres there, as in the manuscript.
 UNITS = {"voxel_size": " cm", "height_match_radius": " m"}
 SCALE = {"voxel_size": 100.0}
 
@@ -283,7 +283,7 @@ def table(per_tile: pd.DataFrame, parameter: str, columns: Sequence[Tuple[str, s
 
 def answer_table(per_tile: pd.DataFrame) -> str:
     """One row per parameter: the largest change any tested value made to the final
-    labels on any tile. The whole answer to the three review comments in one table."""
+    labels on any tile, summarised in one table."""
     lines = ["| Parameter | Default | What it decides | Values tested | "
              + " | ".join(f"{c}: largest change (%)" for c in SITE_COLOURS) + " |",
              "|---|---:|---|---|" + "---:|" * len(SITE_COLOURS)]

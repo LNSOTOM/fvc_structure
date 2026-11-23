@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-at-a-time sensitivity of the fusion pipeline to its tuned parameters.
 
-Answers the reviewer's requests to justify the voxel size (10 cm), the Stage-1
+Tests the choice of the voxel size (10 cm), the Stage-1
 height matching radius (0.30 m), the Stage-4 height-prior weights (1 in range,
 0.1 out of range), the confidence threshold (`min_conf` 0.3) and the flip ratio
 (`min_flip_ratio` 1.5). Each parameter is varied across a range while the others
