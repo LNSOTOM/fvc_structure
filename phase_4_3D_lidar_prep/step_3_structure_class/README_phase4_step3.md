@@ -30,7 +30,6 @@ step_3_structure_class/
 ├── make_label_transfer_validation_figure.py Four-panel validation figure
 ├── summarize_label_transfer_validation.py   Batch validation tables
 ├── test_pipeline.sh     Smoke test over main_run.py
-├── reviewer_response/   The four review comments on error propagation and parameter choices
 └── notebooks/           Interactive workflows and analyses
 ```
 
@@ -38,29 +37,8 @@ step_3_structure_class/
 |---|---|---|
 | `main_run.py` | Fused LAS tiles for a site | `test_pipeline.sh` |
 | `compare_voxel_sizes.py` | Sweep CSVs + figures of the pipeline's own counters | notebook 05 |
-| `reviewer_response/sensitivity.py` | Every measurement behind the reviewer replies: the parameter sweep and phase 3's 2D label QA | `reviewer_response/figures.py` |
-| `reviewer_response/figures.py` | The three supplementary figures and the six tables, including the pipeline error budget | notebook `reviewer_response/04_reviewer_responses.ipynb` |
 | `make_label_transfer_validation_figure.py` | Validation figure (PNG) | notebooks 02, 03 |
 | `summarize_label_transfer_validation.py` | Tables 5 and 6 (CSV + MD) | — |
-
-### `reviewer_response/`
-
-Answers four review comments — the error introduced at each step of the pipeline (6.1), the
-voxel-size comparison (3.2.2), the 0.30 m matching radius, and the remaining parameter values —
-from one set of measurements:
-
-| File | Contents |
-|---|---|
-| [`response_to_reviewers.md`](reviewer_response/response_to_reviewers.md) | the four replies, ready to paste, plus the decisions to settle first |
-| [`04_reviewer_responses.ipynb`](reviewer_response/04_reviewer_responses.ipynb) | the evidence: one section per comment, executed |
-| [`sensitivity.py`](reviewer_response/sensitivity.py) | the measurements → two CSVs in `assets/parameter_sensitivity/` |
-| [`figures.py`](reviewer_response/figures.py) | the figures and tables, from those CSVs |
-
-`assets/` is gitignored, so the notebook's committed outputs are the record of the numbers; the
-replies must be checked against a regenerated `reviewer_response_tables.md` after any rerun.
-This replaces `parameter_sensitivity.py`, `plot_parameter_sensitivity.py`, `plot_voxel_transfer.py`,
-`vertical_profile.py`, `README_parameter_sensitivity.md` and `notebooks/04_voxel_size_sensitivity_and_label_confidence.ipynb`,
-which are in git history up to `HEAD`. `compare_voxel_sizes.py` stays because notebook 05 imports it.
 
 > **`main_run.py` needs editing before it runs.** Its input paths are hardcoded at lines 14–19
 > (`/home/nvidia/...`, `/data/calperumResearch/...`) and point at a different machine. Change them
@@ -156,9 +134,7 @@ python phase_4_3D_lidar_prep/step_3_structure_class/compare_voxel_sizes.py \
 Add `--write-las` if you also want the per-run LAS products saved under size-specific folders.
 
 This sweep reports how much the pipeline's own counters move, which cannot pick one voxel size
-over another. The reviewer-facing comparison — every tuned parameter, both sites, scored against
-the 2D labels, plus the error budget for the pipeline as a whole — is
-[`reviewer_response/`](reviewer_response/response_to_reviewers.md).
+over another.
 
 ### Validation figure for the 2D to 3D label transfer workflow
 
@@ -226,7 +202,6 @@ Notes:
 | `02_label_transfer_validation_tile109.ipynb` | Single-tile validation of the 2D→3D transfer |
 | `03_label_transfer_validation_gallery_tile109.ipynb` | Multi-panel validation gallery |
 | `05_shrub_class_transition_matrix.ipynb` | Shrub class transition/confusion analysis |
-| [`reviewer_response/04_reviewer_responses.ipynb`](reviewer_response/04_reviewer_responses.ipynb) | The evidence for the four review comments: the pipeline error budget (6.1), the 5–25 cm voxel comparison (3.2.2), the 0.30 m matching radius, and the remaining parameter values |
 
 Helper modules beside the notebooks (`flow.py`, `maskCoreg.py`, `maskCoreg_low.py`,
 `test_label_transfer.py`, `test_label_transfer_low.py`) support these workflows.

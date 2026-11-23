@@ -692,16 +692,7 @@
           </table>
         </div>
         <p>The largest decrease occurred during grid aggregation at the medium site and voxel transfer at the low site. These changes measure agreement with the same input 2D labels, not independent error terms or 3D accuracy.</p>
-        <p>Other checks cover voxel agreement, class heights and crown retention (15 medium tiles; low tiles inspected visually). Sensitivity tests covered 15 tiles at each site: larger voxels increased coverage but also spread labels beyond the 2D footprint. The 10 cm default is a density-based compromise, not an independently validated optimum. See the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/response_to_reviewers.md" target="_blank" rel="noopener">analysis notes</a> and <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/04_reviewer_responses.ipynb" target="_blank" rel="noopener">analysis notebook</a>.</p>
-        <details>
-          <summary>Reproduce the error and sensitivity analysis</summary>
-          <p>Run Phase 3 label QA for both sites first. Prepare the historical site layout with 1 cm and 5 cm labels, structure LAS and <code>Z_norm</code> LAS; see the analysis notes. Activate the Phase 4 conda environment and add the analysis dependencies:</p>
-          <div class="command" data-label="Install analysis dependencies"><pre><code>conda install -c conda-forge geopandas pandas matplotlib</code></pre></div>
-          <p>From the repository root, replace the paths and use a new output directory. The full sweep can be expensive; adjust the worker count.</p>
-          <div class="command" data-label="Run error and sensitivity analysis"><pre><code>python phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/sensitivity.py all --data-root PATH_TO_DATA_ROOT --output-dir PATH_TO_ANALYSIS_OUTPUT --workers 2</code></pre></div>
-          <div class="command" data-label="Generate error and sensitivity figures"><pre><code>python phase_4_3D_lidar_prep/step_3_structure_class/reviewer_response/figures.py --assets PATH_TO_ANALYSIS_OUTPUT</code></pre></div>
-          <p>Outputs include per-tile CSVs, figures and a summary table. Check tile coverage before comparing with the paper.</p>
-        </details>
+        <p>Other checks cover voxel agreement, class heights and crown retention (15 medium tiles; low tiles inspected visually). Sensitivity tests covered 15 tiles at each site: larger voxels increased coverage but also spread labels beyond the 2D footprint. The 10 cm default is a density-based compromise, not an independently validated optimum.</p>
         <h3>Example output: height above ground</h3>
         <figure>
           <a href="./figures/phase4-height-model.png"><img src="./figures/phase4-height-model.png" alt="Canopy height model for DD0001 tile 109, with a height scale in metres." loading="lazy"></a>
