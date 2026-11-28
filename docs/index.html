@@ -483,7 +483,7 @@
         <a href="#models">3D deep learning models</a>
         <a class="subsection" href="#model-comparison-heading">Explore model results</a>
         <a href="#experiments">Experiments</a>
-        <strong>fvc3d</strong>
+        <strong>Package: fvc3d</strong>
         <a href="#installation">Installation</a>
         <a href="#python-api">Quick start</a>
         <a class="subsection" href="#api-try">Try the Calperum study data</a>
@@ -496,9 +496,7 @@
         <a class="subsection" href="#api-classes">The paper's classes</a>
         <a class="subsection" href="#api-your-data">Your own classes</a>
         <a class="subsection" href="#api-settings">Settings</a>
-        <a href="#how-it-works">How it works</a>
-        <a class="subsection" href="#api-alignment">Alignment check</a>
-        <a class="subsection" href="#api-quality">Quality diagnostics</a>
+        <a class="subsection" href="#how-it-works">How it works</a>
         <a href="#api-reference">API reference</a>
         <a class="subsection" href="#api-next">Next steps</a>
         <strong>About</strong>
@@ -1057,6 +1055,7 @@ fvc3d.plot.crowns(result)</code></pre></div>
       <section id="classes-data" class="phase">
         <div class="phase-label">Package | Inputs, classes and settings</div>
         <h2>Prepare your data for label transfer</h2>
+        <p>Check your raster and LiDAR, choose how to map the raster codes, then adjust the settings if needed. For a first run with the defaults, try the <a href="#api-try">Calperum example</a>.</p>
 
         <h3 id="api-inputs">Prepare the inputs</h3>
         <div class="analysis-table-wrap">
@@ -1126,12 +1125,21 @@ print(result.summary())</code></pre></div>
         <p class="muted">Only <code>classes</code> and <code>height_ranges</code> are required. This example runs the method on the three classes directly, without the paper's woody-debris merge and promotion rules, so it keeps fewer leaf points than the paper (346,396 against 377,940). To reproduce the paper's ground, wood and leaf labels, use <a href="#api-forestformer"><code>classes="FOR-instanceV2"</code></a> (see the Quick start).</p>
 
         <h3 id="api-settings">Change method settings</h3>
-        <p>Defaults are the paper's. Override them with a dict or a YAML file; misspelt keys raise an error.</p>
-        <div class="command" data-label="Override settings"><pre><code>result = transfer_labels(
-    "growth_forms.tif", "lidar.laz", "labelled_vegetation_5cm.laz",
-    config={"voxel_size_xy": 0.05, "voxel_size_z": 0.05, "min_tree_dist": 1.2},
+        <p>To test a smaller voxel size, rerun <a href="#api-try">Calperum tile 109</a> after extracting the study data. Keep <code>class_map="paper"</code> for the published raster codes and write to a new file so you can compare runs.</p>
+        <div class="command" data-label="Run tile 109 with 5 cm voxels"><pre><code>from pathlib import Path
+
+from fvc3d import transfer_labels
+
+tile_dir = Path("label_transfer_medium")
+result = transfer_labels(
+    labels=tile_dir / "2_structure_label_raster/mask_structure_3072.109.tif",
+    point_cloud=tile_dir / "5_lidar_znorm/z_norm_csf_tiles_multispectral.109.las",
+    output="labelled_109_5cm.laz",
+    class_map="paper",
+    config={"voxel_size_xy": 0.05, "voxel_size_z": 0.05},
 )
-# or: config="configs/transfer_labels.yaml"</code></pre></div>
+print(result.summary())</code></pre></div>
+        <p>Compare the labelled point count, class counts and <a href="#api-quality">quality diagnostics</a> with the default 10 cm run. To reuse settings across tiles, pass a YAML file as <code>config</code>.</p>
         <div class="analysis-table-wrap">
           <table class="analysis-table">
             <caption>Commonly changed settings; all are in <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/configs/transfer_labels.yaml" target="_blank" rel="noopener">configs/transfer_labels.yaml</a></caption>
@@ -1147,11 +1155,7 @@ print(result.summary())</code></pre></div>
           </table>
         </div>
 
-      </section>
-
-      <section id="how-it-works" class="phase">
-        <div class="phase-label">Package | How it works</div>
-        <h2>How the label transfer works</h2>
+        <h3 id="how-it-works">How the label transfer works</h3>
         <p><code>transfer_labels()</code> follows the paper's 2D-to-3D method (Section 3). It first labels each LiDAR point from the raster pixel beneath it; these <em>draped</em> points are the evidence. It then runs five stages over the whole point cloud, using the height above ground (<code>Z_norm</code>) of every point. Defaults are the paper's; each can be changed in <a href="#api-settings">settings</a>.</p>
         <div class="analysis-table-wrap">
           <table class="analysis-table stages">
@@ -1167,7 +1171,7 @@ print(result.summary())</code></pre></div>
           </table>
         </div>
         <p class="muted">Which class forms crowns and which classes merge come from the <a href="#api-your-data">class scheme</a>. A scheme without a crown class skips Stages 3 and 4.</p>
-        <h3 id="api-stages">Run the stages yourself</h3>
+        <h4 id="api-stages">Run the stages yourself</h4>
         <p>For arrays already in memory, <code>fuse_labels()</code> runs Stages 1–5:</p>
         <div class="command" data-label="Stage by stage"><pre><code>import numpy as np
 from fvc3d import read_labels, read_point_cloud, drape_labels, fuse_labels
@@ -1194,7 +1198,7 @@ print(fused.metrics["final_treeids"], "mallee crowns")</code></pre></div>
           </table>
         </div>
 
-        <h3 id="api-alignment">The alignment check</h3>
+        <h4 id="api-alignment">The alignment check</h4>
         <p>With <code>validate_alignment=True</code>, the run raises <code>AlignmentError</code> before transferring labels if:</p>
         <ul>
           <li>the CRSs differ, are missing, or are not projected in metres;</li>
@@ -1208,9 +1212,9 @@ report = check_alignment(read_labels("growth_forms.tif"), read_point_cloud("lida
 print(report.summary())</code></pre></div>
         <p>To relax the check, pass <code>max_shift=1.0</code>; to skip it, <code>validate_alignment=False</code>.</p>
 
-        <h3 id="api-quality">Quality diagnostics</h3>
+        <h4 id="api-quality">Quality diagnostics</h4>
         <p><code>result.quality</code> gives the paper's three internal consistency diagnostics (Section 3, Validation): <strong>voxel-level label agreement</strong> between the Stage 2 and Stage 5 labels (overall accuracy and IoU per class), <strong>height plausibility of refined classes</strong> (median <code>Z_norm</code> and the share of points outside each class's configured range), and <strong>crown-instance retention</strong> (final <code>treeID</code>s as a share of the watershed crowns). They check that the workflow is internally consistent, not accuracy against independent ground truth. Classes that Stage 5 removes, such as woody debris, are reported as absent after consolidation.</p>
-        <h3 id="how-it-works-agreement-with-the-paper-code">Agreement with the paper code</h3>
+        <h4 id="how-it-works-agreement-with-the-paper-code">Agreement with the paper code</h4>
         <p><code>fvc3d</code> matches <code>fvc3dstruct</code>, the paper's Phase 4 code, with one fix: points beyond the crown-detection grid no longer take an edge crown's ID, which could turn them into mallee (274 ground points on tile 109). With <code>config={"legacy_crown_clamp": True}</code>, tile 109's labels match <code>fvc3dstruct</code> point for point. Crown detection defaults to <code>"auto"</code>, the setting behind the published outputs; <code>fvc3dstruct</code>'s <code>DEFAULT_CONFIG</code> lists fixed values (1.5 m, 1.0) instead.</p>
         <div class="resources">
           <strong>Resources:</strong>
