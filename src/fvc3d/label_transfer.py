@@ -88,12 +88,13 @@ def voxel_transfer(
     source_classes: np.ndarray,
     voxel_xy: float = 0.10,
     voxel_z: float = 0.10,
+    codes=STRUCTURE_CODES,
 ) -> tuple[np.ndarray, dict]:
     """Give each target point the majority source label of its voxel.
 
     The grid origin is the minimum corner of both clouds. Ties go to the lower
-    class code. Source labels outside 64–68 are ignored; target points in a
-    voxel with no labelled source points get 0.
+    class code. Source labels not in ``codes`` (default: the paper's 64–68) are
+    ignored; target points in a voxel with no labelled source points get 0.
 
     Returns the per-target-point labels and a stats dict.
     """
@@ -110,7 +111,7 @@ def voxel_transfer(
     def encode(v):
         return (v[:, 0] * dims[1] + v[:, 1]) * dims[2] + v[:, 2]
 
-    valid = np.isin(source_classes, STRUCTURE_CODES)
+    valid = np.isin(source_classes, codes)
     out = np.zeros(len(target_xyz), dtype=np.uint8)
     n_voxels = 0
     if np.any(valid):

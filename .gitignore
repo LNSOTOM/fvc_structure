@@ -103,6 +103,7 @@ coverage.xml
 !docs/figures/phase4-ground-height.png
 !docs/figures/phase5-model-arrays.png
 !docs/figures/segmentanytree-medium-l1-f1-coverage.png
+!docs/figures/Logo_SotomayorStudio.png
 
 # GIS extensions
 *.aux.xml
@@ -192,6 +193,7 @@ dmypy.json
 *.ckpt
 *.yaml
 !configs/transfer_labels.yaml
+!configs/classes.yaml
 *checkpoint*
 *.tfevents.*
 *events.out*

@@ -1,0 +1,50 @@
+# fvc3d class scheme: which labels are transferred and how each is treated.
+# This file is the paper's scheme (the default). To use your own classes, copy
+# it, edit it, and pass the path:
+#   transfer_labels(..., classes="my_classes.yaml")
+
+# LAS classification code (1–255) -> class name. 0 means unlabelled.
+classes:
+  64: forb
+  65: woody_debris
+  66: hummock
+  67: shrub
+  68: mallee
+
+# Expected height above ground (m), [low, high], per class. Used when a tile
+# has fewer than 20 labelled points of a class, and in the height report.
+height_ranges:
+  64: [0.00, 0.40]
+  65: [0.05, 5.00]
+  66: [0.00, 0.80]
+  67: [0.40, 3.00]
+  68: [1.50, 8.00]
+
+# Class split into individual crowns and given a treeID (name or code).
+# Use null for no crowns: crown detection and polar refinement are skipped.
+crown_class: mallee
+
+# Points of a class above merge_65_to_68_znorm (config, default 0.5 m) become
+# another class; lower ones become unlabelled. {} for none.
+merge:
+  woody_debris: mallee
+
+# Unlabelled points at or above promote_unlabelled_znorm (config, default
+# 1.3 m) become the crown class.
+promote_unlabelled: true
+
+# How the published rasters encode the classes; class_map="paper" uses it.
+raster_map: {0: forb, 1: woody_debris, 2: hummock, 3: shrub, 4: mallee}
+
+# Optional: relabel the output, e.g. to FOR-instanceV2's ground/wood/leaf, the
+# classes ForestFormer3D is trained on (built in as classes="FOR-instanceV2";
+# ForestFormer3D model IDs are code - 1).
+# output_classes: {1: ground, 2: wood, 3: leaf}
+# output_map: {forb: ground, hummock: ground, shrub: wood, mallee: leaf}
+
+# --- Example: your own scheme --------------------------------------------
+# classes: {1: ground, 2: wood, 3: leaf}
+# height_ranges: {1: [0.0, 0.8], 2: [0.4, 3.0], 3: [1.5, 8.0]}
+# crown_class: leaf
+# merge: {}
+# promote_unlabelled: false

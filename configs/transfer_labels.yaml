@@ -11,8 +11,9 @@ voxel_size_z: 0.10
 
 # Stage 3: mallee crown detection
 crown_grid_res: 0.10        # grid cell (m)
-min_tree_dist: 1.5          # minimum distance between crown peaks (m), or "auto"
-smoothing_sigma: 1.0        # Gaussian smoothing of the canopy grid (cells), or "auto"
+min_tree_dist: auto         # minimum distance between crown peaks (m), or auto
+smoothing_sigma: auto       # Gaussian smoothing of the canopy grid (cells), or auto
+                            # auto estimates both from canopy spacing, as in the paper
 mallee_min_znorm: null      # override the derived minimum crown height (m)
 
 # Stage 4: crown-centric polar refinement

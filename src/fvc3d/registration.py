@@ -9,7 +9,8 @@ assumption:
 * the point cloud and the labelled area overlap;
 * there is no residual horizontal offset: the LiDAR canopy (points with
   ``Z_norm`` at or above ``canopy_height``) is phase-correlated with the
-  mallee pixels of the label raster, giving the XY shift between them.
+  crown-class pixels of the label raster (paper: mallee; all labelled pixels
+  for a scheme without a crown class), giving the XY shift between them.
 """
 
 from __future__ import annotations
@@ -86,13 +87,46 @@ def _shift_mask(mask: np.ndarray, rows: int, cols: int) -> np.ndarray:
     return out
 
 
+#: Finest grid (m) for the coverage and offset checks. A finer label raster is
+#: compared in blocks of this size, since UAS LiDAR rarely has a point in every
+#: 1 cm pixel.
+CHECK_GRID = 0.05
+
+
+def _block_factor(labels: LabelRaster, grid: float = CHECK_GRID) -> int:
+    res = min(labels.resolution)
+    return max(1, int(round(grid / res))) if res < grid else 1
+
+
+def _block_any(mask: np.ndarray, f: int) -> np.ndarray:
+    """True for each f×f block that has any True pixel."""
+    if f == 1:
+        return mask
+    h, w = mask.shape
+    H, W = -(-h // f), -(-w // f)
+    padded = np.zeros((H * f, W * f), dtype=bool)
+    padded[:h, :w] = mask
+    return padded.reshape(H, f, W, f).any(axis=(1, 3))
+
+
+def _point_blocks(labels: LabelRaster, x, y, f: int, keep=None):
+    rows, cols, inside = pixel_indices(labels, x, y)
+    if keep is not None:
+        inside = inside & keep
+    h, w = labels.shape
+    grid = np.zeros((-(-h // f), -(-w // f)), dtype=bool)
+    grid[rows[inside] // f, cols[inside] // f] = True
+    return grid, inside
+
+
 def estimate_canopy_shift(
     labels: LabelRaster,
     x, y, z_norm,
     canopy_height: float = 1.0,
     min_pixels: int = 200,
+    crown_class: int | None = MALLEE,
 ) -> tuple[float, float, float, float] | None:
-    """Estimate the XY offset (m) of LiDAR canopy relative to mallee labels.
+    """Estimate the XY offset (m) of LiDAR canopy relative to crown-class labels (paper: mallee).
 
     Returns ``(dx, dy, iou_before, iou_after)`` where (dx, dy) is how far the
     LiDAR is displaced from the labels (east, north), or ``None`` when either
@@ -100,11 +134,10 @@ def estimate_canopy_shift(
     """
     from skimage.registration import phase_cross_correlation
 
-    label_mask = labels.data == MALLEE
-    rows, cols, inside = pixel_indices(labels, x, y)
-    tall = inside & (np.asarray(z_norm) >= canopy_height)
-    lidar_mask = np.zeros(labels.shape, dtype=bool)
-    lidar_mask[rows[tall], cols[tall]] = True
+    f = _block_factor(labels)
+    target = labels.data == crown_class if crown_class is not None else labels.data > 0
+    label_mask = _block_any(target, f)
+    lidar_mask, _ = _point_blocks(labels, x, y, f, keep=np.asarray(z_norm) >= canopy_height)
     if np.count_nonzero(label_mask) < min_pixels or np.count_nonzero(lidar_mask) < min_pixels:
         return None
 
@@ -113,7 +146,7 @@ def estimate_canopy_shift(
     )
     # `shift` moves the LiDAR mask onto the labels; the LiDAR offset is its negative.
     d_row, d_col = -float(shift[0]), -float(shift[1])
-    res_x, res_y = labels.resolution
+    res_x, res_y = (r * f for r in labels.resolution)
     dx = d_col * res_x * np.sign(labels.transform.a)
     dy = d_row * res_y * np.sign(labels.transform.e)
     iou_before = _iou(label_mask, lidar_mask)
@@ -127,6 +160,7 @@ def check_alignment(
     z_norm: np.ndarray | None = None,
     max_shift: float = 0.50,
     canopy_height: float = 1.0,
+    crown_class: int | None = MALLEE,
 ) -> AlignmentReport:
     """Check that ``labels`` and ``cloud`` line up; never raises.
 
@@ -151,11 +185,10 @@ def check_alignment(
     if cloud.crs is not None and not projected:
         problems.append("point cloud CRS must be projected, in metres")
 
-    rows, cols, inside = pixel_indices(labels, cloud.x, cloud.y)
+    f = _block_factor(labels)
+    hit, inside = _point_blocks(labels, cloud.x, cloud.y, f)
     on_raster = 100.0 * np.count_nonzero(inside) / len(cloud) if len(cloud) else 0.0
-    labelled = labels.data > 0
-    hit = np.zeros(labels.shape, dtype=bool)
-    hit[rows[inside], cols[inside]] = True
+    labelled = _block_any(labels.data > 0, f)
     covered = 100.0 * np.count_nonzero(hit & labelled) / max(1, np.count_nonzero(labelled))
     if np.count_nonzero(inside) == 0:
         problems.append("point cloud does not overlap the label raster")
@@ -179,9 +212,9 @@ def check_alignment(
         notes.append("canopy offset not measured: no Z_norm")
         return report
 
-    est = estimate_canopy_shift(labels, cloud.x, cloud.y, zn, canopy_height=canopy_height)
+    est = estimate_canopy_shift(labels, cloud.x, cloud.y, zn, canopy_height=canopy_height, crown_class=crown_class)
     if est is None:
-        notes.append("canopy offset not measured: too little mallee canopy in labels or LiDAR")
+        notes.append("canopy offset not measured: too little crown-class canopy in labels or LiDAR")
         return report
     report.shift_x, report.shift_y, report.canopy_iou, report.canopy_iou_after_shift = est
     if report.shift > max_shift:

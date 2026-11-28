@@ -10,21 +10,20 @@ import laspy
 import numpy as np
 from pyproj import CRS
 
-#: Structure classes used throughout the method (LAS classification codes).
-CLASS_NAMES: dict[int, str] = {
-    64: "forb",
-    65: "woody_debris",
-    66: "hummock",
-    67: "shrub",
-    68: "mallee",
-}
-CLASS_CODES: dict[str, int] = {name: code for code, name in CLASS_NAMES.items()}
-STRUCTURE_CODES = tuple(CLASS_NAMES)
+from .classes import PAPER_CLASSES, ClassScheme
+
+# The paper's classes, kept as plain constants for existing code.
+CLASS_NAMES: dict[int, str] = dict(PAPER_CLASSES.classes)
+CLASS_CODES: dict[str, int] = PAPER_CLASSES.names
+STRUCTURE_CODES = PAPER_CLASSES.codes
+#: Raster coding of the published 2D labels (Zenodo 10.5281/zenodo.24431573,
+#: ``2_structure_label_raster``): 0 forb, 1 woody debris, 2 hummock, 3 shrub, 4 mallee.
+PAPER_CLASS_MAP: dict[int, int] = dict(PAPER_CLASSES.raster_map)
 
 
 @dataclass
 class LabelRaster:
-    """A single-band label raster with values remapped to codes 64–68 (0 = none)."""
+    """A single-band label raster with values remapped to a class scheme's codes (0 = none)."""
 
     data: np.ndarray
     transform: object  # affine.Affine
@@ -75,33 +74,36 @@ def horizontal_crs(crs) -> CRS | None:
     return crs
 
 
-def _resolve_class_code(value) -> int:
-    if isinstance(value, str):
-        key = value.strip().lower().replace(" ", "_").replace("-", "_")
-        if key not in CLASS_CODES:
-            raise ValueError(f"Unknown class name {value!r}; use one of {sorted(CLASS_CODES)}")
-        return CLASS_CODES[key]
-    code = int(value)
-    if code != 0 and code not in CLASS_NAMES:
-        raise ValueError(f"Class code {code} is not one of {STRUCTURE_CODES} (or 0 for none)")
-    return code
-
-
-def read_labels(path, class_map: Mapping | None = None, band: int = 1) -> LabelRaster:
-    """Read a label GeoTIFF and remap its values to structure codes 64–68.
+def read_labels(
+    path,
+    class_map: Mapping | str | None = None,
+    band: int = 1,
+    classes: ClassScheme | Mapping | str | Path | None = None,
+) -> LabelRaster:
+    """Read a label GeoTIFF and remap its values to a class scheme's codes.
 
     Parameters
     ----------
     path:
-        Single-band raster of growth-form labels.
+        Single-band label raster.
     class_map:
         Optional ``{raster_value: class}`` mapping, where ``class`` is a code
-        64–68, a name (``"forb"``, ``"woody_debris"``, ``"hummock"``,
-        ``"shrub"``, ``"mallee"``) or 0 to ignore. Without it the raster must
-        already use codes 64–68. Values not mapped, and NoData, become 0.
+        or name from the scheme, or 0 to ignore. ``"paper"`` uses the scheme's
+        ``raster_map`` (for the paper's classes: the published 0–4 rasters).
+        Without it the raster must already use the scheme's codes. Values not
+        mapped, and NoData, become 0.
+    classes:
+        Class scheme (default: the paper's five growth forms, 64–68).
     """
     import rasterio
 
+    scheme = ClassScheme.from_any(classes)
+    if isinstance(class_map, str):
+        if class_map.lower() != "paper":
+            raise ValueError(f'class_map must be a dict or "paper", not {class_map!r}')
+        if scheme.raster_map is None:
+            raise ValueError('class_map="paper" needs a class scheme with a raster_map')
+        class_map = scheme.raster_map
     path = Path(path)
     with rasterio.open(path) as src:
         raw = src.read(band)
@@ -115,16 +117,24 @@ def read_labels(path, class_map: Mapping | None = None, band: int = 1) -> LabelR
         valid = ~np.isnan(raw) if np.isnan(nodata) else raw != nodata
 
     if class_map is None:
-        keep = valid & np.isin(raw, STRUCTURE_CODES)
+        keep = valid & np.isin(raw, scheme.codes)
         data[keep] = raw[keep]
     else:
         for value, cls in class_map.items():
-            data[valid & (raw == value)] = _resolve_class_code(cls)
+            code = 0 if cls in (0, "0") else scheme.code(cls)
+            data[valid & (raw == value)] = code
 
     if not np.any(data):
         found = np.unique(raw[valid])[:20].tolist()
-        hint = "" if class_map else " Pass class_map={raster_value: 'mallee', ...} to map them."
-        raise ValueError(f"{path.name}: no pixels with structure codes 64–68 (values found: {found}).{hint}")
+        hint = ""
+        if not class_map:
+            example = next(iter(scheme.names))
+            hint = f" Pass class_map={{raster_value: {example!r}, ...}} to map them"
+            if scheme.raster_map and set(found) <= set(scheme.raster_map):
+                hint += ', or class_map="paper" for the published rasters'
+            hint += "."
+        codes = f"{scheme.codes[0]}–{scheme.codes[-1]}" if len(scheme.codes) > 1 else str(scheme.codes[0])
+        raise ValueError(f"{path.name}: no pixels with class codes {codes} (values found: {found}).{hint}")
 
     return LabelRaster(data=data, transform=transform, crs=crs, path=path)
 

@@ -41,7 +41,7 @@ uv sync            # or: pip install -e .
 from fvc3d import transfer_labels
 
 result = transfer_labels(
-    labels="growth_forms.tif",        # codes 64–68, or pass class_map={1: "shrub", ...}
+    labels="growth_forms.tif",        # codes 64–68; class_map="paper" for the published 0–4 rasters
     point_cloud="lidar.laz",          # same CRS, already co-registered to the imagery
     output="labelled_vegetation.laz",
     validate_alignment=True,          # raises AlignmentError if CRS, overlap or offset fail
@@ -50,9 +50,19 @@ print(result.summary())
 ```
 
 **Inputs.** The raster holds forb (64), woody debris (65), hummock (66),
-shrub (67) and mallee (68). The point cloud needs height above ground: a
+shrub (67) and mallee (68). For the published rasters on Zenodo, which use
+0–4, pass `class_map="paper"`; for other codes pass a dict such as
+`{1: "shrub", 2: "mallee"}`. The point cloud needs height above ground: a
 `Z_norm` dimension, ground points classified as 2, or a ground-only file
 passed as `ground=`.
+
+**Your own classes.** The paper's five growth forms are the default. For
+other classes, copy [configs/classes.yaml](configs/classes.yaml), edit the
+codes, names, height ranges and crown class, and pass
+`classes="my_classes.yaml"`. `class_map` maps your raster values to those
+class names. `classes="FOR-instanceV2"` runs the paper's method and writes
+FOR-instanceV2's ground (1), wood (2) and leaf (3) classes, the classes
+ForestFormer3D is trained on.
 
 **Output.** The LAS/LAZ file holds the labelled points, with `classification`,
 `Z_norm` and a `treeID` for each mallee crown. Pass `keep="all"` to keep
@@ -65,7 +75,8 @@ the mallee labels, and fails above `max_shift` (default 0.50 m, i.e. 10 pixels a
 
 **Settings.** Pass a `config` dict or a YAML file
 ([configs/transfer_labels.yaml](configs/transfer_labels.yaml)). The defaults
-are the paper's.
+are the paper's, including `"auto"` crown detection, the setting behind the
+published outputs.
 
 | Module | What it does |
 |---|---|
@@ -73,7 +84,7 @@ are the paper's.
 | `fvc3d.registration` | `check_alignment()`: CRS, overlap and canopy offset |
 | `fvc3d.label_transfer` | Label points from the raster, compute `Z_norm`, voxel majority vote |
 | `fvc3d.refinement` | Class height ranges, watershed crowns, polar refinement, consolidation |
-| `fvc3d.quality_control` | Per-pixel accuracy and IoU (Table 5) and height checks (Table 6) |
+| `fvc3d.quality_control` | The paper's diagnostics: voxel-level label agreement, height plausibility of refined classes, crown-instance retention |
 | `fvc3d.pipeline` | `transfer_labels()` for files; `fuse_labels()` for arrays in memory |
 
 See [examples/transfer_labels.py](examples/transfer_labels.py) for one tile or

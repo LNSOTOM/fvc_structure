@@ -5,8 +5,9 @@
 * Stage 4 :func:`polar_refine` — crown-centric polar bins with height priors.
 * Stage 5 :func:`consolidate` — height rules and crown majority vote.
 
-All functions take plain NumPy arrays. Behaviour matches
-``fvc3dstruct`` 1.0.0 (the code behind the paper).
+All functions take plain NumPy arrays. Class-specific rules (which class
+forms crowns, which classes merge) are arguments, defaulting to the paper's
+classes; with those defaults behaviour matches ``fvc3dstruct`` 1.0.0.
 """
 
 from __future__ import annotations
@@ -18,18 +19,13 @@ import numpy as np
 from scipy import ndimage
 from scipy.spatial import cKDTree
 
+from .classes import PAPER_CLASSES
 from .io import CLASS_NAMES, STRUCTURE_CODES
 
 log = logging.getLogger("fvc3d")
 
-#: Fallback ``Z_norm`` range (m) for a class with fewer than 20 matched points.
-DEFAULT_HEIGHT_RANGES: dict[int, tuple[float, float]] = {
-    64: (0.00, 0.40),  # forb
-    65: (0.05, 5.00),  # woody debris
-    66: (0.00, 0.80),  # hummock
-    67: (0.40, 3.00),  # shrub
-    68: (1.50, 8.00),  # mallee
-}
+#: The paper's fallback ``Z_norm`` range (m) for a class with fewer than 20 matched points.
+DEFAULT_HEIGHT_RANGES: dict[int, tuple[float, float]] = dict(PAPER_CLASSES.height_ranges)
 
 MALLEE = 68
 WOODY_DEBRIS = 65
@@ -50,13 +46,18 @@ def match_heights(source_xy: np.ndarray, target_xy: np.ndarray, target_z_norm: n
 
 
 def class_height_ranges(heights: np.ndarray, classes: np.ndarray,
-                        low: float = 15.0, high: float = 85.0) -> dict[int, tuple[float, float]]:
-    """Per-class (low, high) percentile range of ``heights``, after dropping the 5% tails."""
+                        low: float = 15.0, high: float = 85.0,
+                        defaults: dict | None = None) -> dict[int, tuple[float, float]]:
+    """Per-class (low, high) percentile range of ``heights``, after dropping the 5% tails.
+
+    Classes are the keys of ``defaults`` (the fallback ranges; default: the paper's).
+    """
+    defaults = DEFAULT_HEIGHT_RANGES if defaults is None else defaults
     ranges = {}
-    for cls in STRUCTURE_CODES:
+    for cls in defaults:
         mask = (classes == cls) & np.isfinite(heights)
         if int(mask.sum()) < 20:
-            ranges[cls] = DEFAULT_HEIGHT_RANGES[cls]
+            ranges[cls] = defaults[cls]
             continue
         h = heights[mask]
         p5, p95 = np.percentile(h, [5, 95])
@@ -68,9 +69,10 @@ def class_height_ranges(heights: np.ndarray, classes: np.ndarray,
     return ranges
 
 
-def mallee_min_height(ranges: dict[int, tuple[float, float]]) -> float:
-    """Minimum crown height for mallee ``treeID``: 0.7 × mallee low bound, at least 0.6 m."""
-    return float(max(0.6, ranges.get(MALLEE, DEFAULT_HEIGHT_RANGES[MALLEE])[0] * 0.7))
+def mallee_min_height(ranges: dict[int, tuple[float, float]], crown_class: int = MALLEE) -> float:
+    """Minimum crown height for ``treeID``: 0.7 × the crown class's low bound, at least 0.6 m."""
+    fallback = DEFAULT_HEIGHT_RANGES.get(crown_class, (0.0, 0.0))
+    return float(max(0.6, ranges.get(crown_class, fallback)[0] * 0.7))
 
 
 # --------------------------------------------------------------------------
@@ -136,6 +138,7 @@ def detect_crowns(
     min_tree_dist: float = 1.5,
     smoothing_sigma: float = 1.0,
     fallback_min_height: float = 1.0,
+    crown_class: int = MALLEE,
 ) -> Crowns:
     """Detect mallee crowns by marker-controlled watershed on a canopy surface.
 
@@ -149,7 +152,7 @@ def detect_crowns(
     from skimage.segmentation import watershed
 
     source_x, source_y = np.asarray(source_x), np.asarray(source_y)
-    is_mallee = np.asarray(source_classes) == MALLEE
+    is_mallee = np.asarray(source_classes) == crown_class
     source = "structure"
 
     if np.any(is_mallee):
@@ -249,6 +252,7 @@ def polar_refine(
     min_flip_ratio: float = 1.5,
     out_of_range_weight: float = 0.1,
     min_samples: int = 3,
+    codes=STRUCTURE_CODES,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Revise labels inside crowns from the class mix of their polar bin.
 
@@ -273,7 +277,10 @@ def polar_refine(
     crown_s, ir_s, it_s = _polar_bins(crowns, source_x, source_y, r_bin, theta_bin_deg)
     crown_t, ir_t, it_t = _polar_bins(crowns, target_x, target_y, r_bin, theta_bin_deg)
     source_classes = np.asarray(source_classes)
-    valid_s = (crown_s > 0) & (ir_s >= 0) & (it_s >= 0) & np.isin(source_classes, STRUCTURE_CODES)
+    codes = np.asarray(codes, dtype=np.int64)
+    column = np.full(256, -1, dtype=np.int64)  # class code -> column in the count table
+    column[codes] = np.arange(len(codes))
+    valid_s = (crown_s > 0) & (ir_s >= 0) & (it_s >= 0) & np.isin(source_classes, codes)
     valid_t = (crown_t > 0) & (ir_t >= 0) & (it_t >= 0)
     if not np.any(valid_s) or not np.any(valid_t):
         return out, confidence
@@ -287,8 +294,8 @@ def polar_refine(
     s_idx = np.flatnonzero(valid_s)
     keys_s = encode(crown_s[s_idx], ir_s[s_idx], it_s[s_idx])
     bins, inverse = np.unique(keys_s, return_inverse=True)
-    col = source_classes[s_idx].astype(np.int64) - STRUCTURE_CODES[0]
-    counts = np.zeros((len(bins), len(STRUCTURE_CODES)), dtype=np.int64)
+    col = column[source_classes[s_idx].astype(np.int64)]
+    counts = np.zeros((len(bins), len(codes)), dtype=np.int64)
     np.add.at(counts, (inverse, col), 1)
     first_seen = np.full(counts.shape, np.iinfo(np.int64).max)
     np.minimum.at(first_seen, (inverse, col), s_idx)
@@ -306,8 +313,8 @@ def polar_refine(
 
     c = counts[pos]
     zn = np.asarray(target_z_norm, dtype=float)[t_idx]
-    lo = np.array([height_ranges[k][0] for k in STRUCTURE_CODES])
-    hi = np.array([height_ranges[k][1] for k in STRUCTURE_CODES])
+    lo = np.array([height_ranges[k][0] for k in codes])
+    hi = np.array([height_ranges[k][1] for k in codes])
     in_range = (zn[:, None] >= lo) & (zn[:, None] <= hi)
     weights = np.where(in_range, 1.0, out_of_range_weight)
     probs = np.where(c > 0, (c / total[:, None]) * weights, 0.0)
@@ -325,13 +332,13 @@ def polar_refine(
     best_p = probs.max(axis=1)
     tied = (probs == best_p[:, None]) & (seen != np.iinfo(np.int64).max)
     best_col = np.argmin(np.where(tied, seen, np.iinfo(np.int64).max), axis=1)
-    best_cls = np.asarray(STRUCTURE_CODES)[best_col]
+    best_cls = codes[best_col]
     best_conf = probs[np.arange(len(best_col)), best_col]
     confidence[t_idx] = best_conf
 
     current = classification[t_idx].astype(np.int64)
-    unlabelled = ~np.isin(current, STRUCTURE_CODES)
-    cur_col = np.clip(current - STRUCTURE_CODES[0], 0, len(STRUCTURE_CODES) - 1)
+    unlabelled = ~np.isin(current, codes)
+    cur_col = np.where(unlabelled, 0, column[np.clip(current, 0, 255)])
     current_conf = np.where(unlabelled, 0.0, probs[np.arange(len(cur_col)), cur_col])
     fill = unlabelled & (best_conf >= min_conf)
     flip = ~unlabelled & (best_cls != current) & (best_conf > min_flip_ratio * current_conf)
@@ -352,49 +359,64 @@ def consolidate(
     promote_unlabelled_znorm: float = 1.3,
     mallee_force_min_znorm: float | None = None,
     collapse_treeid_to_one: bool = False,
+    crown_class: int | None = MALLEE,
+    merge: dict | None = None,
+    promote_unlabelled: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
     """Apply the height rules and crown vote; return (labels, treeID, stats).
+
+    With the paper's classes (the defaults):
 
     1. Woody debris above ``merge_65_to_68_znorm`` becomes mallee; below, unlabelled.
     2. Unlabelled points at or above ``promote_unlabelled_znorm`` become mallee.
     3. A crown with more than 50% mallee points becomes wholly mallee.
     4. Optionally, crown points at or above ``mallee_force_min_znorm`` become mallee.
     5. ``treeID`` is kept only for mallee points at or above ``mallee_min``.
+
+    For other schemes, ``merge`` ({from: to}) replaces rule 1, ``crown_class``
+    replaces mallee, and ``crown_class=None`` skips rules 2–5.
     """
+    merge = {WOODY_DEBRIS: MALLEE} if merge is None else merge
     cls = np.asarray(classification).copy()
     zn = np.asarray(z_norm, dtype=float)
     ids = np.asarray(crown_ids).astype(np.uint16)
 
-    debris = cls == WOODY_DEBRIS
-    cls[debris & (zn > merge_65_to_68_znorm)] = MALLEE
-    cls[debris & (zn <= merge_65_to_68_znorm)] = 0
+    for frm, to in merge.items():
+        source = cls == frm
+        cls[source & (zn > merge_65_to_68_znorm)] = to
+        cls[source & (zn <= merge_65_to_68_znorm)] = 0
 
-    promote = (cls == 0) & (zn >= promote_unlabelled_znorm)
-    cls[promote] = MALLEE
+    promote = np.zeros(len(cls), dtype=bool)
+    if promote_unlabelled and crown_class is not None:
+        promote = (cls == 0) & (zn >= promote_unlabelled_znorm)
+        cls[promote] = crown_class
 
     n_reclassified, shares = 0, np.array([])
-    if ids.max(initial=0) > 0:
+    if crown_class is not None and ids.max(initial=0) > 0:
         n_ids = int(ids.max()) + 1
         n_total = np.bincount(ids, minlength=n_ids)
-        n_mallee = np.bincount(ids, weights=(cls == MALLEE), minlength=n_ids)
+        n_crown = np.bincount(ids, weights=(cls == crown_class), minlength=n_ids)
         occupied = np.arange(n_ids) > 0
         occupied &= n_total > 0
-        shares = n_mallee[occupied] / n_total[occupied]
+        shares = n_crown[occupied] / n_total[occupied]
         majority = np.zeros(n_ids, dtype=bool)
         majority[np.flatnonzero(occupied)[shares > 0.5]] = True
-        convert = majority[ids] & (cls != MALLEE)
+        convert = majority[ids] & (cls != crown_class)
         n_reclassified = int(np.count_nonzero(convert))
-        cls[convert] = MALLEE
+        cls[convert] = crown_class
 
     n_forced = 0
-    if mallee_force_min_znorm is not None and ids.max(initial=0) > 0:
+    if crown_class is not None and mallee_force_min_znorm is not None and ids.max(initial=0) > 0:
         force = (ids > 0) & (zn >= float(mallee_force_min_znorm))
-        n_forced = int(np.count_nonzero(force & (cls != MALLEE)))
-        cls[force] = MALLEE
+        n_forced = int(np.count_nonzero(force & (cls != crown_class)))
+        cls[force] = crown_class
 
     tree_id = ids.copy()
-    tree_id[~((cls == MALLEE) & (zn >= mallee_min))] = 0
-    cls[tree_id > 0] = MALLEE
+    if crown_class is None:
+        tree_id[:] = 0
+    else:
+        tree_id[~((cls == crown_class) & (zn >= mallee_min))] = 0
+        cls[tree_id > 0] = crown_class
     if collapse_treeid_to_one:
         tree_id[tree_id > 0] = 1
 
@@ -409,5 +431,6 @@ def consolidate(
     return cls, tree_id, stats
 
 
-def describe_ranges(ranges: dict[int, tuple[float, float]]) -> str:
-    return ", ".join(f"{CLASS_NAMES[c]} {lo:.2f}–{hi:.2f} m" for c, (lo, hi) in ranges.items())
+def describe_ranges(ranges: dict[int, tuple[float, float]], names: dict | None = None) -> str:
+    names = CLASS_NAMES if names is None else names
+    return ", ".join(f"{names.get(c, c)} {lo:.2f}–{hi:.2f} m" for c, (lo, hi) in ranges.items())

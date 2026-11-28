@@ -7,6 +7,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,400;1,700&amp;display=swap">
+  <script>
+    // Theme shared with lnsotom.github.io (same "theme" key); otherwise follow the system.
+    try {
+      const t = localStorage.getItem("theme") || localStorage.getItem("fvc-structure-theme");
+      document.documentElement.dataset.theme = t === "dark" || t === "light" ? t
+        : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } catch (e) {}
+  </script>
   <title>fvcStructureRangeland3D | Research workflow guide</title>
   <style>
     :root { color-scheme: light; --ink: #251b36; --muted: #505168; --accent: #3e3e75; --line: #cbd9dc; --paper: #fff; --wash: #f5fafa;
@@ -22,6 +30,7 @@
     .top-inner { max-width: 1200px; min-height: 60px; margin: auto; padding: 8px 28px; display: flex; align-items: center; gap: 16px; }
     .top-home { display: inline-flex; align-items: center; gap: 6px; color: white; font-size: .9rem; font-weight: 650; text-decoration: none; padding: 6px 10px; border: 1px solid #ffffff59; border-radius: 999px; white-space: nowrap; }
     .top-home:hover { background: #ffffff26; }
+    .top-home__logo { display: block; flex: none; width: 22px; height: 22px; }
     .top-home:focus-visible { outline: 2px solid white; outline-offset: 2px; }
     @media (max-width: 720px) { .top-home { padding: 6px; } .top-home span { display: none; } }
     .brand { color: white; font-weight: 750; letter-spacing: .03em; text-decoration: none; white-space: nowrap; }
@@ -51,8 +60,11 @@
     .top-search input::placeholder { color: #f0e9f4; }
     .top-search button { cursor: pointer; border-left: 1px solid #ffffff55; border-radius: 0 4px 4px 0; }
     .top-search button:hover { background: #251b36; }
-    .theme-toggle { display: grid; place-items: center; width: 40px; height: 40px; padding: 8px; border: 0; border-radius: 4px; background: transparent; color: white; cursor: pointer; }
-    .theme-toggle:hover, .theme-toggle[aria-pressed="true"] { background: #251b3666; }
+    .theme-toggle { display: grid; place-items: center; flex: none; width: 38px; height: 38px; padding: 0; border: 1px solid #ffffff59; border-radius: 999px; background: transparent; color: white; font-size: 1.25rem; cursor: pointer; }
+    .theme-toggle:hover { background: #ffffff26; }
+    .theme-toggle .icon-light, [data-theme="dark"] .theme-toggle .icon-dark { display: none; }
+    [data-theme="dark"] .theme-toggle .icon-light { display: block; }
+    [data-theme="dark"] .top-repo, [data-theme="dark"] .top-repo:hover { color: white; }
     .top-search-feedback { position: absolute; top: 100%; right: 12px; width: min(480px, calc(100vw - 24px)); max-height: min(65vh, 550px); overflow-y: auto; background: var(--paper); color: var(--ink); box-shadow: 0 3px 8px #251b3633; }
     .top-search-status { padding: 10px 12px; font-size: .85rem; }
     .top-search-status:empty { display: none; }
@@ -357,7 +369,7 @@
       <button class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-haspopup="dialog">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
-      <a class="top-home" href="https://lnsotom.github.io/" title="Laura N. Sotomayor, home page" aria-label="Home: Laura N. Sotomayor"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg><span>Home</span></a>
+      <a class="top-home" href="https://lnsotom.github.io/" title="Laura N. Sotomayor, home page" aria-label="Home: Laura N. Sotomayor"><img class="top-home__logo" src="./figures/Logo_SotomayorStudio.png" alt="" width="22" height="22"><span>Home</span></a>
       <a class="brand" href="#top">fvcStructureRangeland3D</a>
       <form class="top-search" role="search">
         <input type="search" aria-label="Search guide" placeholder="Search guide" aria-controls="search-results" autocomplete="off">
@@ -367,9 +379,7 @@
         <div class="top-search-status" role="status"></div>
         <div class="search-results" id="search-results" aria-label="Search results"></div>
       </div>
-      <button class="theme-toggle" type="button" aria-label="Dark mode" aria-pressed="false" title="Toggle dark mode">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 1.5 3.5L19 9l-3.5 1.5L14 14l-1.5-3.5L9 9l3.5-1.5L14 4ZM5 15l4-4M3 19l5-5M8 20l3-3M19 15v4M17 17h4"/></svg>
-      </button>
+      <button class="theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch light / dark"><ion-icon class="icon-dark" name="cloudy-night-outline" aria-hidden="true"></ion-icon><ion-icon class="icon-light" name="sunny-outline" aria-hidden="true"></ion-icon></button>
       <a class="top-repo" href="https://github.com/LNSOTOM/fvc_structure" target="_blank" rel="noopener" title="Go to repository">
         <svg width="29" height="29" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M7 22c-2.8 0-4-2-3-4.1-1.6-2.3-.1-5.1 2.4-5.3-.6-2.7 1.9-4.7 4.2-3.6 1-2.8 4.5-3.1 6-.8 2.4-1.3 5.2.3 5.1 3.1"/>
@@ -412,6 +422,9 @@
         <a href="#overview">Overview</a>
         <a href="#setup">0. Environment setup</a>
         <a href="#python-api">Python API: label transfer</a>
+        <a class="subsection" href="#api-try">Try the paper's data</a>
+        <a class="subsection" href="#api-forestformer">ForestFormer3D output</a>
+        <a class="subsection" href="#api-your-data">Try your data</a>
         <a class="subsection" href="#api-alignment">Alignment check</a>
         <a class="subsection" href="#api-settings">Settings</a>
         <a class="subsection" href="#api-stages">Stage by stage</a>
@@ -514,12 +527,69 @@ result = transfer_labels(
 print(result.summary())</code></pre></div>
         <p>Existing outputs are kept unless you pass <code>overwrite=True</code>.</p>
 
+        <h3 id="api-try">Try it on the paper's data</h3>
+        <p>The <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a> has everything needed for one tile. Download the medium-site inputs (645 MB) and unzip them:</p>
+        <div class="command" data-label="Download paper data"><pre><code>curl -L -o label_transfer_inputs_medium.zip "https://zenodo.org/records/24431573/files/label_transfer_inputs_medium.zip?download=1"
+unzip label_transfer_inputs_medium.zip</code></pre></div>
+        <p>The published label rasters code classes 0–4, so pass <code>class_map="paper"</code>:</p>
+        <div class="command" data-label="Run on paper data"><pre><code>from fvc3d import transfer_labels
+
+d = "label_transfer_medium/"
+result = transfer_labels(
+    labels=d + "2_structure_label_raster/mask_structure_3072.109.tif",
+    point_cloud=d + "5_lidar_znorm/z_norm_csf_tiles_multispectral.109.las",
+    output="labelled_109.laz",
+    class_map="paper",
+)
+print(result.summary())</code></pre></div>
+        <p>Compare <code>labelled_109.laz</code> with the published result, <code>6_fused_3d_labels/znorm_3Dlabels_109.las</code>. On tile 109 every shared point has the same class, and 52 mallee crowns are found against 54 published.</p>
+
+        <h3 id="api-forestformer">Output for ForestFormer3D</h3>
+        <p>ForestFormer3D is trained on FOR-instanceV2, whose classes are ground, wood and leaf. To write these instead of the growth forms, add <code>classes="FOR-instanceV2"</code> to the call above. It uses the paper's mapping: hummock and forb → ground (1), shrub → wood (2), mallee → leaf (3); ForestFormer3D's model IDs are code − 1. On tile 109 this gives ground 19,816, wood 3,551 and leaf 377,940 points: the paper's result, relabelled. For rangelands these are approximate transfer targets, not a literal taxonomy.</p>
+
+        <h3 id="api-your-data">Try it on your data</h3>
+        <p>Your labels can use any codes and any classes. There are two settings:</p>
+        <ul>
+          <li><strong><code>class_map</code></strong> maps the values in your raster to class names, e.g. <code>{0: "ground", 3: "wood", 4: "leaf"}</code>. Values left out are ignored.</li>
+          <li><strong><code>classes</code></strong> defines the classes themselves. The default is the paper's five growth forms; for your own, copy <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/configs/classes.yaml" target="_blank" rel="noopener"><code>configs/classes.yaml</code></a> and edit it.</li>
+        </ul>
+        <p>For example, the paper's ground, wood and leaf classes (FOR-instanceV2), saved as <code>my_classes.yaml</code>:</p>
+        <div class="command" data-label="Your class scheme"><pre><code>classes: {1: ground, 2: wood, 3: leaf}
+height_ranges: {1: [0.0, 0.8], 2: [0.4, 3.0], 3: [1.5, 8.0]}
+crown_class: leaf</code></pre></div>
+        <div class="command" data-label="Run with your classes"><pre><code>from fvc3d import transfer_labels
+
+result = transfer_labels(
+    labels="my_labels.tif",
+    point_cloud="my_lidar.laz",
+    output="my_labelled.laz",
+    classes="my_classes.yaml",
+    class_map={0: "ground", 2: "ground", 3: "wood", 4: "leaf"},
+)
+print(result.summary())</code></pre></div>
+        <p>The output's <code>classification</code> uses your codes (here 1–3), and each <code>leaf</code> crown gets a <code>treeID</code>. On the paper's tile 109 this scheme labels 369,763 points (ground 19,816, wood 3,551, leaf 346,396) and finds 52 leaf crowns.</p>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table">
+            <caption>Class-scheme settings</caption>
+            <thead><tr><th scope="col">Key</th><th scope="col">Paper's value</th><th scope="col">What it does</th></tr></thead>
+            <tbody>
+              <tr><th scope="row"><code>classes</code></th><td>64 forb … 68 mallee</td><td>LAS code (1–255) and name of each class. 0 means unlabelled.</td></tr>
+              <tr><th scope="row"><code>height_ranges</code></th><td>e.g. mallee 1.5–8 m</td><td>Expected height above ground per class. Used when a tile has too few points of a class, and in the height report.</td></tr>
+              <tr><th scope="row"><code>crown_class</code></th><td><code>mallee</code></td><td>Class split into crowns with a <code>treeID</code>. <code>null</code> skips crown detection and refinement.</td></tr>
+              <tr><th scope="row"><code>merge</code></th><td><code>{woody_debris: mallee}</code></td><td>Points of one class above 0.5 m become another; lower ones become unlabelled.</td></tr>
+              <tr><th scope="row"><code>promote_unlabelled</code></th><td><code>true</code></td><td>Unlabelled points at or above 1.3 m join the crown class.</td></tr>
+              <tr><th scope="row"><code>output_classes</code>, <code>output_map</code></th><td>not set</td><td>Optional relabelling of the output, e.g. to ground/wood/leaf as in <code>classes="FOR-instanceV2"</code>. <code>treeID</code> is unchanged.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Only <code>classes</code> and <code>height_ranges</code> are required. This example runs the method on the three classes directly, without the paper's woody-debris merge and promotion rules, so it keeps fewer leaf points than the paper (346,396 against 377,940). To reproduce the paper's ground, wood and leaf labels, use <a href="#api-forestformer"><code>classes="FOR-instanceV2"</code></a> (above).</p>
+
         <h3 id="api-inputs">3. Prepare the inputs</h3>
         <div class="analysis-table-wrap">
           <table class="analysis-table">
             <thead><tr><th scope="col">Input</th><th scope="col">Requirement</th><th scope="col">If yours differs</th></tr></thead>
             <tbody>
-              <tr><th scope="row">Label classes</th><td>64 forb, 65 woody debris, 66 hummock, 67 shrub, 68 mallee; other values are ignored.</td><td><code>class_map={1: "shrub", 2: "mallee"}</code></td></tr>
+              <tr><th scope="row">Label classes</th><td>64 forb, 65 woody debris, 66 hummock, 67 shrub, 68 mallee; other values are ignored.</td><td><code>class_map="paper"</code> for the published 0–4 rasters, a dict such as <code>{1: "shrub", 2: "mallee"}</code>, or your own classes (<a href="#api-your-data">see above</a>)</td></tr>
               <tr><th scope="row">Height above ground</th><td>A <code>Z_norm</code> dimension, or ground points classified as 2.</td><td><code>ground="ground.las"</code>, e.g. from <code>groundnorm csf</code></td></tr>
               <tr><th scope="row">CRS</th><td>The same projected CRS, in metres, for both files.</td><td>Reproject first; <code>fvc3d</code> does not.</td></tr>
               <tr><th scope="row">Registration</th><td>LiDAR registered to the imagery the labels came from.</td><td>Run <a href="#phase-2">Phase 2</a> first.</td></tr>
@@ -535,25 +605,28 @@ result.z_norm           # height above ground (m)
 result.confidence       # Stage 4 class probability, NaN where not evaluated
 result.metrics          # counts and statistics for each stage
 result.alignment        # AlignmentReport
-result.quality          # QualityReport: per-pixel accuracy, IoU, class heights</code></pre></div>
-        <p>For the paper's DD0001 tile 109, <code>result.summary()</code> prints:</p>
-        <pre class="output"><code>Labelled 396,139 of 1,593,979 points (24.9%); 42 mallee trees
-  forb 0, woody_debris 0, hummock 19,247, shrub 3,464, mallee 373,428
+result.quality          # QualityReport: the paper's three diagnostics (below)</code></pre></div>
+        <p>For the paper's tile 109 above, <code>result.summary()</code> prints:</p>
+        <pre class="output"><code>Labelled 401,307 of 1,593,979 points (25.2%); 52 mallee crowns
+  forb 0, woody_debris 0, hummock 19,816, shrub 3,551, mallee 377,940
   Z_norm from: Z_norm dimension in point cloud
-  written to: labelled_vegetation.laz
+  written to: labelled_109.laz
 Alignment: OK
   CRS match: True; projected metres: True
-  points over the label raster: 99.6%
-  labelled pixels with LiDAR points: 95.7%
-  canopy offset: dx=-0.125 m, dy=-0.070 m (|d|=0.143 m, limit 0.50 m)
+  points over the label raster: 99.8%
+  labelled pixels with LiDAR points: 95.4%
+  canopy offset: dx=-0.140 m, dy=-0.060 m (|d|=0.152 m, limit 0.50 m)
   canopy IoU: 0.38 as given, 0.39 after shift
-Label agreement with raster: OA 99.0% over 61,203 pixels
-  IoU woody_debris 0.00, hummock 1.00, shrub 1.00, mallee 0.99
-Height plausibility (median Z_norm, % outside expected range):
-  hummock       n=   19,247  median 0.02 m  outside 0.1%
-  shrub         n=    3,464  median 0.05 m  outside 100.0%
-  mallee        n=  373,428  median 0.64 m  outside 75.5%</code></pre>
-        <p class="muted">Ground under a labelled pixel takes that pixel's label, so many mallee and shrub points fall below their expected heights. Stage 5 turns woody debris above 0.5 m into mallee and drops the rest.</p>
+Voxel-level label agreement (Step 2 vs Step 5): OA 98.9% over 107,952 voxels
+  IoU hummock 1.00, shrub 1.00, mallee 0.99
+  absent after consolidation: woody_debris
+Height plausibility of refined classes (median Z_norm, % outside configured range):
+  hummock       n=   19,816  median 0.02 m  outside 0.1%
+  shrub         n=    3,551  median 0.05 m  outside 99.9%
+  mallee        n=  377,940  median 0.62 m  outside 75.8%
+Mallee crown-instance retention: 52 treeIDs / 54 watershed crowns = 96.3%</code></pre>
+        <p>The quality report gives the paper's three internal consistency diagnostics: <strong>voxel-level label agreement</strong> between the Step 2 and Step 5 labels, <strong>height plausibility of refined classes</strong> against the configured class height ranges, and <strong>mallee crown-instance retention</strong>, the final treeIDs as a share of the watershed crowns. They check the workflow's consistency, not accuracy against independent ground truth.</p>
+        <p class="muted">As in the paper, shrub and mallee points mostly fall below their configured ranges: every point under a labelled pixel keeps its label, including ground under the canopy. Woody debris is absent after consolidation because Stage 5 turns it into mallee above 0.5 m and drops the rest.</p>
         <p>The output is LAS 1.4 and keeps the input's CRS, scale and offset. It holds labelled points only; <code>keep="all"</code> writes every point.</p>
 
         <h3 id="api-alignment">5. Understand the alignment check</h3>
@@ -563,7 +636,7 @@ Height plausibility (median Z_norm, % outside expected range):
           <li>no LiDAR points fall on the label raster;</li>
           <li>the LiDAR canopy is offset from the labels by more than <code>max_shift</code> (default 0.50 m, 10 pixels at 5 cm).</li>
         </ul>
-        <p>The offset comes from phase correlation between LiDAR points with <code>Z_norm</code> ≥ 1 m and mallee pixels, and needs at least 200 pixels of each. Across the 11 DD0001 tiles it ranged from 0.05 to 0.38 m. It measures horizontal offset of tall canopy only, so passing does not prove registration.</p>
+        <p>The offset comes from phase correlation between LiDAR points with <code>Z_norm</code> ≥ 1 m and mallee pixels, and needs at least 200 pixels of each. Across the 11 DD0001 tiles it ranged from 0.05 to 0.38 m. It measures horizontal offset of tall canopy only, so passing does not prove registration. Label rasters finer than 5 cm are checked in 5 cm blocks, since LiDAR rarely has a point in every 1 cm pixel.</p>
         <div class="command" data-label="Check alignment only"><pre><code>from fvc3d import check_alignment, read_labels, read_point_cloud
 
 report = check_alignment(read_labels("growth_forms.tif"), read_point_cloud("lidar.laz"))
@@ -573,8 +646,8 @@ print(report.summary())</code></pre></div>
         <h3 id="api-settings">6. Change method settings</h3>
         <p>Defaults are the paper's. Override them with a dict or a YAML file; misspelt keys raise an error.</p>
         <div class="command" data-label="Override settings"><pre><code>result = transfer_labels(
-    "growth_forms.tif", "lidar.laz", "labelled_vegetation.laz",
-    config={"voxel_size_xy": 0.05, "voxel_size_z": 0.05, "min_tree_dist": "auto"},
+    "growth_forms.tif", "lidar.laz", "labelled_vegetation_5cm.laz",
+    config={"voxel_size_xy": 0.05, "voxel_size_z": 0.05, "min_tree_dist": 1.2},
 )
 # or: config="configs/transfer_labels.yaml"</code></pre></div>
         <div class="analysis-table-wrap">
@@ -583,8 +656,8 @@ print(report.summary())</code></pre></div>
             <thead><tr><th scope="col">Key</th><th scope="col">Default</th><th scope="col">Effect</th></tr></thead>
             <tbody>
               <tr><th scope="row"><code>voxel_size_xy</code>, <code>voxel_size_z</code></th><td>0.10 m</td><td>Stage 2 voxel size. Larger voxels label more points but spread labels beyond the 2D footprint.</td></tr>
-              <tr><th scope="row"><code>min_tree_dist</code></th><td>1.5 m</td><td>Minimum distance between crown peaks; <code>"auto"</code> estimates it.</td></tr>
-              <tr><th scope="row"><code>smoothing_sigma</code></th><td>1.0 cells</td><td>Canopy smoothing before crown detection; also accepts <code>"auto"</code>.</td></tr>
+              <tr><th scope="row"><code>min_tree_dist</code></th><td><code>"auto"</code></td><td>Minimum distance between crown peaks, estimated from canopy spacing (0.80 m on DD0001), or a fixed value in metres.</td></tr>
+              <tr><th scope="row"><code>smoothing_sigma</code></th><td><code>"auto"</code></td><td>Canopy smoothing before crown detection, estimated with the spacing (1.33 cells on DD0001), or a fixed value.</td></tr>
               <tr><th scope="row"><code>min_conf</code>, <code>min_flip_ratio</code></th><td>0.3, 1.5</td><td>Confidence Stage 4 needs to fill an empty label or replace one.</td></tr>
               <tr><th scope="row"><code>promote_unlabelled_znorm</code></th><td>1.3 m</td><td>Unlabelled points at or above this height become mallee.</td></tr>
               <tr><th scope="row"><code>legacy_crown_clamp</code></th><td>false</td><td><code>true</code> reproduces the paper code exactly (see below).</td></tr>
@@ -595,6 +668,8 @@ print(report.summary())</code></pre></div>
         <h3>7. Process a folder of tiles</h3>
         <p>The example script pairs files by the last number in their names (<code>mask.109.tif</code> with <code>z_norm.109.las</code>), skips tiles that fail the alignment check, and writes <code>metrics.csv</code>:</p>
         <div class="command" data-label="Batch transfer"><pre><code>uv run python examples/transfer_labels.py --batch labels_dir/ lidar_dir/ out_dir/</code></pre></div>
+        <p>For the paper's data, add <code>--class-map paper</code>:</p>
+        <div class="command" data-label="Batch transfer on paper data"><pre><code>uv run python examples/transfer_labels.py --batch --class-map paper label_transfer_medium/2_structure_label_raster/ label_transfer_medium/5_lidar_znorm/ out_dir/</code></pre></div>
 
         <h3 id="api-stages">8. Run the stages yourself</h3>
         <p>For arrays already in memory, <code>fuse_labels()</code> runs Stages 1–5:</p>
@@ -608,7 +683,7 @@ draped = drape_labels(labels, cloud.x, cloud.y)  # label of the pixel under each
 xyz = np.column_stack((cloud.x, cloud.y, cloud.z))
 src = draped > 0
 fused = fuse_labels(xyz, cloud.z_norm, xyz[src], draped[src])
-print(fused.metrics["final_treeids"], "mallee trees")</code></pre></div>
+print(fused.metrics["final_treeids"], "mallee crowns")</code></pre></div>
         <div class="analysis-table-wrap">
           <table class="analysis-table">
             <thead><tr><th scope="col">Module</th><th scope="col">Main functions</th><th scope="col">Purpose</th></tr></thead>
@@ -617,14 +692,14 @@ print(fused.metrics["final_treeids"], "mallee trees")</code></pre></div>
               <tr><th scope="row"><code>fvc3d.registration</code></th><td><code>check_alignment</code></td><td>CRS, overlap and canopy-offset checks.</td></tr>
               <tr><th scope="row"><code>fvc3d.label_transfer</code></th><td><code>drape_labels</code>, <code>height_above_ground</code>, <code>voxel_transfer</code></td><td>Point labels from the raster, <code>Z_norm</code>, voxel vote (Stage 2).</td></tr>
               <tr><th scope="row"><code>fvc3d.refinement</code></th><td><code>detect_crowns</code>, <code>polar_refine</code>, <code>consolidate</code></td><td>Height ranges, crowns, polar refinement, consolidation (Stages 1, 3–5).</td></tr>
-              <tr><th scope="row"><code>fvc3d.quality_control</code></th><td><code>label_agreement</code>, <code>height_plausibility</code></td><td>Per-pixel accuracy, IoU and class heights.</td></tr>
+              <tr><th scope="row"><code>fvc3d.quality_control</code></th><td><code>voxel_label_agreement</code>, <code>height_plausibility</code>, <code>crown_retention</code></td><td>The paper's three internal consistency diagnostics.</td></tr>
               <tr><th scope="row"><code>fvc3d.pipeline</code></th><td><code>transfer_labels</code>, <code>fuse_labels</code></td><td>The whole method, from files or arrays.</td></tr>
             </tbody>
           </table>
         </div>
 
         <h3>Agreement with the paper code</h3>
-        <p><code>fvc3d</code> matches <code>fvc3dstruct</code>, the paper's Phase 4 code, with one fix: points beyond the crown-detection grid no longer take an edge crown's ID, which could turn them into mallee (274 ground points on tile 109). With <code>config={"legacy_crown_clamp": True}</code>, tile 109's labels match <code>fvc3dstruct</code> point for point.</p>
+        <p><code>fvc3d</code> matches <code>fvc3dstruct</code>, the paper's Phase 4 code, with one fix: points beyond the crown-detection grid no longer take an edge crown's ID, which could turn them into mallee (274 ground points on tile 109). With <code>config={"legacy_crown_clamp": True}</code>, tile 109's labels match <code>fvc3dstruct</code> point for point. Crown detection defaults to <code>"auto"</code>, the setting behind the published outputs; <code>fvc3dstruct</code>'s <code>DEFAULT_CONFIG</code> lists fixed values (1.5 m, 1.0) instead.</p>
         <div class="resources">
           <strong>Resources:</strong>
           <a href="https://github.com/LNSOTOM/fvc_structure/tree/main/src/fvc3d" target="_blank" rel="noopener">fvc3d source</a> ·
@@ -1271,18 +1346,12 @@ print(fused.metrics["final_treeids"], "mallee trees")</code></pre></div>
       searchFeedback.hidden = false;
     }
     const themeToggle = document.querySelector(".theme-toggle");
-    const themeKey = "fvc-structure-theme";
+    const themeKey = "theme";  // shared with lnsotom.github.io
     function setTheme(dark) {
       document.documentElement.dataset.theme = dark ? "dark" : "light";
-      themeToggle.setAttribute("aria-pressed", String(dark));
+      themeToggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
     }
-    try {
-      setTheme(localStorage.getItem(themeKey) === "dark");
-    } catch (error) {
-      if (!(error instanceof DOMException) || error.name !== "SecurityError") throw error;
-      searchResults.replaceChildren();
-      showSearchStatus("Theme preference is unavailable in this browser.");
-    }
+    setTheme(document.documentElement.dataset.theme === "dark");
     themeToggle.addEventListener("click", () => {
       const dark = document.documentElement.dataset.theme !== "dark";
       setTheme(dark);

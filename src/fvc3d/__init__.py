@@ -16,10 +16,11 @@ Method: Sotomayor et al. (2026), "From 2D labels to 3D structure",
 https://doi.org/10.31223/X5948M
 """
 
-from .io import CLASS_CODES, CLASS_NAMES, LabelRaster, PointCloud, read_labels, read_point_cloud, write_point_cloud
+from .classes import FORINSTANCEV2_CLASSES, PAPER_CLASSES, ClassScheme
+from .io import CLASS_CODES, CLASS_NAMES, PAPER_CLASS_MAP, LabelRaster, PointCloud, read_labels, read_point_cloud, write_point_cloud
 from .label_transfer import drape_labels, height_above_ground, voxel_transfer
 from .pipeline import FusionResult, TransferConfig, TransferResult, fuse_labels, transfer_labels
-from .quality_control import QualityReport, height_plausibility, label_agreement
+from .quality_control import QualityReport, crown_retention, height_plausibility, label_agreement, voxel_label_agreement
 from .refinement import DEFAULT_HEIGHT_RANGES, consolidate, detect_crowns, polar_refine
 from .registration import AlignmentError, AlignmentReport, check_alignment
 
@@ -27,6 +28,9 @@ __version__ = "0.1.0"
 
 __all__ = [
     "transfer_labels",
+    "ClassScheme",
+    "PAPER_CLASSES",
+    "FORINSTANCEV2_CLASSES",
     "TransferConfig",
     "TransferResult",
     "fuse_labels",
@@ -45,10 +49,13 @@ __all__ = [
     "detect_crowns",
     "polar_refine",
     "consolidate",
+    "voxel_label_agreement",
+    "crown_retention",
     "label_agreement",
     "height_plausibility",
     "QualityReport",
     "DEFAULT_HEIGHT_RANGES",
     "CLASS_NAMES",
     "CLASS_CODES",
+    "PAPER_CLASS_MAP",
 ]
