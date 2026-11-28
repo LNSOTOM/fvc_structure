@@ -1,11 +1,24 @@
 [project]
 name = "fvc3d"
-version = "0.1.0"
-description = "Transfer 2D vegetation-structure labels onto LiDAR point clouds (fvcStructureRangeland3D)."
-readme = "README.md"
-license = { text = "MIT" }
+dynamic = ["version"]
+description = "Transfer 2D vegetation growth-form labels into georeferenced 3D UAS LiDAR point clouds."
+readme = "PYPI_README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Laura N. Sotomayor" }]
 requires-python = ">=3.10"
+keywords = ["LiDAR", "point cloud", "label transfer", "vegetation structure", "rangeland", "UAS"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: GIS",
+]
 dependencies = [
     "laspy[lazrs]>=2.0",
     "numpy>=1.24",
@@ -17,8 +30,11 @@ dependencies = [
 ]
 
 [project.urls]
+Documentation = "https://lnsotom.github.io/fvc_structure/"
+Source = "https://github.com/LNSOTOM/fvc_structure"
+Issues = "https://github.com/LNSOTOM/fvc_structure/issues"
+Releases = "https://github.com/LNSOTOM/fvc_structure/releases"
 Paper = "https://doi.org/10.31223/X5948M"
-Guide = "https://lnsotom.github.io/fvc_structure/"
 
 [dependency-groups]
 # Tools for the phase_* research scripts and notebooks; not needed by fvc3d.
@@ -37,8 +53,11 @@ research = [
 dev = ["pytest>=8.0"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/fvc3d/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fvc3d"]
@@ -53,6 +72,7 @@ include = [
     "/examples/transfer_labels.py",
     "/tests",
     "/README.md",
+    "/PYPI_README.md",
     "/LICENSE",
     "/CITATION.cff",
 ]

@@ -1,8 +1,8 @@
 {
   "title": "fvcStructureRangeland3D: 2D-to-3D label transfer and 3D vegetation model benchmarking for rangelands",
   "upload_type": "software",
-  "version": "0.1.0",
-  "description": "<p>Python software and workflow for transferring 2D vegetation growth-form labels into georeferenced 3D UAS LiDAR point clouds (the <code>fvc3d</code> package), and for preparing the labelled tiles used to benchmark 3D vegetation models in semi-arid rangelands, as described in Sotomayor et al. (2026), <em>From 2D labels to 3D structure</em>.</p><p>Install: <code>pip install git+https://github.com/LNSOTOM/fvc_structure.git@v0.1.0</code>. Guide: https://lnsotom.github.io/fvc_structure/</p>",
+  "version": "0.1.1",
+  "description": "<p>Python software and workflow for transferring 2D vegetation growth-form labels into georeferenced 3D UAS LiDAR point clouds (the <code>fvc3d</code> package), and for preparing the labelled tiles used to benchmark 3D vegetation models in semi-arid rangelands, as described in Sotomayor et al. (2026), <em>From 2D labels to 3D structure</em>.</p><p>Install: <code>pip install fvc3d</code>. Guide: https://lnsotom.github.io/fvc_structure/</p>",
   "creators": [
     {
       "name": "Sotomayor, Laura N.",

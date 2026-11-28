@@ -9,7 +9,7 @@ authors:
     given-names: Laura N.
     orcid: "https://orcid.org/0000-0001-9791-2193"
     affiliation: University of Tasmania
-version: "0.1.0"
+version: "0.1.1"
 date-released: "2026-11-28"
 abstract: >-
   Python software and workflow for transferring 2D vegetation growth-form

@@ -24,7 +24,7 @@ from .quality_control import QualityReport, crown_retention, height_plausibility
 from .refinement import DEFAULT_HEIGHT_RANGES, consolidate, detect_crowns, polar_refine
 from .registration import AlignmentError, AlignmentReport, check_alignment
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "transfer_labels",
