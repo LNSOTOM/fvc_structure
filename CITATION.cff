@@ -9,6 +9,13 @@ authors:
     given-names: Laura N.
     orcid: "https://orcid.org/0000-0001-9791-2193"
     affiliation: University of Tasmania
+version: "0.1.0"
+date-released: "2026-11-28"
+abstract: >-
+  Python software and workflow for transferring 2D vegetation growth-form
+  labels into georeferenced 3D UAS LiDAR point clouds (fvc3d package), and for
+  preparing the labelled tiles used to benchmark 3D vegetation models in
+  semi-arid rangelands.
 license: MIT
 repository-code: "https://github.com/LNSOTOM/fvc_structure"
 url: "https://lnsotom.github.io/fvc_structure/"
@@ -39,6 +46,34 @@ references:
         orcid: "https://orcid.org/0000-0001-7381-3828"
     year: 2026
     doi: "10.5281/zenodo.24431573"
+    publisher:
+      name: Zenodo
+  - type: data
+    title: "Fractional Vegetation Cover Mapping - UAS RGB and Multispectral Imagery, CNN algorithms, Semi-Arid Australian Ecosystems Coverage"
+    authors:
+      - family-names: Sotomayor
+        given-names: Laura N.
+        orcid: "https://orcid.org/0000-0001-9791-2193"
+      - family-names: Lewis
+        given-names: Megan
+      - family-names: Lamsal
+        given-names: Krishna
+      - family-names: Hoyer
+        given-names: Sophia
+        orcid: "https://orcid.org/0009-0004-0942-4624"
+      - family-names: Marshall
+        given-names: Molly
+      - family-names: Barros
+        given-names: Agustina
+        orcid: "https://orcid.org/0000-0002-6810-2391"
+      - family-names: Rossi
+        given-names: Sebastian
+        orcid: "https://orcid.org/0000-0002-2303-2094"
+      - family-names: Lucieer
+        given-names: Arko
+        orcid: "https://orcid.org/0000-0002-9468-4516"
+    year: 2025
+    doi: "10.5281/zenodo.15036860"
     publisher:
       name: Zenodo
 preferred-citation:

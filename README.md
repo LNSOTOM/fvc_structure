@@ -34,7 +34,7 @@ The `fvc3d` package turns a label raster and a LiDAR point cloud into a
 labelled 3D point cloud in one call. It runs the Phase 4 label-transfer method.
 
 ```bash
-uv sync            # or: pip install -e .
+uv sync            # or: pip install -e .   (Python 3.10 or newer)
 ```
 
 ```python
