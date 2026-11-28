@@ -77,7 +77,7 @@ are the paper's.
 | `fvc3d.pipeline` | `transfer_labels()` for files; `fuse_labels()` for arrays in memory |
 
 See [examples/transfer_labels.py](examples/transfer_labels.py) for one tile or
-a folder of tiles. `python -m pytest tests` runs the tests.
+a folder of tiles.
 
 `fvc3d` gives the same labels as `fvc3dstruct` (the code behind the paper),
 with one fix. In `fvc3dstruct`, points beyond the crown-detection grid can
@@ -90,7 +90,7 @@ take an edge crown's ID, and the crown vote can then turn them into mallee.
 ```
 fvc_structure/
 ├── src/fvc3d/                       # Python API: transfer_labels() and its stages
-├── configs/ examples/ tests/        # fvc3d settings, usage examples and tests
+├── configs/ examples/               # fvc3d settings and usage examples
 ├── phase_1_image_processing/        # DSM generation from LAS (PDAL)
 ├── phase_2_lidar_coregistration/    # gefolki/ (optical flow), step_0_checks/ (CRS)
 ├── phase_3_2D_imagery_prep/         # step_1 tiling, step_2 2D structure labels
