@@ -1558,21 +1558,30 @@ print(fused.metrics["final_treeids"], "mallee crowns")</code></pre></div>
       const link = document.querySelector(".top-repo");
       const facts = link && link.querySelector(".top-repo__facts");
       if (!facts) return;
-      const key = "fvc-structure-repo-facts";
+      const key = "fvc-structure-repo-facts-v2";
       let data = null;
       try { data = JSON.parse(sessionStorage.getItem(key)); } catch (error) {}
       if (!data) {
         try {
           const api = "https://api.github.com/repos/LNSOTOM/fvc_structure";
           const repo = await fetch(api).then((r) => (r.ok ? r.json() : Promise.reject()));
+          // Latest release, else the latest version tag (vX.Y.Z), as MkDocs Material does.
           const release = await fetch(api + "/releases/latest").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-          data = { version: release && release.tag_name, stars: repo.stargazers_count, forks: repo.forks_count };
+          let version = release && release.tag_name;
+          if (!version) {
+            const tags = await fetch(api + "/tags").then((r) => (r.ok ? r.json() : [])).catch(() => []);
+            const vtags = tags.map((t) => t.name).filter((n) => /^v\d+(\.\d+)*$/.test(n));
+            const num = (n) => n.slice(1).split(".").map(Number);
+            vtags.sort((a, b) => { const x = num(a), y = num(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (y[i] || 0) - (x[i] || 0); if (d) return d; } return 0; });
+            version = vtags[0];
+          }
+          data = { version, stars: repo.stargazers_count, forks: repo.forks_count };
           sessionStorage.setItem(key, JSON.stringify(data));
         } catch (error) { return; }
       }
       const format = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n));
       const items = [];
-      if (data.version) items.push(["version", data.version, "Latest release"]);
+      if (data.version) items.push(["version", data.version, "Latest version"]);
       items.push(["stars", format(data.stars), "Stars"], ["forks", format(data.forks), "Forks"]);
       facts.replaceChildren(...items.map(([kind, text, label]) => {
         const li = document.createElement("li");
