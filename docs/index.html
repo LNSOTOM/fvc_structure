@@ -512,10 +512,11 @@
         <div class="note"><strong>No PDAL needed.</strong> <code>fvc3d</code> replaces the Phase 4 mask, normalize and fuse stages. Ground classification and co-registration remain separate steps.</div>
 
         <h3>1. Install</h3>
-        <p>The <a href="#setup">environment setup</a> already installs <code>fvc3d</code>. Check that it imports:</p>
+        <p>Install <code>fvc3d</code> from <a href="https://pypi.org/project/fvc3d/" target="_blank" rel="noopener">PyPI</a> (Python 3.10 or newer):</p>
+        <div class="command" data-label="Install fvc3d"><pre><code>pip install fvc3d</code></pre></div>
+        <p>In a clone of the repository, the <a href="#setup">environment setup</a> already installs it. Check that it imports:</p>
         <div class="command" data-label="Check fvc3d"><pre><code>uv run python -c "import fvc3d; print('fvc3d', fvc3d.__version__)"</code></pre></div>
-        <p>To use it in another project (Python 3.10 or newer), install it from GitHub:</p>
-        <div class="command" data-label="Install fvc3d with pip"><pre><code>pip install "fvc3d @ git+https://github.com/LNSOTOM/fvc_structure.git"</code></pre></div>
+        <p class="muted">For the latest development version, use <code>pip install "fvc3d @ git+https://github.com/LNSOTOM/fvc_structure.git"</code>.</p>
 
         <h3>2. Run label transfer</h3>
         <div class="command" data-label="Transfer labels"><pre><code>from fvc3d import transfer_labels
@@ -734,6 +735,7 @@ print(fused.metrics["final_treeids"], "mallee crowns")</code></pre></div>
         <p><code>fvc3d</code> matches <code>fvc3dstruct</code>, the paper's Phase 4 code, with one fix: points beyond the crown-detection grid no longer take an edge crown's ID, which could turn them into mallee (274 ground points on tile 109). With <code>config={"legacy_crown_clamp": True}</code>, tile 109's labels match <code>fvc3dstruct</code> point for point. Crown detection defaults to <code>"auto"</code>, the setting behind the published outputs; <code>fvc3dstruct</code>'s <code>DEFAULT_CONFIG</code> lists fixed values (1.5 m, 1.0) instead.</p>
         <div class="resources">
           <strong>Resources:</strong>
+          <a href="https://pypi.org/project/fvc3d/" target="_blank" rel="noopener">fvc3d on PyPI</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/tree/main/src/fvc3d" target="_blank" rel="noopener">fvc3d source</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/examples/transfer_labels.py" target="_blank" rel="noopener">Example script</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/configs/transfer_labels.yaml" target="_blank" rel="noopener">Settings file</a>

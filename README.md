@@ -1,5 +1,9 @@
 # fvcStructureRangeland3D
 
+[![PyPI](https://img.shields.io/pypi/v/fvc3d)](https://pypi.org/project/fvc3d/)
+[![Python](https://img.shields.io/pypi/pyversions/fvc3d)](https://pypi.org/project/fvc3d/)
+[![License: MIT](https://img.shields.io/pypi/l/fvc3d)](LICENSE)
+
 UAS LiDAR and imagery are prepared as structure-labelled 3D tiles for
 ForestFormer3D and SegmentAnyTree.
 
@@ -34,8 +38,10 @@ The `fvc3d` package turns a label raster and a LiDAR point cloud into a
 labelled 3D point cloud in one call. It runs the Phase 4 label-transfer method.
 
 ```bash
-uv sync            # or: pip install -e .   (Python 3.10 or newer)
+pip install fvc3d   # Python 3.10 or newer
 ```
+
+In a clone of this repository, `uv sync` installs it too.
 
 ```python
 from fvc3d import transfer_labels
