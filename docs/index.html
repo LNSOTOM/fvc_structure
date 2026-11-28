@@ -293,15 +293,14 @@
       .page-toc:not([hidden]) { display: block; align-self: start; position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: .88rem; scrollbar-width: thin; }
       .sidebar a.subsection { display: none; }
     }
-    .page-toc p { margin: 0; }
-    .page-toc .toc-title { padding: 10px 14px; font-weight: 700; color: #fff; background: var(--accent); }
-    [data-theme="dark"] .page-toc .toc-title { color: #251b36; }
     .page-toc a { display: block; padding: 7px 14px 7px 24px; border-top: 1px solid var(--line); color: var(--ink); text-decoration: none; line-height: 1.4; }
-    .page-toc a.toc-head { padding-left: 14px; font-weight: 700; color: var(--accent); }
     .page-toc a:hover { background: #dff5f2; color: var(--accent); }
     [data-theme="dark"] .page-toc a:hover { background: #302c46; }
     .page-toc a.current { background: #e9e6f2; color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
     [data-theme="dark"] .page-toc a.current { background: #302c46; }
+    .page-toc a.toc-title { padding: 10px 14px; border-top: 0; font-weight: 700; color: #fff; background: var(--accent); }
+    [data-theme="dark"] .page-toc a.toc-title { color: #251b36; }
+    .page-toc a.toc-title:hover { text-decoration: underline; }
     /* Subtle tint where the citation and data sources are given. */
     .citation, .note.data, p.data { background: #e9f5f3; border-left: 3px solid #45a9a9; border-radius: 0 6px 6px 0; padding: 10px 14px; }
     .citation { border-left-color: var(--accent); }
@@ -369,6 +368,7 @@
       .analysis-table td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 </head>
@@ -403,7 +403,7 @@
           <a href="https://lnsotom.github.io/">← Home (Laura N. Sotomayor)</a>
           <a href="#overview">Overview</a>
           <a href="#setup">Setup</a>
-          <a href="#phase-1">Phases 1–5</a>
+          <a href="#phase-1">Research phases</a>
           <a href="#models">Models</a>
           <a href="#experiments">Experiments</a>
           <a href="#installation">fvc3d package</a>
@@ -450,23 +450,22 @@
     <div class="hero-inner">
       <div class="eyebrow">Research workflow guide</div>
       <h1>From 2D labels to 3D vegetation structure</h1>
-      <p class="lead">Transfer 2D vegetation labels into co-registered UAS LiDAR with the <code>fvc3d</code> Python package, and reproduce the paper's phase-by-phase workflow and 3D model benchmarks in rangeland ecosystems.</p>
+      <p class="lead">Follow five phases from drone imagery and LiDAR to labelled point clouds and 3D model benchmarks.</p>
       <div class="hero-links">
-        <a class="button primary" href="#setup">Get started</a>
-        <a class="button" href="#python-api" title="Python API quick start"><ion-icon name="code-slash-outline" aria-hidden="true"></ion-icon> <span class="label">Python API quick start</span></a>
-        <a class="button" href="https://eartharxiv.org/repository/view/12889/" target="_blank" rel="noopener" title="Preprint on EarthArXiv"><ion-icon name="document-attach-outline" aria-hidden="true"></ion-icon> <span class="label">Preprint on EarthArXiv</span></a>
+        <a class="button primary" href="#setup-reproduction-path">Getting Started</a>
+        <a class="button" href="https://eartharxiv.org/repository/view/12889/" target="_blank" rel="noopener" title="Preprint on EarthArXiv"><ion-icon name="document-attach-outline" aria-hidden="true"></ion-icon> <span class="label">Preprint</span></a>
         <a class="button" href="https://github.com/LNSOTOM/fvc_structure" target="_blank" rel="noopener" title="Code on GitHub"><ion-icon name="logo-github" aria-hidden="true"></ion-icon> <span class="label">Code</span></a>
-        <a class="button" href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener" title="Datasets and pre-trained models on Zenodo"><ion-icon name="cloud-download-outline" aria-hidden="true"></ion-icon> <span class="label">Datasets &amp; pre-trained models on Zenodo</span></a>
+        <a class="button" href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener" title="Datasets and pre-trained models on Zenodo"><ion-icon name="cloud-download-outline" aria-hidden="true"></ion-icon> <span class="label">Datasets</span></a>
       </div>
     </div>
   </div>
 
   <div class="layout">
     <aside class="sidebar">
-      <nav aria-label="On this page">
-        <strong>Overview</strong>
+      <nav aria-label="Guide contents">
+        <strong>fvc_structure</strong>
         <a href="#overview">Overview</a>
-        <strong>Reproduce the paper</strong>
+        <strong>Research phases</strong>
         <a href="#setup">Setup</a>
         <a href="#phase-1">1. DSM generation</a>
         <a href="#phase-2">2. Co-registration</a>
@@ -480,10 +479,13 @@
         <strong>Package: fvc3d</strong>
         <a href="#installation">Installation</a>
         <a href="#python-api">Quick start</a>
+        <a class="subsection" href="#api-try">Try the Calperum study data</a>
+        <a class="subsection" href="#python-api-run-label-transfer">Try your own data</a>
         <a class="subsection" href="#api-plot">Plot the result</a>
-        <a class="subsection" href="#api-try">Try the paper's data</a>
+        <a class="subsection" href="#python-api-process-a-folder-of-tiles">Process a folder of tiles</a>
         <a class="subsection" href="#api-forestformer">ForestFormer3D output</a>
-        <a href="#classes-data">Classes and data</a>
+        <a href="#classes-data">Inputs, classes and settings</a>
+        <a class="subsection" href="#api-inputs">Prepare the inputs</a>
         <a class="subsection" href="#api-classes">The paper's classes</a>
         <a class="subsection" href="#api-your-data">Your own classes</a>
         <a class="subsection" href="#api-settings">Settings</a>
@@ -502,47 +504,44 @@
     <main>
       <section id="overview">
         <div class="eyebrow">Overview</div>
-        <h2>Prepare spatial data for analysis</h2>
-        <p><strong>fvc3d</strong> is a Python package for transferring 2D vegetation growth-form labels into georeferenced 3D UAS LiDAR point clouds, with the method of the paper. Functions include:</p>
-        <ul>
-          <li>Transfer a label raster onto a LAS/LAZ point cloud in one call, with height above ground and a <code>treeID</code> per crown.</li>
-          <li>Check that labels and LiDAR line up before transferring: CRS, overlap and canopy offset.</li>
-          <li>Refine labels in 3D: class height priors, voxel transfer, crown detection, polar refinement and consolidation.</li>
-          <li>Use the paper's growth forms, your own classes, or FOR-instanceV2's ground, wood and leaf.</li>
-          <li>Report the paper's consistency diagnostics and plot quick-look figures.</li>
-        </ul>
-        <p>This guide has three parts: how to <strong>reproduce the paper</strong> (<a href="#setup">setup</a>, Phases 1–5, models and experiments), the <strong><code>fvc3d</code> package</strong> that runs step 04 in one call (<a href="#installation">installation</a>, <a href="#python-api">quick start</a>, <a href="#classes-data">classes and data</a>, <a href="#how-it-works">how it works</a>, <a href="#api-reference">API reference</a>), and how to <a href="#how-to-cite">cite</a> it.</p>
+        <h2>Label transfer and rangeland benchmarks</h2>
+        <p>At Calperum Station, South Australia, the study transfers vegetation growth-form labels from drone imagery to aligned LiDAR. Height and crown structure refine the labels for 3D model training.</p>
+        <p>To reproduce the study, start with <a href="#setup-reproduction-path">the available data and entry points</a>.</p>
+        <div class="flow" aria-label="Workflow from inputs to classified 3D LiDAR">
+          <a href="#phase-1"><strong>01 | Surface model</strong><span>Georeferenced LAS/LAZ to a DSM GeoTIFF.</span></a>
+          <a href="#phase-2"><strong>02 | Alignment</strong><span>Align LiDAR to imagery with optical flow.</span></a>
+          <a href="#phase-3"><strong>03 | Imagery and labels</strong><span>Prepare predictor tiles and structure masks.</span></a>
+          <a href="#phase-4" class="with-package"><strong>04 | 3D preparation <em class="badge">fvc3d</em></strong><span>Use ICP-registered tiles to create classified point clouds, or run <code>fvc3d.transfer_labels()</code> in one call.</span></a>
+          <a href="#phase-5"><strong>05 | Model inputs</strong><span>Prepare local-coordinate PLY files and verify labels.</span></a>
+          <a href="#models"><strong>Models | Experiments</strong><span>Prepare datasets, run inference or training, and evaluate predictions.</span></a>
+        </div>
+        <p><code>fvc3d.transfer_labels()</code> runs Phase 4. It checks alignment between a growth-form GeoTIFF and a co-registered LAS/LAZ, returns per-point labels and diagnostics, and can write class codes, heights and crown IDs to LAS/LAZ. See the <a href="#python-api">quick start</a> and <a href="#api-reference">API reference</a>.</p>
         <h3 id="overview-citation">Citation</h3>
-        <p>If you use this workflow, data or code, please cite:</p>
         <blockquote class="citation">Sotomayor, L.N., Lucieer, A., Turner, D., Barthelemy, J., Kattenborn, T. (2026). <em>From 2D labels to 3D structure: Scalable label transfer and benchmarking of 3D vegetation models in rangeland ecosystems.</em> EarthArXiv (preprint). <a href="https://doi.org/10.31223/X5948M" target="_blank" rel="noopener">https://doi.org/10.31223/X5948M</a></blockquote>
         <p>Submitted to the <em>ISPRS Open Journal of Photogrammetry and Remote Sensing</em>, special issue: “Advanced Uncrewed Vehicles solutions: at the crossroad of Remote Sensing, Computer Vision and Robotics”.</p>
         <h3 id="overview-contributions-of-the-preprint">Contributions of the preprint</h3>
-        <p>The preprint presents two contributions:</p>
         <div class="facts cards">
-          <div class="panel"><strong>Scalable 2D-to-3D supervision</strong><p>Transfer multispectral CNN vegetation labels to co-registered LiDAR, using height and crown consistency to label 3D points.</p><a href="#phase-4">Explore label transfer</a></div>
+          <div class="panel"><strong>2D-to-3D label transfer</strong><p>Generate training labels for LiDAR points without manual point-by-point annotation.</p><a href="#phase-4">Explore label transfer</a></div>
           <div class="panel"><strong>Cross-domain model evaluation</strong><p>Compare zero-shot transfer, fine-tuning and training from scratch with ForestFormer3D, and zero-shot instance segmentation with SegmentAnyTree.</p><a href="#experiments">Explore experiments</a></div>
         </div>
+        <p>ForestFormer3D scored 85.2% mean intersection over union (mIoU) on the forest benchmark. In medium- and low-density rangeland, zero-shot scores were 41.1% and 16.1%, rising to 49.6% and 63.1% after sequential fine-tuning. The low-density fine-tuning test set had no mallee crowns for instance evaluation. See Tables 7 and 9 in the <a href="https://doi.org/10.31223/X5948M">preprint</a>.</p>
         <h3 id="overview-data-products-and-acknowledgements">Data products and acknowledgements</h3>
-        <p>We thank Megan Lewis for her expertise and contributions in rangeland remote sensing and ecology, including her contribution to the reference-labelling dataset. We also acknowledge the Terrestrial Ecosystem Research Network (TERN), particularly its Ecosystem Surveillance team and Landscapes program. We thank Ben Sparrow, Poornima Sivanandam and Juan Carlos Montes-Herrera for drone operation and data processing, and the Australian Landscape Trust's Calperum Station managers for access to the study sites.</p>
-        <p class="data">The paper's manual labels and UAS imagery are available in <a href="https://doi.org/10.5281/zenodo.15036860" target="_blank" rel="noopener">Sotomayor et al. (2025), <em>Fractional Vegetation Cover Mapping</em>, Zenodo</a>. The dataset credits TERN Landscapes and TERN Surveillance Monitoring for RGB and multispectral orthomosaic processing, and acknowledges contributors to reference labelling. See the record for the full creator list, citation and licence. The labelled 3D tiles, label-transfer data, split lists, pre-trained models and predictions are available in <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Sotomayor et al. (2026), Zenodo</a>. The forest benchmark uses <a href="https://zenodo.org/records/16742708" target="_blank" rel="noopener">FOR-instanceV2</a>.</p>
+        <p>We thank Megan Lewis for reference labelling, TERN’s Ecosystem Surveillance and Landscapes teams, Ben Sparrow, Poornima Sivanandam and Juan Carlos Montes-Herrera for drone operations and data processing, and the Australian Landscape Trust for site access.</p>
+        <p class="data">Download the <a href="https://doi.org/10.5281/zenodo.15036860" target="_blank" rel="noopener">UAS imagery and manual labels</a>, <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">labelled 3D tiles, models and predictions</a>, or the <a href="https://zenodo.org/records/16742708" target="_blank" rel="noopener">FOR-instanceV2 forest dataset</a>.</p>
         <p>We also acknowledge the developers of <a href="https://bxiang233.github.io/FF3D/" target="_blank" rel="noopener">ForestFormer3D</a> (Xiang et al., 2025) and <a href="https://github.com/SmartForest-no/SegmentAnyTree" target="_blank" rel="noopener">SegmentAnyTree</a> (<a href="https://doi.org/10.1016/j.rse.2024.114367" target="_blank" rel="noopener">Wielgosz et al., 2024</a>) for the models used in the experiments.</p>
-        <div class="flow" aria-label="Workflow from inputs to classified 3D LiDAR">
-          <a href="#phase-1"><strong>01 / Surface model</strong><span>Georeferenced LAS/LAZ to a DSM GeoTIFF.</span></a>
-          <a href="#phase-2"><strong>02 / Alignment</strong><span>Align LiDAR to imagery with optical flow.</span></a>
-          <a href="#phase-3"><strong>03 / Imagery and labels</strong><span>Prepare predictor tiles and structure masks.</span></a>
-          <a href="#phase-4" class="with-package"><strong>04 / 3D preparation <em class="badge">fvc3d</em></strong><span>Use ICP-registered tiles to create classified point clouds, or run <code>fvc3d.transfer_labels()</code> in one call.</span></a>
-          <a href="#phase-5"><strong>05 / Model inputs</strong><span>Prepare local-coordinate PLY files and verify labels.</span></a>
-          <a href="#models"><strong>Models / Experiments</strong><span>Prepare datasets, run inference or training, and evaluate predictions.</span></a>
-        </div>
-        <p class="muted">The <a href="#python-api"><code>fvc3d</code> package</a> runs step 04: steps 01–03 prepare its inputs, and step 05 turns its output into model inputs.</p>
-        <p class="muted">Run the commands locally and record your own CRS, grids, parameters and outputs. Figures are historical examples from the paper's sites; select one to enlarge it. Their original colour maps may not suit every reader.</p>
       </section>
 
       <section id="setup" class="phase">
-        <div class="phase-label">Reproduce the paper / Setup</div>
+        <div class="phase-label">Reproduce the paper | Setup</div>
         <h2>Set up the workflow environment</h2>
-        <p>This part reproduces the paper's workflow, Phases 1–5 and the model experiments. For the <code>fvc3d</code> package alone, <a href="#installation">install it from PyPI</a>.</p>
-        <p>The phases use different environments, because their tools (PDAL, GDAL, GPU models) do not install cleanly together. Set up the shared environment below once; add the others only for the phases you run.</p>
+        <h3 id="setup-reproduction-path">Where to start</h3>
+        <ul>
+          <li><strong>Process your own raw LiDAR.</strong> If you have a georeferenced point cloud and an imagery DSM, start with <a href="#phase-1">Phase 1: DSM generation</a>.</li>
+          <li><strong>Try label transfer on study data.</strong> Start with <a href="#api-try">Calperum tile 109</a>, which includes a label raster and an aligned LiDAR tile.</li>
+          <li><strong>Reproduce a model benchmark.</strong> Start with the <a href="#experiments">experiment guide</a> and use the released tiles, split lists and checkpoints.</li>
+        </ul>
+        <p>The Calperum release starts at tile level. Phases 1–2 require full-site inputs, so use your own data for those phases.</p>
+        <p>Use the table below to find the environment for your chosen phase. The commands follow the current repository layout. See <a href="#versions">Versions</a> for the preprint’s code snapshot.</p>
         <div class="analysis-table-wrap">
           <table class="analysis-table">
             <caption>Environment for each phase</caption>
@@ -559,7 +558,7 @@
         </div>
         <p>Run these commands in Linux/WSL or Windows PowerShell, using the same environment for setup and processing.</p>
         <p class="muted">Copy buttons appear when your browser permits clipboard access; otherwise select the command text manually.</p>
-        <h3 id="setup-check-the-prerequisites">1. Check the prerequisites</h3>
+        <h3 id="setup-check-the-prerequisites">1. Prerequisites</h3>
         <p>Install <a href="https://git-scm.com/install/" target="_blank" rel="noopener">Git</a> and <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank" rel="noopener">uv</a> if needed, then check that both are available:</p>
         <div class="command" data-label="Git version"><pre><code>git --version</code></pre></div>
         <div class="command" data-label="uv version"><pre><code>uv --version</code></pre></div>
@@ -569,8 +568,8 @@
         <p>Enter the repository:</p>
         <div class="command" data-label="Enter repository"><pre><code>cd fvc_structure</code></pre></div>
         <h3 id="setup-create-the-shared-environment">3. Create the shared environment</h3>
-        <p>From the repository root, install the locked environment: <code>fvc3d</code>, the Phase 1–2 tools and the notebook tools. It uses Python 3.10, set in <code>.python-version</code>; uv downloads it if needed.</p>
-        <div class="command" data-label="Install dependencies"><pre><code>uv sync</code></pre></div>
+        <p>From the repository root, install from the checked-in lockfile: <code>fvc3d</code>, the Phase 1–2 tools and the notebook tools. It uses Python 3.10, set in <code>.python-version</code>; uv downloads it if needed.</p>
+        <div class="command" data-label="Install dependencies"><pre><code>uv sync --locked</code></pre></div>
         <p>Check that Python starts and the processing libraries import:</p>
         <div class="command" data-label="Check Python version"><pre><code>uv run python --version</code></pre></div>
         <div class="command" data-label="Check processing libraries"><pre><code>uv run python -c "import numpy, rasterio, scipy, skimage, laspy, yaml, fvc3d; print('Dependencies OK, fvc3d', fvc3d.__version__)"</code></pre></div>
@@ -584,7 +583,7 @@
       </section>
 
       <section id="phase-1" class="phase">
-        <div class="phase-label">Phase 1 / DSM generation</div>
+        <div class="phase-label">Phase 1 | DSM generation</div>
         <h2>Build a digital surface model</h2>
         <p>Generate a raster of maximum LiDAR elevation using PDAL. The DSM can then be used as the moving surface in Phase 2.</p>
         <div class="facts io">
@@ -640,10 +639,11 @@
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/README_phase1.md" target="_blank" rel="noopener">Phase README</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/notebooks/01_create_dsm_from_las.ipynb" target="_blank" rel="noopener">DSM notebook</a>
         </div>
+        <p><strong>Next.</strong> Use the LiDAR DSM and its source LAS/LAZ in <a href="#phase-2">Phase 2</a>, together with the imagery DSM.</p>
       </section>
 
       <section id="phase-2" class="phase">
-        <div class="phase-label">Phase 2 / Co-registration</div>
+        <div class="phase-label">Phase 2 | Co-registration</div>
         <h2>Align LiDAR to the imagery DSM</h2>
         <p>Resample the LiDAR DSM onto the imagery grid, compute a GeFolki optical-flow field, then apply the field to the original point cloud.</p>
         <div class="facts io">
@@ -697,9 +697,11 @@
         <div class="command" data-label="Phase 2 config"><pre><code>cp phase_2_lidar_coregistration/configs/coregistration_job.example.yml phase_2_lidar_coregistration/configs/coregistration_job.local.yml</code></pre></div>
         <p>Edit the <code>preprocess</code>, <code>flow</code> and <code>align</code> sections. Connect the output paths of each step to the input paths of the next. The supplied template uses L2 flow parameters; use the documented L1 parameters for L1 data.</p>
         <h3 id="phase-2-run-the-steps">2. Run the steps</h3>
-        <p>This example uses the L2 scripts. For L1 data, choose the corresponding <code>_l1.py</code> scripts instead.</p>
-        <p>The scripts read <code>coregistration_job.local.yml</code> by default. They resample the LiDAR DSM, compute the flow, then align the point cloud:</p>
-        <div class="command" data-label="Run Phase 2 (L2)"><pre><code>for step in gefolki_preprocess gefolki_flow_l2 align_lidar_with_flow_l2; do uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/$step.py || break; done</code></pre></div>
+        <p>For L1, set <code>flow.radius</code> to <code>[16, 8, 4]</code> and <code>flow.levels</code> to <code>6</code> as documented in the Phase 2 guide. Run each command from the repository root and check its output before continuing.</p>
+        <div class="command" data-label="Run Phase 2 (L1)"><pre><code>uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/gefolki_preprocess.py
+uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/gefolki_flow_l1.py
+uv run python phase_2_lidar_coregistration/gefolki/python_myscripts/align_lidar_with_flow_l1.py</code></pre></div>
+        <p>For L2, use the supplied L2 settings and the corresponding <code>gefolki_flow_l2.py</code> and <code>align_lidar_with_flow_l2.py</code> scripts.</p>
         <h3 id="phase-2-inspect-the-alignment">3. Inspect the alignment</h3>
         <p>Check the registered surface, flow direction and alignment statistics using the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/stats_align_lidar_with_flow.py.ipynb" target="_blank" rel="noopener">validation notebook</a>.</p>
         <div class="note"><strong>Check the output point count.</strong> The alignment scripts omit points outside the flow grid's interpolation extent. Confirm that the retained extent is appropriate for your analysis.</div>
@@ -709,10 +711,11 @@
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/README_phase2.md" target="_blank" rel="noopener">Phase README</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/README.md" target="_blank" rel="noopener">GeFolki documentation and citations</a>
         </div>
+        <p><strong>Next.</strong> Prepare the masks and predictor grid in <a href="#phase-3">Phase 3</a>. Keep the aligned point cloud for the tile-level registration required by <a href="#phase-4">Phase 4</a>.</p>
       </section>
 
       <section id="phase-3" class="phase">
-        <div class="phase-label">Phase 3 / Imagery and labels</div>
+        <div class="phase-label">Phase 3 | Imagery and labels</div>
         <h2>Prepare imagery tiles and structure labels</h2>
         <p>Clip annotated grid cells, select five multispectral bands and create structure labels using the historical 1 cm to 5 cm workflow.</p>
         <div class="facts io">
@@ -770,7 +773,7 @@
           </div>
         </div>
         <h3 id="phase-3-set-up-phase-3">1. Set up Phase 3</h3>
-        <p>Phase 3 needs a separate geospatial environment with GDAL, GeoPandas and Rasterio; the Phase 1–2 <code>uv</code> environment does not include them. Follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/REPRODUCIBILITY.md" target="_blank" rel="noopener">Phase 3 setup guide</a>, then activate it in your terminal.</p>
+        <p>Phase 3 uses a separate environment with GDAL, GeoPandas and Rasterio. Follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/REPRODUCIBILITY.md" target="_blank" rel="noopener">Phase 3 setup guide</a>, then activate it in your terminal.</p>
         <h3 id="phase-3-configure-a-job">2. Configure a job</h3>
         <p>From the repository root, copy the template and replace every path. Set the 1 cm reference directory and filename pattern to match your annotation tile IDs. Use new output directories.</p>
         <div class="command" data-label="Phase 3 config"><pre><code>cp phase_3_2D_imagery_prep/configs/imagery_prep_job.example.yml phase_3_2D_imagery_prep/configs/imagery_prep_job.local.yml</code></pre></div>
@@ -786,10 +789,11 @@
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/REPRODUCIBILITY.md" target="_blank" rel="noopener">Reproducibility guide</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/README.md" target="_blank" rel="noopener">Label QA guide</a>
         </div>
+        <p><strong>Next.</strong> Take the 5 cm growth-form masks and matching predictor grids into <a href="#phase-4">Phase 4</a> with LiDAR tiles for the same footprints.</p>
       </section>
 
       <section id="phase-4" class="phase">
-        <div class="phase-label">Phase 4 / 3D LiDAR preparation</div>
+        <div class="phase-label">Phase 4 | 3D LiDAR preparation</div>
         <h2>Prepare structure-classified point clouds</h2>
         <p>Transfer 2D structure labels to a LiDAR tile, calculate height above ground and fuse the labels into a 3D vegetation product.</p>
         <div class="facts io">
@@ -803,8 +807,8 @@
             <dt>Defaults</dt><dd>CSF resolution 0.5 m, iterations 500, threshold 0.01, rigidness 2; normalization k=3; 0.10 m fusion voxels.</dd>
             <dt>Classes</dt><dd>Mask classes 64–68; fused vegetation LAS includes <code>Z_norm</code> and <code>treeID</code>. See the <a href="#las-attributes">observed LAS fields</a> below.</dd></dl>
         </div>
-        <div class="note"><strong>ICP is a prerequisite.</strong> Phase 2 GeFolki alignment is not the additional ICP registration used in the historical tile workflow. This guide does not perform ICP.</div>
-        <div class="note"><strong>Shortcut:</strong> <a href="#python-api"><code>fvc3d.transfer_labels()</code></a> runs the mask, normalize and fuse stages below in one call, without PDAL.</div>
+        <div class="note"><strong>Historical tile registration.</strong> The Phase 4 scripts expect tiles that have undergone local ICP registration after the Phase 2 GeFolki alignment. For a published-data rerun, use the registered, height-normalized tiles in <code>5_lidar_znorm</code> with <a href="#api-try">the Calperum example</a>.</div>
+        <div class="note"><strong>Shortcut:</strong> <a href="#python-api"><code>fvc3d.transfer_labels()</code></a> runs the mask, normalize and fuse stages below in one call. Supply <code>Z_norm</code>, class-2 ground points, or a separate ground file.</div>
         <div class="phase-overview">
           <div class="panel">
             <h3 id="phase-4-processing-steps">Processing steps</h3>
@@ -902,10 +906,11 @@
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/REPRODUCIBILITY.md" target="_blank" rel="noopener">Reproducibility guide</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/README_phase4.md" target="_blank" rel="noopener">Phase README</a>
         </div>
+        <p><strong>Next.</strong> Pass each fused LAS with <code>Z_norm</code> and <code>treeID</code> to <a href="#phase-5">Phase 5</a>.</p>
       </section>
 
       <section id="phase-5" class="phase">
-        <div class="phase-label">Phase 5 / Model input preparation</div>
+        <div class="phase-label">Phase 5 | Model input preparation</div>
         <h2>Prepare classified LiDAR for modelling</h2>
         <p>Convert one Phase 4 tile to local-coordinate PLY, retain its coordinate offset and check its labels before creating a model dataset.</p>
         <div class="facts io">
@@ -986,20 +991,61 @@
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/README.md" target="_blank" rel="noopener">Phase README</a> ·
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md" target="_blank" rel="noopener">Model experiments</a>
         </div>
+        <p><strong>Next.</strong> Keep the PLY, its offset and the source LAS together, then choose a workflow in <a href="#models">Models and handoffs</a>.</p>
       </section>
 
       <section id="models" class="phase">
-        <div class="phase-label">After Phase 5 / Model workflows</div>
+        <div class="phase-label">After Phase 5 | Model workflows</div>
         <h2>From labelled tiles to model predictions</h2>
-        <p>Phase 4 produces classified LAS; Phase 5 exports PLY and offsets. Model training and prediction are separate steps.</p>
+        <p>Start with the labelled PLY tiles and coordinate offsets from <a href="#phase-5">Phase 5</a>. Choose a model below, then match its predictions to the source tiles before evaluating or mapping them.</p>
         <div class="facts cards">
-          <div class="panel"><strong>ForestFormer3D</strong><p>Uses prepared point-cloud datasets for semantic and instance segmentation. In the paper it is evaluated in all three experiment families.</p><a href="#forestformer">ForestFormer3D steps</a></div>
-          <div class="panel"><strong>SegmentAnyTree</strong><p>Groups points into individual tree instances. In the paper it is a zero-shot instance-level reference, not the fine-tuned model in Experiments 2 and 3.</p><a href="#segmentanytree">SegmentAnyTree steps</a></div>
+          <div class="panel"><strong>ForestFormer3D</strong><p>Build the model dataset, then train or evaluate a checkpoint for semantic and instance segmentation.</p><a href="#forestformer">ForestFormer3D steps</a></div>
+          <div class="panel"><strong>SegmentAnyTree</strong><p>Run pretrained inference on the PLY tiles, then compare predicted tree instances with the reference crowns.</p><a href="#segmentanytree">SegmentAnyTree steps</a></div>
         </div>
-        <div class="note"><strong>Keep the handoff auditable.</strong> Preserve the Phase 4 LAS and CRS, Phase 5 PLY and offset, scene IDs, class mapping and split lists. Model preprocessing may apply another offset. Match every prediction to its source tile and verify the full coordinate reconstruction before mapping results.</div>
+        <div class="note"><strong>Keep these files together.</strong> Retain the Phase 4 LAS and its CRS, the Phase 5 PLY and offset, and the scene IDs, class mapping and split lists. Record any extra offset added by the model so you can restore global coordinates.</div>
         <p>Model runbooks use Linux and NVIDIA GPU/Docker. Windows users can use the earlier workflow and, where supported, a separate WSL/Linux GPU environment; native Windows model execution is not established.</p>
 
-        <h3 id="checkpoint-deliverables">Model checkpoint deliverables</h3>
+        <h3 id="forestformer">ForestFormer3D | Semantic and instance segmentation</h3>
+        <div class="metadata">
+          <h3 id="models-model-metadata">Model metadata</h3>
+          <dl><dt>Input</dt><dd>Phase 5 labelled PLY tiles, offsets and scene split lists; prepared ForAINetV2 dataset files and a compatible config/checkpoint are needed by the model.</dd>
+            <dt>Features</dt><dd>The paper uses XYZ only; PLY <code>semantic_seg</code> and <code>treeID</code> provide supervision/evaluation, not additional input features. <code>intensity</code> and <code>z_norm</code> are saved in PLY but not used as features in the paper's setup.</dd>
+            <dt>Paper settings</dt><dd>0.20 m voxel resolution and 16 m cylindrical regions; confirm settings in the selected config.</dd>
+            <dt>Output</dt><dd>Semantic and instance predictions, evaluation metrics and, for training, checkpoints and logs. Output paths and fields depend on the selected code/config.</dd></dl>
+        </div>
+        <div class="phase-overview">
+          <div class="panel">
+            <h4 id="models-processing-steps">Prepare and run</h4>
+            <ol class="step-gallery">
+              <li><strong>Check Phase 5 tiles and define the splits.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Check PLY files and assign training, validation and test scenes"><use href="#visual-file" x="48" y="5" width="60" height="60"/><text x="78" y="92">PLY + offsets</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-check" x="252" y="5" width="60" height="60"/><text x="282" y="92">Labels + splits</text></svg>
+                <dl class="step-metadata"><dt>Input</dt><dd>PLY XYZ, <code>semantic_seg</code>, <code>treeID</code>; original LAS, CRS and Phase 5 offset.</dd><dt>Checks</dt><dd>Class conversion, instance IDs, tile provenance and no train/test overlap.</dd><dt>Output</dt><dd>Versioned PLY tiles and scene lists.</dd></dl>
+              </li>
+              <li><strong>Export the model dataset.</strong>
+                <a href="./figures/phase5-model-arrays.png"><img src="./figures/phase5-model-arrays.png" alt="Historical model-array inspection showing semantic labels, tree instances, bounding boxes and global coordinates." loading="lazy"></a>
+                <small>DD0001 tile 106 dataset inspection, not a model prediction.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Prepared PLY files and scene lists.</dd><dt>Output</dt><dd>Per-scene XYZ, semantic/instance labels, bounding boxes and offsets as NPY files; dataset preparation also creates point/mask files and split PKLs.</dd><dt>Checks</dt><dd>Point counts, labels and both coordinate offsets.</dd></dl>
+              </li>
+              <li><strong>Evaluate a checkpoint or train a model.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Prepared dataset and selected checkpoint produce semantic and instance predictions"><use href="#visual-stack" x="38" y="5" width="55" height="55"/><text x="65" y="92">Dataset</text><use href="#visual-file" x="152" y="5" width="55" height="55"/><text x="180" y="92">Checkpoint</text><use href="#visual-points" x="267" y="5" width="55" height="55"/><text x="294" y="92">Predictions</text></svg>
+                <dl class="step-metadata"><dt>Input</dt><dd>Model dataset, experiment config and appropriate checkpoint; scratch training uses random initialization.</dd><dt>Output</dt><dd>Training logs/checkpoints or test predictions and metrics.</dd><dt>Checks</dt><dd>Dataset, checkpoint, label and instance policies must match the experiment.</dd></dl>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h4 id="models-files-and-setup">Files and setup</h4>
+            <ul>
+              <li><code>Phase 5 PLY + _offset.npy</code> → <code>forainetv2_instance_data/*_vert.npy</code>, <code>*_sem_label.npy</code>, <code>*_ins_label.npy</code>, <code>*_offsets.npy</code> and bounding boxes.</li>
+              <li>Dataset creation also writes point/semantic/instance files and <code>forainetv2_oneformer3d_infos_*.pkl</code>.</li>
+              <li>The current full-scene test path writes prediction PLY files with <code>semantic_pred</code>, <code>instance_pred</code>, <code>score</code> and, when provided, ground-truth fields. Verify the selected model implementation and output directory.</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_quick_setup.md" target="_blank" rel="noopener">Docker and dataset quick setup</a> · <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md" target="_blank" rel="noopener">Experiment runbook</a></li>
+            </ul>
+          </div>
+        </div>
+        <p>Follow the quick setup to prepare the dataset first. The experiment runbook provides the split generation, preprocessing, training and evaluation commands; its paths, GPU IDs and checkpoints are examples to replace. The preprint reports final-epoch models as the primary comparison, while the runbook also illustrates other checkpoint selections: record the checkpoint actually evaluated.</p>
+        <div class="note"><strong>Class mapping is a prerequisite.</strong> The strict HSM profile rejects forb and some existing evaluation configs map shrub differently from the paper. Inspect the <a href="#class-conventions">class handoff</a>, exported masks and active config before running experiments; do not assume that a completed export reproduces the paper.</div>
+
+        <h3 id="checkpoint-deliverables">ForestFormer3D checkpoints</h3>
         <p><strong>Forest-pretrained baseline:</strong> The ForestFormer3D authors provide the pretrained model in <a href="https://zenodo.org/records/16742708" target="_blank" rel="noopener">FOR-instanceV2 on Zenodo</a>. Download <code>clean_forestformer.zip</code> and follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/readme.md" target="_blank" rel="noopener">ForestFormer3D setup instructions</a>. This is the forest baseline, not a rangeland fine-tuned model.</p>
         <p><strong>Rangeland experiment checkpoints:</strong> The following final-epoch files exist in the saved experiment outputs. Paths are relative to the experiment <code>work_dirs</code>. They are not tracked in this repository; download them, with their configs, training logs and test predictions, from the <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a> (<code>model_exp*.zip</code>).</p>
         <ul>
@@ -1012,8 +1058,46 @@
         </ul>
         <p>The <a href="#model-comparison-heading">comparison examples</a> use the Experiment 2B stage-1 and stage-2 final-epoch checkpoints. The <code>_fix</code> suffix denotes a checkpoint converted for spconv compatibility; the 3B file listed above is unconverted. See the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md" target="_blank" rel="noopener">experiment runbook</a> for checkpoint conversion and evaluation. Preserve each checkpoint with its config, class mapping, split lists, software environment, training provenance and checksum; verify the exact checkpoint before comparing results.</p>
 
+        <h3 id="segmentanytree">SegmentAnyTree | Instance segmentation</h3>
+        <div class="metadata">
+          <h3 id="models-model-metadata-2">Model metadata</h3>
+          <dl><dt>Input</dt><dd>The repository's multi-GPU inference workflow accepts a directory of PLY tiles; use Phase 5 labelled tiles for the described evaluation and retain their offsets and original LAS/CRS.</dd>
+            <dt>Features</dt><dd>The paper's comparison uses XYZ as model input; labels and <code>treeID</code> are reference data for evaluation. This model is reported as an instance-level reference in the paper.</dd>
+            <dt>Output</dt><dd>The multi-GPU runbook describes merged LAS/LAZ results and per-GPU logs. Present output fields can include <code>PredInstance</code>, <code>PredSemantic</code>, <code>treeID</code> and reference labels; inspect the actual file.</dd></dl>
+        </div>
+        <div class="phase-overview">
+          <div class="panel">
+            <h4 id="models-processing-steps-2">Run and evaluate</h4>
+            <ol class="step-gallery">
+              <li><strong>Prepare input tiles and reference IDs.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="Prepare PLY coordinates and ground-truth tree IDs for instance evaluation"><use href="#visual-file" x="48" y="5" width="60" height="60"/><text x="78" y="92">PLY tiles</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-check" x="252" y="5" width="60" height="60"/><text x="282" y="92">Check IDs</text></svg>
+                <dl class="step-metadata"><dt>Input</dt><dd>Phase 5 PLY and offset, plus Phase 4 LAS/CRS.</dd><dt>Checks</dt><dd>Point coordinates, label encoding and valid reference instances.</dd><dt>Output</dt><dd>Input directory and separate output location.</dd></dl>
+              </li>
+              <li><strong>Run zero-shot inference and merge outputs.</strong>
+                <svg viewBox="0 0 360 110" role="img" aria-label="A pretrained model groups points into predicted instances and writes merged results"><use href="#visual-points" x="48" y="5" width="60" height="60"/><text x="78" y="92">Input points</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-stack" x="252" y="5" width="60" height="60"/><text x="282" y="92">Instances</text></svg>
+                <dl class="step-metadata"><dt>Input</dt><dd>PLY tiles, model environment and pretrained weights.</dd><dt>Output</dt><dd>Per-GPU logs and merged LAS/LAZ for the documented multi-GPU workflow.</dd><dt>Checks</dt><dd>Inspect predicted instance field, point counts and coordinate frame.</dd></dl>
+              </li>
+              <li><strong>Compare instances with reference crowns.</strong>
+                <a href="./figures/segmentanytree-medium-l1-f1-coverage.png"><img src="./figures/segmentanytree-medium-l1-f1-coverage.png" alt="Historical SegmentAnyTree medium-L1 per-file instance F1 versus coverage scatter plot." loading="lazy"></a>
+                <small>Medium-L1 offline metrics from the <a href="https://github.com/LNSOTOM/fvc_structure/tree/main/SegmentAnyTree/metrics/outputs" target="_blank" rel="noopener">saved outputs</a>, not a result generated by this page.</small>
+                <dl class="step-metadata"><dt>Input</dt><dd>Merged point results with reference and predicted instance IDs.</dd><dt>Metrics</dt><dd>Precision, recall, F1 and coverage; the paper uses point-wise instance IoU ≥ 0.5 for matching.</dd><dt>Output</dt><dd>Per-file and per-region metrics CSVs and optional plots.</dd></dl>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h4 id="models-files-and-setup-2">Files and setup</h4>
+            <ul>
+              <li><code>Phase 5 PLY</code> → inference and merge → <code>final_results/RUN_ID/results/*.laz</code> in the multi-GPU workflow.</li>
+              <li>Result attributes depend on the available inputs and merge; <code>PredInstance=0</code> denotes an unassigned point in the merge output. Semantic fields are not the paper's reported SegmentAnyTree performance measure.</li>
+              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/SegmentAnyTree/README_ForAINetV2_multi_gpu_inference.md" target="_blank" rel="noopener">Multi-GPU inference and metrics runbook</a> · <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/SegmentAnyTree/README.md" target="_blank" rel="noopener">Model setup</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="note"><strong>Coordinates and safe outputs.</strong> The inference pipeline recentres points and the merge restores that pipeline's input frame; a Phase 5 PLY is already local, so retain its separate offset to recover global coordinates. The LAS writer creates a new header: check CRS rather than assuming it was preserved. Use a new output directory; the standalone inference script defaults to clearing its output directory if its third argument is omitted.</div>
+        <p class="muted">The saved scatter plot shows 15 medium-L1 files from an existing offline analysis; each point represents one file. Its F1 and coverage values depend on that run's inputs and evaluation settings and should not be assumed to reproduce the paper's reported results.</p>
+
         <h3 id="model-comparison-heading">Explore the model results</h3>
-        <p>Compare saved ForestFormer3D labels and predictions: Experiment 1A for forest, and Experiment 2B final-epoch stage 1 and 2 for medium and low rangeland. These examples do not establish a universally best checkpoint.</p>
+        <p>Compare ForestFormer3D reference labels and saved predictions for forest (Experiment 1A), medium-density rangeland (Experiment 2B, stage 1) and low-density rangeland (Experiment 2B, stage 2).</p>
         <div id="model-comparison" class="panel" aria-labelledby="model-comparison-heading">
           <div class="comparison-controls">
             <label for="comparison-scene"><strong>Scene</strong></label>
@@ -1055,117 +1139,41 @@
           <noscript>Enable JavaScript to view the point-cloud comparisons.</noscript>
         </div>
         <p class="muted">Both views share a deterministic sample of up to 60,000 points, rounded to 1 mm; use full data for metrics. Instance colours repeat independently and do not imply matches. Counts are unique saved IDs, not necessarily the paper's post-processed counts. A colour-blind-friendly semantic palette and numeric labels are available. <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/REPRODUCIBILITY.md" target="_blank" rel="noopener">Rebuild information</a>.</p>
-
-        <h3 id="forestformer">ForestFormer3D / Semantic and instance segmentation</h3>
-        <div class="metadata">
-          <h3 id="models-model-metadata">Model metadata</h3>
-          <dl><dt>Input</dt><dd>Phase 5 labelled PLY tiles, offsets and scene split lists; prepared ForAINetV2 dataset files and a compatible config/checkpoint are needed by the model.</dd>
-            <dt>Features</dt><dd>The paper uses XYZ only; PLY <code>semantic_seg</code> and <code>treeID</code> provide supervision/evaluation, not additional input features. <code>intensity</code> and <code>z_norm</code> are saved in PLY but not used as features in the paper's setup.</dd>
-            <dt>Paper settings</dt><dd>0.20 m voxel resolution and 16 m cylindrical regions; confirm settings in the selected config.</dd>
-            <dt>Output</dt><dd>Semantic and instance predictions, evaluation metrics and, for training, checkpoints and logs. Output paths and fields depend on the selected code/config.</dd></dl>
-        </div>
-        <div class="phase-overview">
-          <div class="panel">
-            <h3 id="models-processing-steps">Processing steps</h3>
-            <ol class="step-gallery">
-              <li><strong>Check Phase 5 tiles and define the splits.</strong>
-                <svg viewBox="0 0 360 110" role="img" aria-label="Check PLY files and assign training, validation and test scenes"><use href="#visual-file" x="48" y="5" width="60" height="60"/><text x="78" y="92">PLY + offsets</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-check" x="252" y="5" width="60" height="60"/><text x="282" y="92">Labels + splits</text></svg>
-                <dl class="step-metadata"><dt>Input</dt><dd>PLY XYZ, <code>semantic_seg</code>, <code>treeID</code>; original LAS, CRS and Phase 5 offset.</dd><dt>Checks</dt><dd>Class conversion, instance IDs, tile provenance and no train/test overlap.</dd><dt>Output</dt><dd>Versioned PLY tiles and scene lists.</dd></dl>
-              </li>
-              <li><strong>Export the model dataset.</strong>
-                <a href="./figures/phase5-model-arrays.png"><img src="./figures/phase5-model-arrays.png" alt="Historical model-array inspection showing semantic labels, tree instances, bounding boxes and global coordinates." loading="lazy"></a>
-                <small>DD0001 tile 106 dataset inspection, not a model prediction.</small>
-                <dl class="step-metadata"><dt>Input</dt><dd>Prepared PLY files and scene lists.</dd><dt>Output</dt><dd>Per-scene XYZ, semantic/instance labels, bounding boxes and offsets as NPY files; dataset preparation also creates point/mask files and split PKLs.</dd><dt>Checks</dt><dd>Point counts, labels and both coordinate offsets.</dd></dl>
-              </li>
-              <li><strong>Evaluate a checkpoint or train a model.</strong>
-                <svg viewBox="0 0 360 110" role="img" aria-label="Prepared dataset and selected checkpoint produce semantic and instance predictions"><use href="#visual-stack" x="38" y="5" width="55" height="55"/><text x="65" y="92">Dataset</text><use href="#visual-file" x="152" y="5" width="55" height="55"/><text x="180" y="92">Checkpoint</text><use href="#visual-points" x="267" y="5" width="55" height="55"/><text x="294" y="92">Predictions</text></svg>
-                <dl class="step-metadata"><dt>Input</dt><dd>Model dataset, experiment config and appropriate checkpoint; scratch training uses random initialization.</dd><dt>Output</dt><dd>Training logs/checkpoints or test predictions and metrics.</dd><dt>Checks</dt><dd>Dataset, checkpoint, label and instance policies must match the experiment.</dd></dl>
-              </li>
-            </ol>
-          </div>
-          <div class="panel">
-            <h3 id="models-files-and-setup">Files and setup</h3>
-            <ul>
-              <li><code>Phase 5 PLY + _offset.npy</code> → <code>forainetv2_instance_data/*_vert.npy</code>, <code>*_sem_label.npy</code>, <code>*_ins_label.npy</code>, <code>*_offsets.npy</code> and bounding boxes.</li>
-              <li>Dataset creation also writes point/semantic/instance files and <code>forainetv2_oneformer3d_infos_*.pkl</code>.</li>
-              <li>The current full-scene test path writes prediction PLY files with <code>semantic_pred</code>, <code>instance_pred</code>, <code>score</code> and, when provided, ground-truth fields. Verify the selected model implementation and output directory.</li>
-              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_quick_setup.md" target="_blank" rel="noopener">Docker and dataset quick setup</a> · <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md" target="_blank" rel="noopener">Experiment runbook</a></li>
-            </ul>
-          </div>
-        </div>
-        <p>Follow the quick setup to prepare the dataset first. The experiment runbook provides the split generation, preprocessing, training and evaluation commands; its paths, GPU IDs and checkpoints are examples to replace. The preprint reports final-epoch models as the primary comparison, while the runbook also illustrates other checkpoint selections: record the checkpoint actually evaluated.</p>
-        <div class="note"><strong>Class mapping is a prerequisite.</strong> The strict HSM profile rejects forb and some existing evaluation configs map shrub differently from the paper. Inspect the <a href="#class-conventions">class handoff</a>, exported masks and active config before running experiments; do not assume that a completed export reproduces the paper.</div>
-
-        <h3 id="segmentanytree">SegmentAnyTree / Instance segmentation</h3>
-        <div class="metadata">
-          <h3 id="models-model-metadata-2">Model metadata</h3>
-          <dl><dt>Input</dt><dd>The repository's multi-GPU inference workflow accepts a directory of PLY tiles; use Phase 5 labelled tiles for the described evaluation and retain their offsets and original LAS/CRS.</dd>
-            <dt>Features</dt><dd>The paper's comparison uses XYZ as model input; labels and <code>treeID</code> are reference data for evaluation. This model is reported as an instance-level reference in the paper.</dd>
-            <dt>Output</dt><dd>The multi-GPU runbook describes merged LAS/LAZ results and per-GPU logs. Present output fields can include <code>PredInstance</code>, <code>PredSemantic</code>, <code>treeID</code> and reference labels; inspect the actual file.</dd></dl>
-        </div>
-        <div class="phase-overview">
-          <div class="panel">
-            <h3 id="models-processing-steps-2">Processing steps</h3>
-            <ol class="step-gallery">
-              <li><strong>Prepare input tiles and reference IDs.</strong>
-                <svg viewBox="0 0 360 110" role="img" aria-label="Prepare PLY coordinates and ground-truth tree IDs for instance evaluation"><use href="#visual-file" x="48" y="5" width="60" height="60"/><text x="78" y="92">PLY tiles</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-check" x="252" y="5" width="60" height="60"/><text x="282" y="92">Check IDs</text></svg>
-                <dl class="step-metadata"><dt>Input</dt><dd>Phase 5 PLY and offset, plus Phase 4 LAS/CRS.</dd><dt>Checks</dt><dd>Point coordinates, label encoding and valid reference instances.</dd><dt>Output</dt><dd>Input directory and separate output location.</dd></dl>
-              </li>
-              <li><strong>Run zero-shot inference and merge outputs.</strong>
-                <svg viewBox="0 0 360 110" role="img" aria-label="A pretrained model groups points into predicted instances and writes merged results"><use href="#visual-points" x="48" y="5" width="60" height="60"/><text x="78" y="92">Input points</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-stack" x="252" y="5" width="60" height="60"/><text x="282" y="92">Instances</text></svg>
-                <dl class="step-metadata"><dt>Input</dt><dd>PLY tiles, model environment and pretrained weights.</dd><dt>Output</dt><dd>Per-GPU logs and merged LAS/LAZ for the documented multi-GPU workflow.</dd><dt>Checks</dt><dd>Inspect predicted instance field, point counts and coordinate frame.</dd></dl>
-              </li>
-              <li><strong>Compare instances with reference crowns.</strong>
-                <a href="./figures/segmentanytree-medium-l1-f1-coverage.png"><img src="./figures/segmentanytree-medium-l1-f1-coverage.png" alt="Historical SegmentAnyTree medium-L1 per-file instance F1 versus coverage scatter plot." loading="lazy"></a>
-                <small>Medium-L1 offline metrics from the <a href="https://github.com/LNSOTOM/fvc_structure/tree/main/SegmentAnyTree/metrics/outputs" target="_blank" rel="noopener">saved outputs</a>, not a result generated by this page.</small>
-                <dl class="step-metadata"><dt>Input</dt><dd>Merged point results with reference and predicted instance IDs.</dd><dt>Metrics</dt><dd>Precision, recall, F1 and coverage; the paper uses point-wise instance IoU ≥ 0.5 for matching.</dd><dt>Output</dt><dd>Per-file and per-region metrics CSVs and optional plots.</dd></dl>
-              </li>
-            </ol>
-          </div>
-          <div class="panel">
-            <h3 id="models-files-and-setup-2">Files and setup</h3>
-            <ul>
-              <li><code>Phase 5 PLY</code> → inference and merge → <code>final_results/RUN_ID/results/*.laz</code> in the multi-GPU workflow.</li>
-              <li>Result attributes depend on the available inputs and merge; <code>PredInstance=0</code> denotes an unassigned point in the merge output. Semantic fields are not the paper's reported SegmentAnyTree performance measure.</li>
-              <li><a href="https://github.com/LNSOTOM/fvc_structure/blob/main/SegmentAnyTree/README_ForAINetV2_multi_gpu_inference.md" target="_blank" rel="noopener">Multi-GPU inference and metrics runbook</a> · <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/SegmentAnyTree/README.md" target="_blank" rel="noopener">Model setup</a></li>
-            </ul>
-          </div>
-        </div>
-        <div class="note"><strong>Coordinates and safe outputs.</strong> The inference pipeline recentres points and the merge restores that pipeline's input frame; a Phase 5 PLY is already local, so retain its separate offset to recover global coordinates. The LAS writer creates a new header: check CRS rather than assuming it was preserved. Use a new output directory; the standalone inference script defaults to clearing its output directory if its third argument is omitted.</div>
-        <p class="muted">The saved scatter plot shows 15 medium-L1 files from an existing offline analysis; each point represents one file. Its F1 and coverage values depend on that run's inputs and evaluation settings and should not be assumed to reproduce the paper's reported results.</p>
+        <p><strong>Next.</strong> Use the <a href="#experiments">experiment protocol</a> to select the split, checkpoint and metrics for your run.</p>
       </section>
 
       <section id="experiments" class="phase">
-        <div class="phase-label">Experiments / Preprint Section 4</div>
+        <div class="phase-label">Experiments | Preprint Section 4</div>
         <h2>Compare transfer and training strategies</h2>
-        <p>The paper compares forest and Calperum rangeland domains. The examples below describe the research design, not results produced by this page. For the primary experiments the paper uses L1 LiDAR; L2 is used for supplementary comparisons.</p>
+        <p>The preprint tests how well forest-trained models transfer to Calperum rangelands and whether labelled rangeland tiles improve performance. The primary rangeland experiments use L1 LiDAR. Supplementary comparisons use L2.</p>
+        <h3 id="experiments-paper-split-and-evaluation">Data splits and evaluation</h3>
+        <ul>
+          <li><strong>Experiment 1.</strong> Evaluate on the held-out FOR-instanceV2 forest split and all 15 tiles at each rangeland site.</li>
+          <li><strong>Experiments 2 and 3.</strong> Use the same train, validation and test splits. Medium density uses 10, 3 and 2 tiles. Low density uses 10, 2 and 3 tiles. The primary results use final-epoch checkpoints.</li>
+          <li><strong>Metrics.</strong> ForestFormer3D reports class IoU and mIoU. Both models report instance precision, recall, F1 and coverage. A predicted instance matches a reference at point-wise IoU ≥ 0.5.</li>
+        </ul>
         <div class="phase-overview">
           <div class="panel">
-            <h3 id="experiments-experiment-steps">Experiment steps</h3>
+            <h3 id="experiments-experiment-steps">Three experiment designs</h3>
             <ol class="step-gallery">
-              <li><strong>Experiment 1 / Zero-shot transfer.</strong>
+              <li><strong>Experiment 1 | Zero-shot transfer.</strong>
                 <svg viewBox="0 0 360 110" role="img" aria-label="Apply forest-pretrained models to forest and rangeland without fine-tuning"><use href="#visual-file" x="48" y="5" width="60" height="60"/><text x="78" y="92">Forest weights</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-points" x="252" y="5" width="60" height="60"/><text x="282" y="92">Forest + range</text></svg>
                 <dl class="step-metadata"><dt>Models</dt><dd>1A ForestFormer3D; 1B SegmentAnyTree as instance-only reference.</dd><dt>Input</dt><dd>Pretrained models; forest test split and rangeland tiles.</dd><dt>Output</dt><dd>Semantic and instance metrics for ForestFormer3D; instance metrics for SegmentAnyTree.</dd></dl>
               </li>
-              <li><strong>Experiment 2 / Few-shot fine-tuning.</strong>
+              <li><strong>Experiment 2 | Few-shot fine-tuning.</strong>
                 <svg viewBox="0 0 360 110" role="img" aria-label="Adapt forest-pretrained ForestFormer3D jointly or sequentially using labelled medium and low density tiles"><use href="#visual-file" x="38" y="5" width="55" height="55"/><text x="65" y="92">Forest weights</text><use href="#visual-stack" x="152" y="5" width="55" height="55"/><text x="180" y="92">Labelled tiles</text><use href="#visual-check" x="267" y="5" width="55" height="55"/><text x="294" y="92">Held-out test</text></svg>
                 <dl class="step-metadata"><dt>Variants</dt><dd>2A joint medium + low; 2B curriculum medium → low, with stage 2 initialized from stage 1.</dd><dt>Input</dt><dd>Forest-pretrained checkpoint and L1 training/validation tiles.</dd><dt>Output</dt><dd>Adapted checkpoints, predictions and held-out metrics.</dd></dl>
               </li>
-              <li><strong>Experiment 3 / Training from scratch.</strong>
+              <li><strong>Experiment 3 | Training from scratch.</strong>
                 <svg viewBox="0 0 360 110" role="img" aria-label="Train randomly initialized ForestFormer3D models with joint or single-site rangeland data"><use href="#visual-stack" x="48" y="5" width="60" height="60"/><text x="78" y="92">Rangeland tiles</text><text class="diagram-arrow" x="180" y="49">→</text><use href="#visual-file" x="252" y="5" width="60" height="60"/><text x="282" y="92">Scratch model</text></svg>
                 <dl class="step-metadata"><dt>Variants</dt><dd>3A joint; 3B medium only; 3C low only.</dd><dt>Input</dt><dd>Randomly initialized ForestFormer3D and the same L1 site splits as Experiment 2.</dd><dt>Output</dt><dd>Scratch checkpoints, predictions and held-out metrics.</dd></dl>
               </li>
             </ol>
           </div>
         </div>
-        <div class="metadata">
-          <h3 id="experiments-paper-split-and-evaluation">Paper split and evaluation</h3>
-          <dl><dt>Few-shot / scratch</dt><dd>Medium: 10 train / 3 validation / 2 test tiles; low: 10 / 2 / 3. Keep test tiles out of training and model selection.</dd>
-            <dt>Zero-shot</dt><dd>The paper evaluates the full rangeland tile sets without adaptation, plus the held-out forest test split.</dd>
-            <dt>Metrics</dt><dd>ForestFormer3D: class IoU and mIoU plus instance precision, recall, F1 and coverage. SegmentAnyTree: instance metrics only. Record matching, ignored labels, absent classes and instance policy.</dd>
-            <dt>Reproducibility</dt><dd>Save tile lists, source LAS/PLY, offsets and CRS, label mapping, model config, checkpoint, software environment, logs, predictions and metrics.</dd></dl>
-        </div>
-        <div class="note"><strong>Paper versus implementation.</strong> Paper descriptions do not establish that all checked-in configs, labels or historical results reproduce the paper. In particular, verify the <a href="#class-conventions">three-class mapping</a>, instance evaluation policy, checkpoint and split for every experiment. Do not select or tune a checkpoint using the held-out test set.</div>
+        <h3 id="experiments-results">Read the results</h3>
+        <p>Curriculum fine-tuning achieved the highest reported rangeland semantic scores, with 49.6% mIoU at medium density and 63.1% at low density. Site-specific training from scratch reached 38.07% and 30.21%, respectively. Experiment 1 used all rangeland tiles, while Experiments 2 and 3 report on held-out subsets. The low-density held-out subset had no reference mallee crowns. See Tables 7–10 in the <a href="https://doi.org/10.31223/X5948M">preprint</a>.</p>
+        <div class="note"><strong>Before reproducing a run.</strong> Verify the <a href="#class-conventions">three-class mapping</a>, instance evaluation policy and tile lists. Save the model config, checkpoint, logs and predictions with the <a href="#models">source files and coordinate offsets</a>.</div>
         <div class="resources">
           <strong>Resources:</strong>
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md" target="_blank" rel="noopener">ForestFormer3D experiment runbook</a> ·
@@ -1175,40 +1183,60 @@
       </section>
 
       <section id="installation" class="phase">
-        <div class="phase-label">Package / Installation</div>
+        <div class="phase-label">Package | Installation</div>
         <h2>Install fvc3d</h2>
-        <p>The <code>fvc3d</code> package runs <a href="#phase-4">step 04</a> of the workflow in one call: it labels a co-registered LiDAR tile from a label raster, with the method of the paper. It also works on its own, with your own data. The <a href="#setup">shared workflow environment</a> already includes it; elsewhere, install it from <a href="https://pypi.org/project/fvc3d/" target="_blank" rel="noopener">PyPI</a> (Python 3.10 or newer):</p>
+        <p>Install <code>fvc3d</code> with Python 3.10 or newer. If you already set up the <a href="#setup">shared research environment</a>, go straight to the <a href="#python-api">quick start</a>.</p>
         <div class="command" data-label="Install fvc3d"><pre><code>pip install fvc3d</code></pre></div>
         <p>For the <a href="#api-plot">plotting functions</a>, install the <code>plot</code> extra, which adds Matplotlib:</p>
         <div class="command" data-label="Install with plotting"><pre><code>pip install "fvc3d[plot]"</code></pre></div>
         <p>Check that it imports:</p>
         <div class="command" data-label="Check fvc3d"><pre><code>python -c "import fvc3d; print('fvc3d', fvc3d.__version__)"</code></pre></div>
-        <div class="note"><strong>No PDAL needed.</strong> <code>fvc3d</code> replaces the Phase 4 mask, normalize and fuse stages. Ground classification and co-registration remain separate steps.</div>
+        <p>Use an active Python environment for these commands, then <a href="#python-api">run label transfer</a>.</p>
         <h3 id="installation-development-version">Development version</h3>
         <div class="command" data-label="Install development version"><pre><code>pip install "fvc3d @ git+https://github.com/LNSOTOM/fvc_structure.git"</code></pre></div>
         <p>In a clone of the repository, <code>uv sync</code> installs <code>fvc3d</code> together with the tools for the paper's workflow; see <a href="#setup">Set up the workflow environment</a>.</p>
       </section>
 
       <section id="python-api" class="phase">
-        <div class="phase-label">Package / Quick start</div>
+        <div class="phase-label">Package | Quick start</div>
         <h2>Transfer labels in one call</h2>
-        <p>The <code>fvc3d</code> package applies the <a href="#phase-4">Phase 4</a> method to your own data: it labels a LiDAR point cloud from a growth-form raster, after checking that the two line up.</p>
+        <p><code>transfer_labels()</code> applies the <a href="#phase-4">Phase 4</a> method. Start with <a href="#api-try">Calperum tile 109</a> and compare your output with the published example. If you already have a co-registered raster and LiDAR tile, <a href="#python-api-run-label-transfer">try it on your own data</a>.</p>
         <div class="facts io">
-          <div class="panel"><strong>Inputs</strong><p>A label GeoTIFF and a co-registered LAS/LAZ point cloud (<a href="#api-inputs">requirements</a>).</p></div>
+          <div class="panel"><strong>Inputs</strong><p>A growth-form GeoTIFF and a co-registered LAS/LAZ in the same projected CRS in metres. See the <a href="#api-inputs">height and class-code requirements</a>.</p></div>
           <div class="panel"><strong>Outputs</strong><p>A LAS/LAZ file with <code>classification</code>, <code>Z_norm</code> and <code>treeID</code>, plus per-point arrays and quality reports in Python.</p></div>
         </div>
 
-        <h3 id="python-api-run-label-transfer">Run label transfer</h3>
-        <div class="command" data-label="Transfer labels"><pre><code>from fvc3d import transfer_labels
+        <h3 id="api-try">Try it on the Calperum study data</h3>
+        <p>The <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a> has everything needed for one tile. Download the medium-site inputs (645 MB) and unzip them:</p>
+        <div class="command" data-label="Download paper data"><pre><code>curl -L -o label_transfer_inputs_medium.zip "https://zenodo.org/records/24431573/files/label_transfer_inputs_medium.zip?download=1"
+unzip label_transfer_inputs_medium.zip</code></pre></div>
+        <p>The published label rasters use the raster IDs 0–4 (see <a href="#api-classes">the paper's classes</a>), so pass <code>class_map="paper"</code>:</p>
+        <div class="command" data-label="Run on paper data"><pre><code>from fvc3d import transfer_labels
+
+d = "label_transfer_medium/"
+result = transfer_labels(
+    labels=d + "2_structure_label_raster/mask_structure_3072.109.tif",
+    point_cloud=d + "5_lidar_znorm/z_norm_csf_tiles_multispectral.109.las",
+    output="labelled_109.laz",
+    class_map="paper",
+)
+print(result.summary())</code></pre></div>
+        <p>Compare <code>labelled_109.laz</code> with the published result, <code>6_fused_3d_labels/znorm_3Dlabels_109.las</code>. On tile 109 every shared point has the same class, and 52 mallee crowns are found against 54 published.</p>
+
+        <h3 id="python-api-run-label-transfer">Try it on your own data</h3>
+        <p>Start with one growth-form GeoTIFF and its matching LAS/LAZ tile. Use the same projected CRS in metres for both files. The LiDAR needs a <code>Z_norm</code> field, ground points classified as 2, or a separate ground-only file passed as <code>ground="ground.laz"</code>.</p>
+        <p>Replace the paths below. This example assumes your raster uses 1 for shrub and 2 for mallee. Edit <code>class_map</code> to match your raster and leave background values out of the mapping.</p>
+        <div class="command" data-label="Transfer labels on your own data"><pre><code>from fvc3d import transfer_labels
 
 result = transfer_labels(
     labels="growth_forms.tif",
     point_cloud="lidar.laz",
     output="labelled_vegetation.laz",
+    class_map={1: "shrub", 2: "mallee"},
     validate_alignment=True,
 )
 print(result.summary())</code></pre></div>
-        <p>Existing outputs are kept unless you pass <code>overwrite=True</code>.</p>
+        <p>Omit <code>class_map</code> if your raster already uses the default codes 64–68. To define different growth forms, see <a href="#api-your-data">Use your own classes</a>. See <a href="#python-api-read-the-result">Read the result</a> to check the output.</p>
 
         <h3 id="python-api-read-the-result">Read the result</h3>
         <p>Each array holds one value per input point, in input order:</p>
@@ -1219,8 +1247,10 @@ result.confidence       # Stage 4 class probability, NaN where not evaluated
 result.metrics          # counts and statistics for each stage
 result.alignment        # AlignmentReport
 result.quality          # QualityReport: the paper's three diagnostics (below)</code></pre></div>
-        <p>For the paper's tile 109 above, <code>result.summary()</code> prints:</p>
-        <pre class="output"><code>Labelled 401,307 of 1,593,979 points (25.2%); 52 mallee crowns
+        <p>Expand the tile 109 summary to see the alignment and quality diagnostics.</p>
+        <details>
+          <summary>Tile 109 output</summary>
+          <pre class="output"><code>Labelled 401,307 of 1,593,979 points (25.2%); 52 mallee crowns
   forb 0, woody_debris 0, hummock 19,816, shrub 3,551, mallee 377,940
   Z_norm from: Z_norm dimension in point cloud
   written to: labelled_109.laz
@@ -1238,13 +1268,13 @@ Height plausibility of refined classes (median Z_norm, % outside configured rang
   shrub         n=    3,551  median 0.05 m  outside 99.9%
   mallee        n=  377,940  median 0.62 m  outside 75.8%
 Mallee crown-instance retention: 52 treeIDs / 54 watershed crowns = 96.3%</code></pre>
+        </details>
         <p>The quality report holds the paper's three diagnostics; see <a href="#api-quality">quality diagnostics</a>.</p>
         <p class="muted">As in the paper, shrub and mallee points mostly fall below their configured ranges: every point under a labelled pixel keeps its label, including ground under the canopy. Woody debris is absent after consolidation because Stage 5 turns it into mallee above 0.5 m and drops the rest.</p>
         <p>The output is LAS 1.4 and keeps the input's CRS, scale and offset. It holds labelled points only; <code>keep="all"</code> writes every point.</p>
 
         <h3 id="api-plot">Plot the result</h3>
-        <p>The <code>fvc3d.plot</code> functions draw quick-look figures in the paper's class colours. They need Matplotlib, installed with the <code>plot</code> extra:</p>
-        <div class="command" data-label="Install with plotting"><pre><code>pip install "fvc3d[plot]"</code></pre></div>
+        <p>Install the <a href="#installation"><code>plot</code> extra</a> to draw quick-look figures in the paper's class colours.</p>
         <div class="command" data-label="Plot the result"><pre><code>import fvc3d.plot
 
 fig = fvc3d.plot.summary(result)        # four panels, as below
@@ -1271,25 +1301,14 @@ fvc3d.plot.crowns(result)</code></pre></div>
         </div>
         <p>Each function accepts <code>ax=</code> to draw into an existing Matplotlib figure and <code>colors={code: "#rrggbb"}</code> to change colours, and returns the axes for further styling.</p>
 
-        <h3 id="api-try">Try it on the paper's data</h3>
-        <p>The <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a> has everything needed for one tile. Download the medium-site inputs (645 MB) and unzip them:</p>
-        <div class="command" data-label="Download paper data"><pre><code>curl -L -o label_transfer_inputs_medium.zip "https://zenodo.org/records/24431573/files/label_transfer_inputs_medium.zip?download=1"
-unzip label_transfer_inputs_medium.zip</code></pre></div>
-        <p>The published label rasters use the raster IDs 0–4 (see <a href="#api-classes">the paper's classes</a>), so pass <code>class_map="paper"</code>:</p>
-        <div class="command" data-label="Run on paper data"><pre><code>from fvc3d import transfer_labels
-
-d = "label_transfer_medium/"
-result = transfer_labels(
-    labels=d + "2_structure_label_raster/mask_structure_3072.109.tif",
-    point_cloud=d + "5_lidar_znorm/z_norm_csf_tiles_multispectral.109.las",
-    output="labelled_109.laz",
-    class_map="paper",
-)
-print(result.summary())</code></pre></div>
-        <p>Compare <code>labelled_109.laz</code> with the published result, <code>6_fused_3d_labels/znorm_3Dlabels_109.las</code>. On tile 109 every shared point has the same class, and 52 mallee crowns are found against 54 published.</p>
+        <h3 id="python-api-process-a-folder-of-tiles">Process a folder of tiles</h3>
+        <p>From a repository clone, run the example script to pair files by the last number in their names (<code>mask.109.tif</code> with <code>z_norm.109.las</code>), skips tiles that fail the alignment check, and writes <code>metrics.csv</code>:</p>
+        <div class="command" data-label="Batch transfer"><pre><code>uv run python examples/transfer_labels.py --batch labels_dir/ lidar_dir/ out_dir/</code></pre></div>
+        <p>For the paper's data, add <code>--class-map paper</code>:</p>
+        <div class="command" data-label="Batch transfer on paper data"><pre><code>uv run python examples/transfer_labels.py --batch --class-map paper label_transfer_medium/2_structure_label_raster/ label_transfer_medium/5_lidar_znorm/ out_dir/</code></pre></div>
 
         <h3 id="api-forestformer">Output for ForestFormer3D</h3>
-        <p>The growth forms are the paper's classes. For the model experiments only, the paper aligned them to the classes of FOR-instanceV2, the forest dataset ForestFormer3D is trained on. To write those classes instead, add <code>classes="FOR-instanceV2"</code> to the call above:</p>
+        <p>The growth forms are the paper's classes. For the model experiments only, the paper aligned them to the classes of FOR-instanceV2, the forest dataset ForestFormer3D is trained on. To write those classes instead, add <code>classes="FOR-instanceV2"</code> to your <code>transfer_labels()</code> call. The mapping is:</p>
         <div class="analysis-table-wrap">
           <table class="analysis-table">
             <caption>Growth form vs FOR-instanceV2</caption>
@@ -1303,19 +1322,24 @@ print(result.summary())</code></pre></div>
           </table>
         </div>
         <p>The method still runs on the growth forms; only the output is relabelled. On tile 109 this gives ground 19,816, wood 3,551 and leaf 377,940 points: the paper's result, relabelled. For rangelands these are approximate transfer targets, not a literal taxonomy.</p>
-
-        <h3 id="python-api-process-a-folder-of-tiles">Process a folder of tiles</h3>
-        <p>The example script pairs files by the last number in their names (<code>mask.109.tif</code> with <code>z_norm.109.las</code>), skips tiles that fail the alignment check, and writes <code>metrics.csv</code>:</p>
-        <div class="command" data-label="Batch transfer"><pre><code>uv run python examples/transfer_labels.py --batch labels_dir/ lidar_dir/ out_dir/</code></pre></div>
-        <p>For the paper's data, add <code>--class-map paper</code>:</p>
-        <div class="command" data-label="Batch transfer on paper data"><pre><code>uv run python examples/transfer_labels.py --batch --class-map paper label_transfer_medium/2_structure_label_raster/ label_transfer_medium/5_lidar_znorm/ out_dir/</code></pre></div>
-
       </section>
 
       <section id="classes-data" class="phase">
-        <div class="phase-label">Package / Classes and data</div>
-        <h2>Classes, inputs and settings</h2>
-        <p>What the method expects as input, which classes it works with, and the settings you can change.</p>
+        <div class="phase-label">Package | Inputs, classes and settings</div>
+        <h2>Inputs, classes and settings</h2>
+
+        <h3 id="api-inputs">Prepare the inputs</h3>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table">
+            <thead><tr><th scope="col">Input</th><th scope="col">Requirement</th><th scope="col">If yours differs</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Label classes</th><td>The <a href="#api-classes">paper's classes</a>, LAS codes 64–68; other values are ignored.</td><td><code>class_map="paper"</code> for the published 0–4 rasters, a dict such as <code>{1: "shrub", 2: "mallee"}</code>, or your own classes (<a href="#api-your-data">see below</a>)</td></tr>
+              <tr><th scope="row">Height above ground</th><td>A <code>Z_norm</code> dimension, or ground points classified as 2.</td><td><code>ground="ground.las"</code>, e.g. from <code>groundnorm csf</code></td></tr>
+              <tr><th scope="row">CRS</th><td>The same projected CRS, in metres, for both files.</td><td>Reproject first; <code>fvc3d</code> does not.</td></tr>
+              <tr><th scope="row">Registration</th><td>LiDAR registered to the imagery the labels came from.</td><td>Run <a href="#phase-2">Phase 2</a> first.</td></tr>
+            </tbody>
+          </table>
+        </div>
 
         <h3 id="api-classes">The paper's classes (growth forms)</h3>
         <p>The method works with the paper's five growth-form classes (paper Tables 2 and 4). They are the defaults, and the other steps refer to them by name:</p>
@@ -1333,19 +1357,6 @@ print(result.summary())</code></pre></div>
           </table>
         </div>
         <p class="muted">Raster IDs are the codes in the published label rasters (<code>class_map="paper"</code>); LAS codes are written to the output <code>classification</code>. Height ranges are the configured ranges used when a tile has too few points of a class, and in the height-plausibility diagnostic. The low site has forb, woody debris and shrub; the medium site has woody debris, grass hummock, shrub and mallee.</p>
-
-        <h3 id="api-inputs">Prepare the inputs</h3>
-        <div class="analysis-table-wrap">
-          <table class="analysis-table">
-            <thead><tr><th scope="col">Input</th><th scope="col">Requirement</th><th scope="col">If yours differs</th></tr></thead>
-            <tbody>
-              <tr><th scope="row">Label classes</th><td>The <a href="#api-classes">paper's classes</a>, LAS codes 64–68; other values are ignored.</td><td><code>class_map="paper"</code> for the published 0–4 rasters, a dict such as <code>{1: "shrub", 2: "mallee"}</code>, or your own classes (<a href="#api-your-data">see below</a>)</td></tr>
-              <tr><th scope="row">Height above ground</th><td>A <code>Z_norm</code> dimension, or ground points classified as 2.</td><td><code>ground="ground.las"</code>, e.g. from <code>groundnorm csf</code></td></tr>
-              <tr><th scope="row">CRS</th><td>The same projected CRS, in metres, for both files.</td><td>Reproject first; <code>fvc3d</code> does not.</td></tr>
-              <tr><th scope="row">Registration</th><td>LiDAR registered to the imagery the labels came from.</td><td>Run <a href="#phase-2">Phase 2</a> first.</td></tr>
-            </tbody>
-          </table>
-        </div>
 
         <h3 id="api-your-data">Use your own classes</h3>
         <p>Your labels can use any codes and any classes. There are two settings:</p>
@@ -1409,7 +1420,7 @@ print(result.summary())</code></pre></div>
       </section>
 
       <section id="how-it-works" class="phase">
-        <div class="phase-label">Package / How it works</div>
+        <div class="phase-label">Package | How it works</div>
         <h2>How the label transfer works</h2>
         <p><code>transfer_labels()</code> follows the paper's 2D-to-3D method (Section 3). It first labels each LiDAR point from the raster pixel beneath it; these <em>draped</em> points are the evidence. It then runs five stages over the whole point cloud, using the height above ground (<code>Z_norm</code>) of every point. Defaults are the paper's; each can be changed in <a href="#api-settings">settings</a>.</p>
         <div class="analysis-table-wrap">
@@ -1481,7 +1492,7 @@ print(report.summary())</code></pre></div>
       </section>
 
       <section id="api-reference" class="phase">
-        <div class="phase-label">Package / API reference</div>
+        <div class="phase-label">Package | API reference</div>
         <h2>API reference</h2>
         <p>The public functions, with their arguments and defaults. Each has a full docstring: <code>help(fvc3d.transfer_labels)</code>. Everything listed under <code>fvc3d.</code> can be imported directly, e.g. <code>from fvc3d import check_alignment</code>.</p>
         <h3 id="api-reference-label-transfer">Label transfer</h3>
@@ -1627,8 +1638,7 @@ print(report.summary())</code></pre></div>
     </main>
 
     <nav class="page-toc" aria-label="Section contents" hidden>
-      <p class="toc-title"><span aria-hidden="true">☰</span> On this page</p>
-      <a class="toc-head" href="#overview"></a>
+      <a class="toc-title" href="#overview"><span class="fa-solid fa-file-lines" aria-hidden="true"></span> <span class="toc-heading">Overview</span></a>
       <div class="toc-items"></div>
     </nav>
   </div>
@@ -1903,14 +1913,19 @@ print(report.summary())</code></pre></div>
     (() => {
       const toc = document.querySelector(".page-toc");
       if (!toc) return;
-      const head = toc.querySelector(".toc-head"), list = toc.querySelector(".toc-items");
+      const head = toc.querySelector(".toc-title"), list = toc.querySelector(".toc-items");
+      const title = head.querySelector(".toc-heading");
       const sections = [...document.querySelectorAll("main > section[id]")];
       const subtitles = (sec) => [...sec.querySelectorAll("h3[id]")].filter((h) => !h.closest(".metadata"));
       let shown = null, links = [];
       function show(sec) {
         shown = sec;
-        const h2 = sec.querySelector("h2");
-        head.textContent = h2 ? h2.textContent : sec.id;
+        const sectionLabel = sec.querySelector(".phase-label")?.textContent.trim();
+        const heading = /^(Phase \d+|Package) \| /.test(sectionLabel ?? "")
+          ? sectionLabel.replace(/^Package /, "fvc3d ")
+          : sec.querySelector("h2")?.textContent;
+        const sectionNames = { overview: "Overview", setup: "Setup", models: "Models and handoffs" };
+        title.textContent = sectionNames[sec.id] ?? heading ?? sec.id;
         head.href = "#" + sec.id;
         links = subtitles(sec).map((h) => {
           const a = document.createElement("a");
@@ -1929,7 +1944,7 @@ print(report.summary())</code></pre></div>
         let current = -1;
         links.forEach((a, k) => { if (a.target_.getBoundingClientRect().top <= 140) current = k; });
         if (scrollY > 0 && innerHeight + scrollY >= document.documentElement.scrollHeight - 4) current = links.length - 1;
-        head.classList.toggle("current", current === -1);
+        if (current === -1) head.setAttribute("aria-current", "location"); else head.removeAttribute("aria-current");
         links.forEach((a, k) => {
           a.classList.toggle("current", k === current);
           if (k === current) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current");
