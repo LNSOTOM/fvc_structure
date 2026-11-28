@@ -1015,6 +1015,12 @@ dependencies = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 
+[package.optional-dependencies]
+plot = [
+    { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
@@ -1038,6 +1044,7 @@ research = [
 [package.metadata]
 requires-dist = [
     { name = "laspy", extras = ["lazrs"], specifier = ">=2.0" },
+    { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.7" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pyproj", specifier = ">=3.6" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -1045,6 +1052,7 @@ requires-dist = [
     { name = "scikit-image", specifier = ">=0.22" },
     { name = "scipy", specifier = ">=1.11" },
 ]
+provides-extras = ["plot"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.0" }]

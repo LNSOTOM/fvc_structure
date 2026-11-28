@@ -112,6 +112,7 @@ published outputs.
 | `fvc3d.refinement` | Class height ranges, watershed crowns, polar refinement, consolidation |
 | `fvc3d.quality_control` | The paper's diagnostics: voxel-level label agreement, height plausibility of refined classes, crown-instance retention |
 | `fvc3d.pipeline` | `transfer_labels()` for files; `fuse_labels()` for arrays in memory |
+| `fvc3d.plot` | Quick-look figures: `summary`, `labels`, `points`, `crowns`, `heights`, `alignment` (needs `pip install "fvc3d[plot]"`) |
 
 See [examples/transfer_labels.py](examples/transfer_labels.py) for one tile or
 a folder of tiles.

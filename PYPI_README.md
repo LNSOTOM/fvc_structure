@@ -59,6 +59,20 @@ how to download one tile from the paper's
 [Zenodo record](https://doi.org/10.5281/zenodo.24431573), run it, and compare
 the result with the published labels.
 
+## Plotting
+
+```bash
+pip install "fvc3d[plot]"
+```
+
+```python
+import fvc3d.plot
+
+fvc3d.plot.summary(result).savefig("tile.png", dpi=200)  # raster, points, heights
+fvc3d.plot.points(result, view="side", color_by="z_norm")
+fvc3d.plot.crowns(result)                                # one colour per treeID
+```
+
 ## Links
 
 - Guide: https://lnsotom.github.io/fvc_structure/

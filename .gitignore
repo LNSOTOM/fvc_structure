@@ -104,6 +104,7 @@ coverage.xml
 !docs/figures/phase5-model-arrays.png
 !docs/figures/segmentanytree-medium-l1-f1-coverage.png
 !docs/figures/Logo_SotomayorStudio.png
+!docs/figures/fvc3d-plot-summary-tile109.png
 
 # GIS extensions
 *.aux.xml

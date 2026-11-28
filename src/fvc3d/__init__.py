@@ -26,6 +26,15 @@ from .registration import AlignmentError, AlignmentReport, check_alignment
 
 __version__ = "0.1.1"
 
+
+def __getattr__(name):
+    # fvc3d.plot needs matplotlib (pip install "fvc3d[plot]"), so load it on first use.
+    if name == "plot":
+        import importlib
+
+        return importlib.import_module(".plot", __name__)
+    raise AttributeError(f"module 'fvc3d' has no attribute {name!r}")
+
 __all__ = [
     "transfer_labels",
     "ClassScheme",

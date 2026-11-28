@@ -242,6 +242,13 @@ class TransferResult:
     z_norm_source: str = ""
     warnings: list[str] = field(default_factory=list)
     classes: ClassScheme = field(default_factory=lambda: ClassScheme.from_any(None))
+    #: x, y, z of every input point (for plotting), shape (n, 3).
+    points: np.ndarray | None = field(default=None, repr=False)
+    #: The label raster used, in the scheme's own codes.
+    labels: LabelRaster | None = field(default=None, repr=False)
+    #: Labels in the scheme's own classes, before any output relabelling
+    #: (equal to ``classification`` unless the scheme sets ``output_map``).
+    classification_method: np.ndarray | None = field(default=None, repr=False)
 
     @property
     def vegetation(self) -> np.ndarray:
@@ -388,4 +395,7 @@ def transfer_labels(
         z_norm_source=z_source,
         warnings=warnings,
         classes=scheme,
+        points=xyz,
+        labels=raster,
+        classification_method=fused.classification_method,
     )
