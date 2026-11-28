@@ -1553,14 +1553,19 @@ print(fused.metrics["final_treeids"], "mallee crowns")</code></pre></div>
   </script>
   <script>
     // Repository facts (latest release, stars, forks), as MkDocs Material shows them.
-    // Cached for the visit; if GitHub cannot be reached, "main branch" stays.
+    // Cached for 10 minutes; if GitHub cannot be reached, "main branch" stays.
     (async () => {
       const link = document.querySelector(".top-repo");
       const facts = link && link.querySelector(".top-repo__facts");
       if (!facts) return;
-      const key = "fvc-structure-repo-facts-v2";
+      // Cached for 10 minutes, so a new release shows up soon after it is published.
+      const key = "fvc-structure-repo-facts-v3";
+      const maxAge = 10 * 60 * 1000;
       let data = null;
-      try { data = JSON.parse(sessionStorage.getItem(key)); } catch (error) {}
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(key));
+        if (cached && Date.now() - cached.time < maxAge) data = cached;
+      } catch (error) {}
       if (!data) {
         try {
           const api = "https://api.github.com/repos/LNSOTOM/fvc_structure";
@@ -1575,7 +1580,7 @@ print(fused.metrics["final_treeids"], "mallee crowns")</code></pre></div>
             vtags.sort((a, b) => { const x = num(a), y = num(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (y[i] || 0) - (x[i] || 0); if (d) return d; } return 0; });
             version = vtags[0];
           }
-          data = { version, stars: repo.stargazers_count, forks: repo.forks_count };
+          data = { version, stars: repo.stargazers_count, forks: repo.forks_count, time: Date.now() };
           sessionStorage.setItem(key, JSON.stringify(data));
         } catch (error) { return; }
       }
