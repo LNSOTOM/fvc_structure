@@ -49,20 +49,40 @@ result = transfer_labels(
 print(result.summary())
 ```
 
-**Inputs.** The raster holds forb (64), woody debris (65), hummock (66),
-shrub (67) and mallee (68). For the published rasters on Zenodo, which use
-0–4, pass `class_map="paper"`; for other codes pass a dict such as
-`{1: "shrub", 2: "mallee"}`. The point cloud needs height above ground: a
-`Z_norm` dimension, ground points classified as 2, or a ground-only file
-passed as `ground=`.
+**The paper's classes** are the five growth forms (paper Tables 2 and 4), the
+defaults:
+
+| Growth form | Raster ID | LAS code | Name in `fvc3d` | Height range |
+|---|---|---|---|---|
+| Forb (FO) | 0 | 64 | `forb` | 0.00–0.40 m |
+| Woody debris (WD) | 1 | 65 | `woody_debris` | 0.05–5.00 m |
+| Grass hummock (GH) | 2 | 66 | `hummock` | 0.00–0.80 m |
+| Shrub (SH) | 3 | 67 | `shrub` | 0.40–3.00 m |
+| Mallee (MA) | 4 | 68 | `mallee` | 1.50–8.00 m |
+
+**Inputs.** The raster uses the LAS codes 64–68. For the published rasters on
+Zenodo, which use the raster IDs 0–4, pass `class_map="paper"`; for other codes
+pass a dict such as `{1: "shrub", 2: "mallee"}`. The point cloud needs height
+above ground: a `Z_norm` dimension, ground points classified as 2, or a
+ground-only file passed as `ground=`.
 
 **Your own classes.** The paper's five growth forms are the default. For
 other classes, copy [configs/classes.yaml](configs/classes.yaml), edit the
 codes, names, height ranges and crown class, and pass
 `classes="my_classes.yaml"`. `class_map` maps your raster values to those
-class names. `classes="FOR-instanceV2"` runs the paper's method and writes
-FOR-instanceV2's ground (1), wood (2) and leaf (3) classes, the classes
-ForestFormer3D is trained on.
+class names.
+
+**Growth form vs FOR-instanceV2.** For the model experiments only, the paper
+aligned the growth forms to the classes of FOR-instanceV2, the forest dataset
+ForestFormer3D is trained on. `classes="FOR-instanceV2"` runs the method on
+the growth forms and writes these classes instead:
+
+| Growth form (paper class) | FOR-instanceV2 class | LAS code | ForestFormer3D model ID |
+|---|---|---|---|
+| Forb, grass hummock | ground | 1 | 0 |
+| Shrub | wood | 2 | 1 |
+| Mallee | leaf | 3 | 2 |
+| Woody debris | none: merged into mallee above 0.5 m, otherwise dropped | | |
 
 **Output.** The LAS/LAZ file holds the labelled points, with `classification`,
 `Z_norm` and a `treeID` for each mallee crown. Pass `keep="all"` to keep

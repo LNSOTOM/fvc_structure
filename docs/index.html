@@ -150,6 +150,7 @@
     .analysis-table th, .analysis-table td { padding: 8px 10px; border: 1px solid var(--line); text-align: left; }
     .analysis-table th { background: var(--paper); }
     .analysis-table th code { white-space: nowrap; overflow-wrap: normal; }
+    .class-table td:nth-child(5) code, .class-table td:nth-child(6) { white-space: nowrap; overflow-wrap: normal; }
     .step-metadata { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
     .comparison-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
     .comparison-controls select, .comparison-controls button { font: inherit; color: var(--ink); background: white; border: 1px solid var(--accent); border-radius: 5px; padding: 6px 10px; }
@@ -422,6 +423,7 @@
         <a href="#overview">Overview</a>
         <a href="#setup">0. Environment setup</a>
         <a href="#python-api">Python API: label transfer</a>
+        <a class="subsection" href="#api-classes">The paper's classes</a>
         <a class="subsection" href="#api-try">Try the paper's data</a>
         <a class="subsection" href="#api-forestformer">ForestFormer3D output</a>
         <a class="subsection" href="#api-your-data">Try your data</a>
@@ -527,11 +529,28 @@ result = transfer_labels(
 print(result.summary())</code></pre></div>
         <p>Existing outputs are kept unless you pass <code>overwrite=True</code>.</p>
 
+        <h3 id="api-classes">The paper's classes (growth forms)</h3>
+        <p>The method works with the paper's five growth-form classes (paper Tables 2 and 4). They are the defaults, and the steps below refer to them by name:</p>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table class-table">
+            <caption>Paper classes: growth forms</caption>
+            <thead><tr><th scope="col">Class</th><th scope="col">Description</th><th scope="col">Raster ID</th><th scope="col">LAS code</th><th scope="col">Name in <code>fvc3d</code></th><th scope="col">Height range</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Forb (FO)</th><td>Herbaceous or slightly woody ground vegetation</td><td>0</td><td>64</td><td><code>forb</code></td><td>0.00–0.40 m</td></tr>
+              <tr><th scope="row">Woody debris (WD)</th><td>Standing or emergent dead branches and stems, no foliage</td><td>1</td><td>65</td><td><code>woody_debris</code></td><td>0.05–5.00 m</td></tr>
+              <tr><th scope="row">Grass hummock (GH)</th><td>Spiny perennial hummock grass, including senescent</td><td>2</td><td>66</td><td><code>hummock</code></td><td>0.00–0.80 m</td></tr>
+              <tr><th scope="row">Shrub (SH)</th><td>Multi-stemmed woody shrubs, including chenopod and senescent</td><td>3</td><td>67</td><td><code>shrub</code></td><td>0.40–3.00 m</td></tr>
+              <tr><th scope="row">Mallee (MA)</th><td>Multi-stemmed eucalypts sprouting from a lignotuber; split into crowns with a <code>treeID</code></td><td>4</td><td>68</td><td><code>mallee</code></td><td>1.50–8.00 m</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Raster IDs are the codes in the published label rasters (<code>class_map="paper"</code>); LAS codes are written to the output <code>classification</code>. Height ranges are the configured ranges used when a tile has too few points of a class, and in the height-plausibility diagnostic. The low site has forb, woody debris and shrub; the medium site has woody debris, grass hummock, shrub and mallee.</p>
+
         <h3 id="api-try">Try it on the paper's data</h3>
         <p>The <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a> has everything needed for one tile. Download the medium-site inputs (645 MB) and unzip them:</p>
         <div class="command" data-label="Download paper data"><pre><code>curl -L -o label_transfer_inputs_medium.zip "https://zenodo.org/records/24431573/files/label_transfer_inputs_medium.zip?download=1"
 unzip label_transfer_inputs_medium.zip</code></pre></div>
-        <p>The published label rasters code classes 0–4, so pass <code>class_map="paper"</code>:</p>
+        <p>The published label rasters use the raster IDs 0–4 (<a href="#api-classes">table above</a>), so pass <code>class_map="paper"</code>:</p>
         <div class="command" data-label="Run on paper data"><pre><code>from fvc3d import transfer_labels
 
 d = "label_transfer_medium/"
@@ -545,15 +564,28 @@ print(result.summary())</code></pre></div>
         <p>Compare <code>labelled_109.laz</code> with the published result, <code>6_fused_3d_labels/znorm_3Dlabels_109.las</code>. On tile 109 every shared point has the same class, and 52 mallee crowns are found against 54 published.</p>
 
         <h3 id="api-forestformer">Output for ForestFormer3D</h3>
-        <p>ForestFormer3D is trained on FOR-instanceV2, whose classes are ground, wood and leaf. To write these instead of the growth forms, add <code>classes="FOR-instanceV2"</code> to the call above. It uses the paper's mapping: hummock and forb → ground (1), shrub → wood (2), mallee → leaf (3); ForestFormer3D's model IDs are code − 1. On tile 109 this gives ground 19,816, wood 3,551 and leaf 377,940 points: the paper's result, relabelled. For rangelands these are approximate transfer targets, not a literal taxonomy.</p>
+        <p>The growth forms are the paper's classes. For the model experiments only, the paper aligned them to the classes of FOR-instanceV2, the forest dataset ForestFormer3D is trained on. To write those classes instead, add <code>classes="FOR-instanceV2"</code> to the call above:</p>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table">
+            <caption>Growth form vs FOR-instanceV2</caption>
+            <thead><tr><th scope="col">Growth form (paper class)</th><th scope="col">FOR-instanceV2 class</th><th scope="col">LAS code</th><th scope="col">ForestFormer3D model ID</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Forb, grass hummock</th><td>ground</td><td>1</td><td>0</td></tr>
+              <tr><th scope="row">Shrub</th><td>wood</td><td>2</td><td>1</td></tr>
+              <tr><th scope="row">Mallee</th><td>leaf</td><td>3</td><td>2</td></tr>
+              <tr><th scope="row">Woody debris</th><td colspan="3">none: merged into mallee above 0.5 m, otherwise dropped</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The method still runs on the growth forms; only the output is relabelled. On tile 109 this gives ground 19,816, wood 3,551 and leaf 377,940 points: the paper's result, relabelled. For rangelands these are approximate transfer targets, not a literal taxonomy.</p>
 
         <h3 id="api-your-data">Try it on your data</h3>
         <p>Your labels can use any codes and any classes. There are two settings:</p>
         <ul>
           <li><strong><code>class_map</code></strong> maps the values in your raster to class names, e.g. <code>{0: "ground", 3: "wood", 4: "leaf"}</code>. Values left out are ignored.</li>
-          <li><strong><code>classes</code></strong> defines the classes themselves. The default is the paper's five growth forms; for your own, copy <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/configs/classes.yaml" target="_blank" rel="noopener"><code>configs/classes.yaml</code></a> and edit it.</li>
+          <li><strong><code>classes</code></strong> defines the classes themselves. The default is the <a href="#api-classes">paper's five growth forms</a>; for your own, copy <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/configs/classes.yaml" target="_blank" rel="noopener"><code>configs/classes.yaml</code></a> and edit it.</li>
         </ul>
-        <p>For example, the paper's ground, wood and leaf classes (FOR-instanceV2), saved as <code>my_classes.yaml</code>:</p>
+        <p>For example, FOR-instanceV2's ground, wood and leaf classes, saved as <code>my_classes.yaml</code>:</p>
         <div class="command" data-label="Your class scheme"><pre><code>classes: {1: ground, 2: wood, 3: leaf}
 height_ranges: {1: [0.0, 0.8], 2: [0.4, 3.0], 3: [1.5, 8.0]}
 crown_class: leaf</code></pre></div>
@@ -589,7 +621,7 @@ print(result.summary())</code></pre></div>
           <table class="analysis-table">
             <thead><tr><th scope="col">Input</th><th scope="col">Requirement</th><th scope="col">If yours differs</th></tr></thead>
             <tbody>
-              <tr><th scope="row">Label classes</th><td>64 forb, 65 woody debris, 66 hummock, 67 shrub, 68 mallee; other values are ignored.</td><td><code>class_map="paper"</code> for the published 0–4 rasters, a dict such as <code>{1: "shrub", 2: "mallee"}</code>, or your own classes (<a href="#api-your-data">see above</a>)</td></tr>
+              <tr><th scope="row">Label classes</th><td>The <a href="#api-classes">paper's classes</a>, LAS codes 64–68; other values are ignored.</td><td><code>class_map="paper"</code> for the published 0–4 rasters, a dict such as <code>{1: "shrub", 2: "mallee"}</code>, or your own classes (<a href="#api-your-data">see above</a>)</td></tr>
               <tr><th scope="row">Height above ground</th><td>A <code>Z_norm</code> dimension, or ground points classified as 2.</td><td><code>ground="ground.las"</code>, e.g. from <code>groundnorm csf</code></td></tr>
               <tr><th scope="row">CRS</th><td>The same projected CRS, in metres, for both files.</td><td>Reproject first; <code>fvc3d</code> does not.</td></tr>
               <tr><th scope="row">Registration</th><td>LiDAR registered to the imagery the labels came from.</td><td>Run <a href="#phase-2">Phase 2</a> first.</td></tr>
