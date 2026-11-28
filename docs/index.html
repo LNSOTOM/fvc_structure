@@ -4,12 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="A practical guide to the FVC structure LiDAR and imagery workflow.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,400;1,700&amp;display=swap">
   <title>fvcStructureRangeland3D | Research workflow guide</title>
   <style>
-    :root { color-scheme: light; --ink: #251b36; --muted: #505168; --accent: #3e3e75; --line: #cbd9dc; --paper: #fff; --wash: #f5fafa; }
+    :root { color-scheme: light; --ink: #251b36; --muted: #505168; --accent: #3e3e75; --line: #cbd9dc; --paper: #fff; --wash: #f5fafa;
+      --font: Ubuntu, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      --mono: SFMono-Regular, Consolas, Menlo, monospace; }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    body { margin: 0; color: var(--ink); background: var(--wash); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { margin: 0; color: var(--ink); background: var(--wash); font: 16px/1.65 var(--font); }
     a { color: #3e3e75; text-underline-offset: .18em; }
     a:hover { color: #4e1f6e; }
     a:focus-visible { outline: 3px solid #3e3e75; outline-offset: 3px; }
@@ -59,7 +64,22 @@
     .search-results span { margin-top: 4px; color: var(--muted); font-size: .8rem; line-height: 1.45; overflow-wrap: anywhere; }
     .top-repo { display: flex; align-items: center; gap: 7px; color: white; font-size: .9rem; font-weight: 650; line-height: 1.25; text-decoration: none; white-space: nowrap; }
     .top-repo svg { flex: none; }
-    .top-repo small { display: block; font-size: .7rem; font-weight: 500; }
+    /* Repository link styled after MkDocs Material's source widget; the sheep icon stays. */
+    .top-repo { font-size: .85rem; font-weight: 500; transition: opacity .25s; }
+    .top-repo:hover { opacity: .75; }
+    .top-repo__repository { display: block; max-width: 13rem; overflow: hidden; text-overflow: ellipsis; }
+    .top-repo__facts { display: flex; gap: .6rem; margin: 2px 0 0; padding: 0; list-style: none; font-size: .72rem; opacity: .8; }
+    .top-repo__fact { margin: 0; overflow: hidden; text-overflow: ellipsis; }
+    .top-repo__fact::before { content: ""; display: inline-block; width: .75rem; height: .75rem; margin-right: .2rem; vertical-align: text-top; background-color: currentColor; -webkit-mask: var(--fact-icon) no-repeat center / contain; mask: var(--fact-icon) no-repeat center / contain; }
+    .top-repo__fact--branch { --fact-icon: url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0M5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0m6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5m-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0'/></svg>"); }
+    .top-repo__fact--version { --fact-icon: url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.75 1.75 0 0 1 1 7.775m1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2'/></svg>"); }
+    .top-repo__fact--stars { --fact-icon: url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25m0 2.445L6.615 5.5a.75.75 0 0 1-.564.41l-3.097.45 2.24 2.184a.75.75 0 0 1 .216.664l-.528 3.084 2.769-1.456a.75.75 0 0 1 .698 0l2.77 1.456-.53-3.084a.75.75 0 0 1 .216-.664l2.24-2.183-3.096-.45a.75.75 0 0 1-.564-.41z'/></svg>"); }
+    .top-repo__fact--forks { --fact-icon: url("data:image/svg+xml;charset=utf-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0M5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0m6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5m-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0'/></svg>"); }
+    .top-repo--active .top-repo__facts { animation: top-repo-facts .25s ease-in; }
+    .top-repo--active .top-repo__fact { animation: top-repo-fact .4s ease-out; }
+    @keyframes top-repo-facts { from { height: 0; } to { height: .9rem; } }
+    @keyframes top-repo-fact { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { .top-repo--active .top-repo__facts, .top-repo--active .top-repo__fact { animation: none; } }
     .top a:focus-visible, .top summary:focus-visible, .top input:focus-visible, .top button:focus-visible { outline: 3px solid #98e8de; outline-offset: 2px; }
     .hero { background: #98e8de; border-bottom: 1px solid #45a9a9; }
     .hero-inner { max-width: 1200px; margin: auto; padding: 52px 28px 44px; }
@@ -73,7 +93,7 @@
     .button { display: inline-flex; align-items: center; gap: 6px; }
     .button ion-icon { font-size: 1.15em; }
     .button.disabled { opacity: .55; cursor: not-allowed; }
-    .layout { max-width: 1200px; margin: auto; padding: 34px 28px 80px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 46px; }
+    .layout { max-width: 1200px; margin: auto; padding: 34px 28px 80px; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 40px; }
     .sidebar { align-self: start; position: sticky; top: 84px; font-size: .9rem; }
     .sidebar strong { display: block; margin: 0 0 8px; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; }
     .sidebar a { display: block; padding: 6px 0; }
@@ -104,7 +124,8 @@
     .step-gallery strong { display: block; margin-bottom: 8px; line-height: 1.4; }
     .step-gallery strong::before { content: counter(step) ". "; }
     .step-gallery img, .step-gallery svg { display: block; width: 100%; height: 140px; object-fit: contain; background: #f5fafa; border-radius: 4px; }
-    .step-gallery svg { color: #3e3e75; font: 14px system-ui, sans-serif; text-anchor: middle; }
+    .step-gallery a img { cursor: zoom-in; }
+    .step-gallery svg { color: #3e3e75; font: 13px var(--font); text-anchor: middle; }
     .step-gallery .diagram-arrow { font-size: 30px; fill: #4e1f6e; }
     .step-gallery small { display: block; color: var(--muted); line-height: 1.4; margin-top: 7px; }
     .metadata { margin: 14px 0 0; padding: 12px 14px; background: #e8f7f5; border: 1px solid var(--line); border-radius: 6px; font-size: .88rem; line-height: 1.5; }
@@ -116,6 +137,7 @@
     .analysis-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
     .analysis-table th, .analysis-table td { padding: 8px 10px; border: 1px solid var(--line); text-align: left; }
     .analysis-table th { background: var(--paper); }
+    .analysis-table th code { white-space: nowrap; overflow-wrap: normal; }
     .step-metadata { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; color: var(--muted); font-size: .82rem; line-height: 1.45; }
     .comparison-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
     .comparison-controls select, .comparison-controls button { font: inherit; color: var(--ink); background: white; border: 1px solid var(--accent); border-radius: 5px; padding: 6px 10px; }
@@ -132,15 +154,19 @@
     .comparison-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: .85rem; }
     .comparison-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border: 1px solid #505168; }
     .comparison-details, .comparison-status, .comparison-inspector { font-size: .88rem; }
+    .citation { margin: 12px 0 16px; padding: 14px 18px; background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; }
     .note { border-left: 4px solid #45a9a9; background: #dff5f2; padding: 12px 16px; margin: 18px 0; }
-    pre { overflow-x: auto; padding: 16px 18px; border-radius: 7px; background: #e4ddee; color: #251b36; font: .85rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    pre { overflow-x: auto; padding: 16px 18px; border-radius: 7px; background: #ece7f3; color: #251b36; font: .85rem/1.6 var(--mono); }
     .command { display: flow-root; position: relative; }
-    .command pre { padding-top: 48px; }
-    .copy-command { position: absolute; z-index: 1; top: 26px; right: 10px; padding: 5px 8px; border: 1px solid #251b36; border-radius: 4px; background: rgba(255, 255, 255, .55); color: #251b36; cursor: pointer; }
+    .command pre { margin: 10px 0; padding: 12px 56px 12px 16px; }
+    .copy-command { position: absolute; z-index: 1; top: 17px; right: 10px; padding: 5px 7px; border: 0; border-radius: 4px; background: transparent; color: #251b36; opacity: .7; cursor: pointer; }
+    .copy-command:hover, .copy-command:focus-visible { opacity: 1; }
     .copy-command:hover { background: rgba(255, 255, 255, .8); }
     .copy-command:focus-visible { outline: 3px solid #251b36; outline-offset: 3px; }
     .copy-command svg { display: block; }
-    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; overflow-wrap: anywhere; }
+    code { font-family: var(--mono); font-size: .9em; overflow-wrap: anywhere; }
+    pre.output { background: var(--paper); border: 1px solid var(--line); font-size: .8rem; }
+    [data-theme="dark"] pre.output { color: var(--ink); }
     pre code { font-size: inherit; overflow-wrap: normal; }
     ol, ul { padding-left: 1.4em; }
     li { margin: 5px 0; }
@@ -167,6 +193,61 @@
     [data-theme="dark"] .comparison-controls button[aria-pressed="true"] { background: var(--accent); color: #251b36; }
     [data-theme="dark"] .comparison-view { background: var(--paper); }
     [data-theme="dark"] .comparison-swatch { border-color: #ded8e8; }
+    /* Flat layout: separate content with space and thin rules, not nested boxes.
+       Code blocks and tables keep their frames. */
+    .panel, .flow > div, .phase-overview > .panel, figure { background: none; border: 0; border-radius: 0; padding: 0; }
+    .facts { gap: 8px 32px; }
+    .facts > .panel strong { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+    .facts > .panel p { margin-top: 4px; }
+    .flow { gap: 18px 24px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .flow > div { border-top: 2px solid var(--accent); padding-top: 8px; }
+    .phase-overview > .panel + .panel { margin-top: 26px; }
+    .phase-overview h3 { margin-bottom: 12px; }
+    .phase-overview .step-gallery { gap: 28px 32px; }
+    .step-gallery li { border: 0; border-radius: 0; padding: 0; }
+    .step-gallery img, .step-gallery svg { border-radius: 6px; }
+    .metadata, [data-theme="dark"] .metadata { background: none; border: 0; border-left: 3px solid var(--line); border-radius: 0; padding: 2px 0 2px 14px; }
+    .note, [data-theme="dark"] .note { background: none; padding: 4px 0 4px 14px; border-left-width: 3px; }
+    .citation { border: 0; border-left: 3px solid var(--accent); border-radius: 0; background: none; padding: 4px 0 4px 14px; }
+    figure { margin-top: 12px; }
+    /* Input and output boxes: teal edge for what goes in, purple for what comes out. */
+    .facts.io > .panel { background: var(--paper); border: 1px solid var(--line); border-top: 3px solid #45a9a9; border-radius: 6px; padding: 12px 16px; }
+    .facts.io > .panel + .panel { border-top-color: var(--accent); }
+    .facts.io > .panel strong::before { content: "→ "; color: #45a9a9; }
+    .facts.io > .panel + .panel strong::before { content: none; }
+    .facts.io > .panel + .panel strong::after { content: " →"; color: var(--accent); }
+    pre.output { position: relative; padding-top: 30px; }
+    pre.output::before { content: "Output"; position: absolute; top: 8px; left: 18px; color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    /* Cards for the two contributions and the two models. */
+    .facts.cards > .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; display: flex; flex-direction: column; }
+    .facts.cards > .panel strong { font-size: 1rem; letter-spacing: 0; text-transform: none; color: var(--accent); }
+    .facts.cards > .panel p { flex: 1; }
+    .facts.cards > .panel a::after { content: " →"; }
+    /* Size corrections for Ubuntu (text) and the system monospace stack (code). */
+    code { font-size: .88em; padding: 0 .3em; background: #ece7f3; color: #251b36; border-radius: 3px; }
+    pre code { padding: 0; background: none; color: inherit; border-radius: 0; }
+    [data-theme="dark"] code { background: #2f2c42; color: var(--ink); }
+    [data-theme="dark"] pre code { background: none; color: inherit; }
+    pre code { font-size: inherit; }
+    pre.output { font-size: .82rem; }
+    pre.output::before { font-size: .75rem; }
+    .metadata { font-size: .95rem; }
+    .metadata h3 { font-size: 1rem; }
+    .step-metadata { font-size: .9rem; }
+    .step-gallery small { font-size: .9rem; }
+    .step-gallery svg { font-size: 14px; }
+    .analysis-table { font-size: .95rem; }
+    .flow span, figcaption { font-size: .95rem; }
+    .sidebar { font-size: .95rem; }
+    .eyebrow, .phase-label, .sidebar strong, .mobile-drawer nav strong, .facts > .panel strong { font-size: .8rem; }
+    .facts.cards > .panel strong { font-size: 1.05rem; }
+    .comparison-range, .comparison-legend, .comparison-details, .comparison-status, .comparison-inspector { font-size: .92rem; }
+    .search-results strong { font-size: .92rem; }
+    .search-results span, .top-search-status { font-size: .86rem; }
+    /* Subtle tint where the citation and data sources are given. */
+    .citation, .note.data, p.data { background: #e9f5f3; border-left: 3px solid #45a9a9; border-radius: 0 6px 6px 0; padding: 10px 14px; }
+    .citation { border-left-color: var(--accent); }
+    [data-theme="dark"] .citation, [data-theme="dark"] .note.data, [data-theme="dark"] p.data { background: #262c3c; }
     @media (min-width: 721px) and (max-width: 900px) {
       .top-inner { padding-inline: 16px; gap: 8px; }
       .top-search { flex: 1 1 80px; min-width: 0; }
@@ -191,6 +272,42 @@
       .top-repo { order: 2; margin-left: auto; }
       .top-menu nav { max-height: calc(100vh - 180px); }
       #top, section, h3[id] { scroll-margin-top: 180px; }
+    }
+    /* Copy button: solid background so long commands pass underneath it. */
+    .copy-command, .copy-command:hover { background: #ece7f3; opacity: 1; color: #251b36b3; box-shadow: -10px 0 8px #ece7f3; }
+    .copy-command:hover, .copy-command:focus-visible { color: #251b36; }
+    /* Phones */
+    @media (max-width: 720px) {
+      /* Header in two rows: controls, then full-width search. */
+      .top-repo { order: 1; margin-left: 0; }
+      .top-repo__repository { display: none; }
+      .brand { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
+      .theme-toggle { margin-left: 0; }
+      .top-menu nav { max-height: calc(100vh - 118px); }
+      h1 { font-size: 2rem; }
+      h2 { font-size: 1.45rem; }
+      .phase { padding-top: 28px; }
+      /* Tables become one card per row, each value labelled with its column. */
+      .analysis-table, .analysis-table caption, .analysis-table tbody, .analysis-table tr, .analysis-table th, .analysis-table td { display: block; width: 100%; }
+      .analysis-table thead { display: none; }
+      .analysis-table caption { text-align: left; margin-bottom: 8px; }
+      .analysis-table tr { margin-bottom: 10px; padding: 6px 0; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }
+      .analysis-table th, .analysis-table td { padding: 4px 14px; border: 0; }
+      .analysis-table tbody th { color: var(--accent); background: none; }
+      .analysis-table th code { white-space: normal; }
+      .top-search { order: 0; flex: none; }
+      .top-search input { display: none; }
+      .top-search button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 4px; background: transparent; }
+      .top-search.open { order: 2; flex: 1 1 100%; }
+      .top-search.open input { display: block; flex: 1; }
+      .top-search.open button { width: auto; padding: 8px 10px; border-left: 1px solid #ffffff55; border-radius: 0 4px 4px 0; background: #4e1f6e; }
+      #top, section, h3[id] { scroll-margin-top: 70px; }
+      .hero-links { gap: 6px; }
+      .hero-links .button.primary { padding: 9px 14px; }
+      .hero-links .button:not(.primary) { justify-content: center; width: 40px; height: 40px; padding: 0; border-radius: 999px; }
+      .hero-links .button:not(.primary) ion-icon { font-size: 1.35em; }
+      .hero-links .button:not(.primary) .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .analysis-table td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     }
   </style>
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
@@ -227,6 +344,7 @@
           <a href="https://lnsotom.github.io/">← Home (Laura N. Sotomayor)</a>
           <a href="#overview">Workflow</a>
           <a href="#setup">Setup</a>
+          <a href="#python-api">Python API</a>
           <a href="#phase-1">Phase 1</a>
           <a href="#phase-2">Phase 2</a>
           <a href="#phase-3">Phase 3</a>
@@ -252,13 +370,15 @@
       <button class="theme-toggle" type="button" aria-label="Dark mode" aria-pressed="false" title="Toggle dark mode">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 4 1.5 3.5L19 9l-3.5 1.5L14 14l-1.5-3.5L9 9l3.5-1.5L14 4ZM5 15l4-4M3 19l5-5M8 20l3-3M19 15v4M17 17h4"/></svg>
       </button>
-      <a class="top-repo" href="https://github.com/LNSOTOM/fvc_structure" target="_blank" rel="noopener">
+      <a class="top-repo" href="https://github.com/LNSOTOM/fvc_structure" target="_blank" rel="noopener" title="Go to repository">
         <svg width="29" height="29" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M7 22c-2.8 0-4-2-3-4.1-1.6-2.3-.1-5.1 2.4-5.3-.6-2.7 1.9-4.7 4.2-3.6 1-2.8 4.5-3.1 6-.8 2.4-1.3 5.2.3 5.1 3.1"/>
           <path d="M7 22h13M10 22v4M18 22v4M21 13c1.6-2 5.7-1.5 6.3.8 1.6.1 2.4 1.8 1.3 3.2-.3 2.5-2.2 4.5-4.6 4.5-2.7 0-4.5-2-4.5-4.5 0-1.7.5-3 1.5-4Z"/>
           <path d="m20 14-2-1M27 14l2-1M24.8 16h.1"/>
         </svg>
-        <span>fvc_structure GitHub <small>main branch</small></span>
+        <div class="top-repo__repository">LNSOTOM/fvc_structure
+          <ul class="top-repo__facts"><li class="top-repo__fact top-repo__fact--branch">main branch</li></ul>
+        </div>
       </a>
     </div>
   </header>
@@ -277,9 +397,10 @@
       <p class="lead">A phase-by-phase guide to transferring 2D vegetation labels to co-registered UAS LiDAR and benchmarking 3D models in rangeland ecosystems.</p>
       <div class="hero-links">
         <a class="button primary" href="#setup">Start with setup</a>
-        <a class="button" href="https://eartharxiv.org/repository/view/12889/" target="_blank" rel="noopener"><ion-icon name="document-attach-outline" aria-hidden="true"></ion-icon> Preprint on EarthArXiv</a>
-        <a class="button" href="https://github.com/LNSOTOM/fvc_structure" target="_blank" rel="noopener"><ion-icon name="logo-github" aria-hidden="true"></ion-icon> Code</a>
-        <a class="button" href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener"><ion-icon name="cloud-download-outline" aria-hidden="true"></ion-icon> Datasets &amp; pre-trained models on Zenodo</a>
+        <a class="button" href="#python-api" title="Python API quick start"><ion-icon name="code-slash-outline" aria-hidden="true"></ion-icon> <span class="label">Python API quick start</span></a>
+        <a class="button" href="https://eartharxiv.org/repository/view/12889/" target="_blank" rel="noopener" title="Preprint on EarthArXiv"><ion-icon name="document-attach-outline" aria-hidden="true"></ion-icon> <span class="label">Preprint on EarthArXiv</span></a>
+        <a class="button" href="https://github.com/LNSOTOM/fvc_structure" target="_blank" rel="noopener" title="Code on GitHub"><ion-icon name="logo-github" aria-hidden="true"></ion-icon> <span class="label">Code</span></a>
+        <a class="button" href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener" title="Datasets and pre-trained models on Zenodo"><ion-icon name="cloud-download-outline" aria-hidden="true"></ion-icon> <span class="label">Datasets &amp; pre-trained models on Zenodo</span></a>
       </div>
     </div>
   </div>
@@ -290,6 +411,10 @@
         <strong>On this page</strong>
         <a href="#overview">Overview</a>
         <a href="#setup">0. Environment setup</a>
+        <a href="#python-api">Python API: label transfer</a>
+        <a class="subsection" href="#api-alignment">Alignment check</a>
+        <a class="subsection" href="#api-settings">Settings</a>
+        <a class="subsection" href="#api-stages">Stage by stage</a>
         <a href="#phase-1">1. DSM generation</a>
         <a href="#phase-2">2. Co-registration</a>
         <a href="#phase-3">3. Imagery and labels</a>
@@ -307,17 +432,19 @@
         <div class="eyebrow">Overview</div>
         <h2>Prepare spatial data for analysis</h2>
         <p>This guide covers the five phases and model experiments of <strong>fvcStructureRangeland3D</strong>, with inputs, commands and outputs for each phase.</p>
-        <h3>Contributions of the preprint</h3>
-        <p>The preprint <a href="https://eartharxiv.org/repository/view/12889/" target="_blank" rel="noopener"><em>From 2D labels to 3D structure: Scalable label transfer and benchmarking of 3D vegetation models in rangeland ecosystems</em></a> presents two contributions:</p>
-        <p>Supervisors: Arko Lucieer, Darren Turner, Johan Barthelemy and Teja Kattenborn.</p>
+        <h3>Citation</h3>
+        <p>If you use this workflow, data or code, please cite:</p>
+        <blockquote class="citation">Sotomayor, L.N., Lucieer, A., Turner, D., Barthelemy, J., Kattenborn, T. (2026). <em>From 2D labels to 3D structure: Scalable label transfer and benchmarking of 3D vegetation models in rangeland ecosystems.</em> EarthArXiv (preprint). <a href="https://doi.org/10.31223/X5948M" target="_blank" rel="noopener">https://doi.org/10.31223/X5948M</a></blockquote>
         <p>Submitted to the <em>ISPRS Open Journal of Photogrammetry and Remote Sensing</em>, special issue: “Advanced Uncrewed Vehicles solutions: at the crossroad of Remote Sensing, Computer Vision and Robotics”.</p>
-        <div class="facts">
+        <h3>Contributions of the preprint</h3>
+        <p>The preprint presents two contributions:</p>
+        <div class="facts cards">
           <div class="panel"><strong>Scalable 2D-to-3D supervision</strong><p>Transfer multispectral CNN vegetation labels to co-registered LiDAR, using height and crown consistency to label 3D points.</p><a href="#phase-4">Explore label transfer</a></div>
           <div class="panel"><strong>Cross-domain model evaluation</strong><p>Compare zero-shot transfer, fine-tuning and training from scratch with ForestFormer3D, and zero-shot instance segmentation with SegmentAnyTree.</p><a href="#experiments">Explore experiments</a></div>
         </div>
         <h3>Data products and acknowledgements</h3>
         <p>We thank Megan Lewis for her expertise and contributions in rangeland remote sensing and ecology, including her contribution to the reference-labelling dataset. We also acknowledge the Terrestrial Ecosystem Research Network (TERN), particularly its Ecosystem Surveillance team and Landscapes program. We thank Ben Sparrow, Poornima Sivanandam and Juan Carlos Montes-Herrera for drone operation and data processing, and the Australian Landscape Trust's Calperum Station managers for access to the study sites.</p>
-        <p>The paper's manual labels and UAS imagery are available in <a href="https://doi.org/10.5281/zenodo.15036860" target="_blank" rel="noopener">Sotomayor et al. (2025), <em>Fractional Vegetation Cover Mapping</em>, Zenodo</a>. The dataset credits TERN Landscapes and TERN Surveillance Monitoring for RGB and multispectral orthomosaic processing, and acknowledges contributors to reference labelling. See the record for the full creator list, citation and licence. The labelled 3D tiles, label-transfer data, split lists, pre-trained models and predictions are available in <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Sotomayor et al. (2026), Zenodo</a>. The forest benchmark uses <a href="https://zenodo.org/records/16742708" target="_blank" rel="noopener">FOR-instanceV2</a>.</p>
+        <p class="data">The paper's manual labels and UAS imagery are available in <a href="https://doi.org/10.5281/zenodo.15036860" target="_blank" rel="noopener">Sotomayor et al. (2025), <em>Fractional Vegetation Cover Mapping</em>, Zenodo</a>. The dataset credits TERN Landscapes and TERN Surveillance Monitoring for RGB and multispectral orthomosaic processing, and acknowledges contributors to reference labelling. See the record for the full creator list, citation and licence. The labelled 3D tiles, label-transfer data, split lists, pre-trained models and predictions are available in <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Sotomayor et al. (2026), Zenodo</a>. The forest benchmark uses <a href="https://zenodo.org/records/16742708" target="_blank" rel="noopener">FOR-instanceV2</a>.</p>
         <p>We also acknowledge the developers of <a href="https://bxiang233.github.io/FF3D/" target="_blank" rel="noopener">ForestFormer3D</a> (Xiang et al., 2025) and <a href="https://github.com/SmartForest-no/SegmentAnyTree" target="_blank" rel="noopener">SegmentAnyTree</a> (<a href="https://doi.org/10.1016/j.rse.2024.114367" target="_blank" rel="noopener">Wielgosz et al., 2024</a>) for the models used in the experiments.</p>
         <div class="flow" aria-label="Workflow from inputs to classified 3D LiDAR">
           <div><strong>01 / Surface model</strong><span>Georeferenced LAS/LAZ to a DSM GeoTIFF.</span></div>
@@ -327,7 +454,7 @@
           <div><strong>05 / Model inputs</strong><span>Prepare local-coordinate PLY files and verify labels.</span></div>
           <div><strong>Models / Experiments</strong><span>Prepare datasets, run inference or training, and evaluate predictions.</span></div>
         </div>
-        <p class="muted">Run the commands locally and record your own CRS, grids, parameters and outputs. Figures are historical examples; their original colour maps may not be accessible to everyone.</p>
+        <p class="muted">Run the commands locally and record your own CRS, grids, parameters and outputs. Figures are historical examples from the paper's sites; select one to enlarge it. Their original colour maps may not suit every reader.</p>
       </section>
 
       <section id="setup">
@@ -356,18 +483,165 @@
         <div class="command" data-label="Check PDAL"><pre><code>pdal --version</code></pre></div>
         <p>Phase 2 does not require the PDAL executable.</p>
         <div class="note"><strong>Paths are machine-specific.</strong> The example configs contain placeholders or site-specific paths. Copy and edit them for your own data; on Windows and WSL use paths appropriate to the environment running Python.</div>
-        <p><a class="button" href="#phase-1">Continue to Phase 1</a></p>
+        <p><a class="button" href="#phase-1">Continue to Phase 1</a> <a class="button" href="#python-api">Or go to the Python API</a></p>
+      </section>
+
+      <section id="python-api" class="phase">
+        <div class="phase-label">Python API / fvc3d</div>
+        <h2>Transfer labels in one call</h2>
+        <p>The <code>fvc3d</code> package applies the <a href="#phase-4">Phase 4</a> method to your own data: it labels a LiDAR point cloud from a growth-form raster, after checking that the two line up.</p>
+        <div class="facts io">
+          <div class="panel"><strong>Inputs</strong><p>A label GeoTIFF and a co-registered LAS/LAZ point cloud (<a href="#api-inputs">requirements</a>).</p></div>
+          <div class="panel"><strong>Outputs</strong><p>A LAS/LAZ file with <code>classification</code>, <code>Z_norm</code> and <code>treeID</code>, plus per-point arrays and quality reports in Python.</p></div>
+        </div>
+        <div class="note"><strong>No PDAL needed.</strong> <code>fvc3d</code> replaces the Phase 4 mask, normalize and fuse stages. Ground classification and co-registration remain separate steps.</div>
+
+        <h3>1. Install</h3>
+        <p>The <a href="#setup">environment setup</a> already installs <code>fvc3d</code>. Check that it imports:</p>
+        <div class="command" data-label="Check fvc3d"><pre><code>uv run python -c "import fvc3d; print('fvc3d', fvc3d.__version__)"</code></pre></div>
+        <p>To use it in another project, install it from GitHub:</p>
+        <div class="command" data-label="Install fvc3d with pip"><pre><code>pip install "fvc3d @ git+https://github.com/LNSOTOM/fvc_structure.git"</code></pre></div>
+
+        <h3>2. Run label transfer</h3>
+        <div class="command" data-label="Transfer labels"><pre><code>from fvc3d import transfer_labels
+
+result = transfer_labels(
+    labels="growth_forms.tif",
+    point_cloud="lidar.laz",
+    output="labelled_vegetation.laz",
+    validate_alignment=True,
+)
+print(result.summary())</code></pre></div>
+        <p>Existing outputs are kept unless you pass <code>overwrite=True</code>.</p>
+
+        <h3 id="api-inputs">3. Prepare the inputs</h3>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table">
+            <thead><tr><th scope="col">Input</th><th scope="col">Requirement</th><th scope="col">If yours differs</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Label classes</th><td>64 forb, 65 woody debris, 66 hummock, 67 shrub, 68 mallee; other values are ignored.</td><td><code>class_map={1: "shrub", 2: "mallee"}</code></td></tr>
+              <tr><th scope="row">Height above ground</th><td>A <code>Z_norm</code> dimension, or ground points classified as 2.</td><td><code>ground="ground.las"</code>, e.g. from <code>groundnorm csf</code></td></tr>
+              <tr><th scope="row">CRS</th><td>The same projected CRS, in metres, for both files.</td><td>Reproject first; <code>fvc3d</code> does not.</td></tr>
+              <tr><th scope="row">Registration</th><td>LiDAR registered to the imagery the labels came from.</td><td>Run <a href="#phase-2">Phase 2</a> first.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4. Read the result</h3>
+        <p>Each array holds one value per input point, in input order:</p>
+        <div class="command" data-label="Use the result"><pre><code>result.classification   # 64–68, or 0 for unlabelled
+result.tree_id          # mallee crown ID, 0 = none
+result.z_norm           # height above ground (m)
+result.confidence       # Stage 4 class probability, NaN where not evaluated
+result.metrics          # counts and statistics for each stage
+result.alignment        # AlignmentReport
+result.quality          # QualityReport: per-pixel accuracy, IoU, class heights</code></pre></div>
+        <p>For the paper's DD0001 tile 109, <code>result.summary()</code> prints:</p>
+        <pre class="output"><code>Labelled 396,139 of 1,593,979 points (24.9%); 42 mallee trees
+  forb 0, woody_debris 0, hummock 19,247, shrub 3,464, mallee 373,428
+  Z_norm from: Z_norm dimension in point cloud
+  written to: labelled_vegetation.laz
+Alignment: OK
+  CRS match: True; projected metres: True
+  points over the label raster: 99.6%
+  labelled pixels with LiDAR points: 95.7%
+  canopy offset: dx=-0.125 m, dy=-0.070 m (|d|=0.143 m, limit 0.50 m)
+  canopy IoU: 0.38 as given, 0.39 after shift
+Label agreement with raster: OA 99.0% over 61,203 pixels
+  IoU woody_debris 0.00, hummock 1.00, shrub 1.00, mallee 0.99
+Height plausibility (median Z_norm, % outside expected range):
+  hummock       n=   19,247  median 0.02 m  outside 0.1%
+  shrub         n=    3,464  median 0.05 m  outside 100.0%
+  mallee        n=  373,428  median 0.64 m  outside 75.5%</code></pre>
+        <p class="muted">Ground under a labelled pixel takes that pixel's label, so many mallee and shrub points fall below their expected heights. Stage 5 turns woody debris above 0.5 m into mallee and drops the rest.</p>
+        <p>The output is LAS 1.4 and keeps the input's CRS, scale and offset. It holds labelled points only; <code>keep="all"</code> writes every point.</p>
+
+        <h3 id="api-alignment">5. Understand the alignment check</h3>
+        <p>With <code>validate_alignment=True</code>, the run raises <code>AlignmentError</code> before transferring labels if:</p>
+        <ul>
+          <li>the CRSs differ, are missing, or are not projected in metres;</li>
+          <li>no LiDAR points fall on the label raster;</li>
+          <li>the LiDAR canopy is offset from the labels by more than <code>max_shift</code> (default 0.50 m, 10 pixels at 5 cm).</li>
+        </ul>
+        <p>The offset comes from phase correlation between LiDAR points with <code>Z_norm</code> ≥ 1 m and mallee pixels, and needs at least 200 pixels of each. Across the 11 DD0001 tiles it ranged from 0.05 to 0.38 m. It measures horizontal offset of tall canopy only, so passing does not prove registration.</p>
+        <div class="command" data-label="Check alignment only"><pre><code>from fvc3d import check_alignment, read_labels, read_point_cloud
+
+report = check_alignment(read_labels("growth_forms.tif"), read_point_cloud("lidar.laz"))
+print(report.summary())</code></pre></div>
+        <p>To relax the check, pass <code>max_shift=1.0</code>; to skip it, <code>validate_alignment=False</code>.</p>
+
+        <h3 id="api-settings">6. Change method settings</h3>
+        <p>Defaults are the paper's. Override them with a dict or a YAML file; misspelt keys raise an error.</p>
+        <div class="command" data-label="Override settings"><pre><code>result = transfer_labels(
+    "growth_forms.tif", "lidar.laz", "labelled_vegetation.laz",
+    config={"voxel_size_xy": 0.05, "voxel_size_z": 0.05, "min_tree_dist": "auto"},
+)
+# or: config="configs/transfer_labels.yaml"</code></pre></div>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table">
+            <caption>Commonly changed settings; all are in <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/configs/transfer_labels.yaml" target="_blank" rel="noopener">configs/transfer_labels.yaml</a></caption>
+            <thead><tr><th scope="col">Key</th><th scope="col">Default</th><th scope="col">Effect</th></tr></thead>
+            <tbody>
+              <tr><th scope="row"><code>voxel_size_xy</code>, <code>voxel_size_z</code></th><td>0.10 m</td><td>Stage 2 voxel size. Larger voxels label more points but spread labels beyond the 2D footprint.</td></tr>
+              <tr><th scope="row"><code>min_tree_dist</code></th><td>1.5 m</td><td>Minimum distance between crown peaks; <code>"auto"</code> estimates it.</td></tr>
+              <tr><th scope="row"><code>smoothing_sigma</code></th><td>1.0 cells</td><td>Canopy smoothing before crown detection; also accepts <code>"auto"</code>.</td></tr>
+              <tr><th scope="row"><code>min_conf</code>, <code>min_flip_ratio</code></th><td>0.3, 1.5</td><td>Confidence Stage 4 needs to fill an empty label or replace one.</td></tr>
+              <tr><th scope="row"><code>promote_unlabelled_znorm</code></th><td>1.3 m</td><td>Unlabelled points at or above this height become mallee.</td></tr>
+              <tr><th scope="row"><code>legacy_crown_clamp</code></th><td>false</td><td><code>true</code> reproduces the paper code exactly (see below).</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>7. Process a folder of tiles</h3>
+        <p>The example script pairs files by the last number in their names (<code>mask.109.tif</code> with <code>z_norm.109.las</code>), skips tiles that fail the alignment check, and writes <code>metrics.csv</code>:</p>
+        <div class="command" data-label="Batch transfer"><pre><code>uv run python examples/transfer_labels.py --batch labels_dir/ lidar_dir/ out_dir/</code></pre></div>
+
+        <h3 id="api-stages">8. Run the stages yourself</h3>
+        <p>For arrays already in memory, <code>fuse_labels()</code> runs Stages 1–5:</p>
+        <div class="command" data-label="Stage by stage"><pre><code>import numpy as np
+from fvc3d import read_labels, read_point_cloud, drape_labels, fuse_labels
+
+labels = read_labels("growth_forms.tif")
+cloud = read_point_cloud("lidar.laz")          # needs a Z_norm dimension here
+
+draped = drape_labels(labels, cloud.x, cloud.y)  # label of the pixel under each point
+xyz = np.column_stack((cloud.x, cloud.y, cloud.z))
+src = draped > 0
+fused = fuse_labels(xyz, cloud.z_norm, xyz[src], draped[src])
+print(fused.metrics["final_treeids"], "mallee trees")</code></pre></div>
+        <div class="analysis-table-wrap">
+          <table class="analysis-table">
+            <thead><tr><th scope="col">Module</th><th scope="col">Main functions</th><th scope="col">Purpose</th></tr></thead>
+            <tbody>
+              <tr><th scope="row"><code>fvc3d.io</code></th><td><code>read_labels</code>, <code>read_point_cloud</code>, <code>write_point_cloud</code></td><td>Raster and LAS/LAZ input and output.</td></tr>
+              <tr><th scope="row"><code>fvc3d.registration</code></th><td><code>check_alignment</code></td><td>CRS, overlap and canopy-offset checks.</td></tr>
+              <tr><th scope="row"><code>fvc3d.label_transfer</code></th><td><code>drape_labels</code>, <code>height_above_ground</code>, <code>voxel_transfer</code></td><td>Point labels from the raster, <code>Z_norm</code>, voxel vote (Stage 2).</td></tr>
+              <tr><th scope="row"><code>fvc3d.refinement</code></th><td><code>detect_crowns</code>, <code>polar_refine</code>, <code>consolidate</code></td><td>Height ranges, crowns, polar refinement, consolidation (Stages 1, 3–5).</td></tr>
+              <tr><th scope="row"><code>fvc3d.quality_control</code></th><td><code>label_agreement</code>, <code>height_plausibility</code></td><td>Per-pixel accuracy, IoU and class heights.</td></tr>
+              <tr><th scope="row"><code>fvc3d.pipeline</code></th><td><code>transfer_labels</code>, <code>fuse_labels</code></td><td>The whole method, from files or arrays.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Agreement with the paper code</h3>
+        <p><code>fvc3d</code> matches <code>fvc3dstruct</code>, the paper's Phase 4 code, with one fix: points beyond the crown-detection grid no longer take an edge crown's ID, which could turn them into mallee (274 ground points on tile 109). With <code>config={"legacy_crown_clamp": True}</code>, tile 109's labels match <code>fvc3dstruct</code> point for point.</p>
+        <div class="resources">
+          <strong>Resources:</strong>
+          <a href="https://github.com/LNSOTOM/fvc_structure/tree/main/src/fvc3d" target="_blank" rel="noopener">fvc3d source</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/examples/transfer_labels.py" target="_blank" rel="noopener">Example script</a> ·
+          <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/configs/transfer_labels.yaml" target="_blank" rel="noopener">Settings file</a>
+        </div>
       </section>
 
       <section id="phase-1" class="phase">
         <div class="phase-label">Phase 1 / DSM generation</div>
         <h2>Build a digital surface model</h2>
         <p>Generate a raster of maximum LiDAR elevation using PDAL. The DSM can then be used as the moving surface in Phase 2.</p>
-        <div class="facts">
+        <div class="facts io">
           <div class="panel"><strong>Inputs</strong><p>A georeferenced LAS/LAZ point cloud and a writable output location.</p></div>
           <div class="panel"><strong>Output</strong><p>A DSM GeoTIFF, optionally accompanied by a STAC sidecar. The example uses a 0.03 m grid.</p></div>
         </div>
-        <div class="note"><strong>Data for this phase.</strong> The full-site point clouds used in the paper are not published, so use this phase on your own georeferenced LAS/LAZ. The paper's data can be followed from Phase 3 onwards with the <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>.</div>
+        <div class="note data"><strong>Data for this phase.</strong> The full-site point clouds used in the paper are not published, so use this phase on your own georeferenced LAS/LAZ. The paper's data can be followed from Phase 3 onwards with the <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>.</div>
         <div class="metadata">
           <h3>Phase metadata</h3>
           <dl><dt>CRS</dt><dd>Georeferenced input CRS; inspect the output CRS for your run.</dd>
@@ -389,7 +663,7 @@
               </li>
               <li><strong>Inspect the raster and optional metadata.</strong>
                 <a href="./figures/phase1-dsm.png"><img src="./figures/phase1-dsm.png" alt="DSM elevation and hillshade for DD0011." loading="lazy"></a>
-                <small>Historical DD0011 output; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/notebooks/01_create_dsm_from_las.ipynb" target="_blank" rel="noopener">DSM notebook</a>. Select the image to enlarge.</small>
+                <small>DD0011: 0.03 m pixels, 25.08–38.19 m elevation, mean 29.61 m. <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/notebooks/01_create_dsm_from_las.ipynb" target="_blank" rel="noopener">DSM notebook</a>.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>Generated DSM and optional metadata.</dd><dt>Checks</dt><dd>CRS, extent, resolution, elevation and NoData.</dd><dt>Output</dt><dd>Inspection findings before co-registration.</dd></dl>
               </li>
             </ol>
@@ -410,11 +684,6 @@
         <div class="command" data-label="Estimate DSM"><pre><code>uv run python phase_1_image_processing/dsm_lidar.py --config phase_1_image_processing/configs/dsm_job.local.yml --estimate-only</code></pre></div>
         <div class="command" data-label="Generate DSM"><pre><code>uv run python phase_1_image_processing/dsm_lidar.py --config phase_1_image_processing/configs/dsm_job.local.yml</code></pre></div>
         <p>Check extent, CRS, resolution and NoData. The CLI runs one <code>job</code>; the notebook also supports the optional <code>batch</code> section.</p>
-        <h3>Example output: DSM elevation and hillshade</h3>
-        <figure>
-          <a href="./figures/phase1-dsm.png"><img src="./figures/phase1-dsm.png" alt="DSM elevation and hillshade views for the DD0011 site." loading="lazy"></a>
-          <figcaption>Historical DD0011 <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/notebooks/01_create_dsm_from_las.ipynb" target="_blank" rel="noopener">DSM notebook</a>: 0.03 m pixels, 25.08–38.19 m elevation, mean 29.61 m.</figcaption>
-        </figure>
         <div class="resources">
           <strong>Resources:</strong>
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_1_image_processing/REPRODUCIBILITY.md" target="_blank" rel="noopener">Reproducibility guide</a> ·
@@ -427,11 +696,11 @@
         <div class="phase-label">Phase 2 / Co-registration</div>
         <h2>Align LiDAR to the imagery DSM</h2>
         <p>Resample the LiDAR DSM onto the imagery grid, compute a GeFolki optical-flow field, then apply the field to the original point cloud.</p>
-        <div class="facts">
+        <div class="facts io">
           <div class="panel"><strong>Inputs</strong><p>An imagery DSM, a LiDAR DSM and its original georeferenced LAS/LAZ file. Check their CRS and spatial overlap.</p></div>
           <div class="panel"><strong>Outputs</strong><p>A resampled and registered DSM, two flow arrays and an aligned point cloud. The L2 flow script also writes a residual raster.</p></div>
         </div>
-        <div class="note"><strong>Data for this phase.</strong> The full-site imagery and LiDAR DSMs are not published, so use this phase on your own data. The co-registered LiDAR for the paper's 30 tiles is included in the <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a> (Phase 4, folder <code>5_lidar_znorm</code>).</div>
+        <div class="note data"><strong>Data for this phase.</strong> The full-site imagery and LiDAR DSMs are not published, so use this phase on your own data. The co-registered LiDAR for the paper's 30 tiles is included in the <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a> (Phase 4, folder <code>5_lidar_znorm</code>).</div>
         <div class="metadata">
           <h3>Phase metadata</h3>
           <dl><dt>CRS / grid</dt><dd>Check matching input CRS; the imagery DSM defines the resampled grid and resolution.</dd>
@@ -457,7 +726,7 @@
               </li>
               <li><strong>Inspect alignment and retained point count.</strong>
                 <a href="./figures/phase2-coregistration.png"><img src="./figures/phase2-coregistration.png" alt="DSM comparison, difference and displacement diagnostics for DD0001." loading="lazy"></a>
-                <small>Historical DD0001 diagnostic; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/1_gefolki_preprocess.ipynb" target="_blank" rel="noopener">preprocessing notebook</a>. Select the image to enlarge.</small>
+                <small>DD0001: imagery and LiDAR DSMs, differences before and after alignment, and flow displacement. <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/1_gefolki_preprocess.ipynb" target="_blank" rel="noopener">Preprocessing notebook</a>.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>Registered DSM, flow and aligned LAS.</dd><dt>Checks</dt><dd>Alignment, flow direction, extent and retained point count.</dd><dt>Output</dt><dd>Diagnostic plots and validation findings.</dd></dl>
               </li>
             </ol>
@@ -484,11 +753,6 @@
         <h3>3. Inspect the alignment</h3>
         <p>Check the registered surface, flow direction and alignment statistics using the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/stats_align_lidar_with_flow.py.ipynb" target="_blank" rel="noopener">validation notebook</a>.</p>
         <div class="note"><strong>Check the output point count.</strong> The alignment scripts omit points outside the flow grid's interpolation extent. Confirm that the retained extent is appropriate for your analysis.</div>
-        <h3>Example output: DSM and displacement diagnostics</h3>
-        <figure>
-          <a href="./figures/phase2-coregistration.png"><img src="./figures/phase2-coregistration.png" alt="Six-panel co-registration diagnostic showing reference, before and after DSMs, differences and displacement magnitude." loading="lazy"></a>
-          <figcaption>Historical DD0001 <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/gefolki/notebooks/1_gefolki_preprocess.ipynb" target="_blank" rel="noopener">diagnostics</a>: imagery and LiDAR DSMs, differences before and after alignment, and flow displacement.</figcaption>
-        </figure>
         <div class="resources">
           <strong>Resources:</strong>
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_2_lidar_coregistration/REPRODUCIBILITY.md" target="_blank" rel="noopener">Reproducibility guide</a> ·
@@ -501,11 +765,11 @@
         <div class="phase-label">Phase 3 / Imagery and labels</div>
         <h2>Prepare imagery tiles and structure labels</h2>
         <p>Clip annotated grid cells, select five multispectral bands and create structure labels using the historical 1 cm to 5 cm workflow.</p>
-        <div class="facts">
+        <div class="facts io">
           <div class="panel"><strong>Inputs</strong><p>An orthomosaic, annotated grid, FVC shapefiles and matching 1 cm reference tiles.</p></div>
           <div class="panel"><strong>Outputs</strong><p>Five-band predictor tiles, classified polygons and label rasters at 1 cm and 5 cm.</p></div>
         </div>
-        <div class="note"><strong>Data for this phase.</strong> <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>, <code>label_transfer_inputs_&lt;site&gt;.zip</code>: <code>1_structure_annotations_shp</code> (polygons with FVC <code>class</code> and growth-form <code>structure</code>) and <code>2_structure_label_raster</code>. Orthomosaics and five-band predictor tiles are in the <a href="https://doi.org/10.5281/zenodo.15036860" target="_blank" rel="noopener">imagery record</a>.</div>
+        <div class="note data"><strong>Data for this phase.</strong> <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>, <code>label_transfer_inputs_&lt;site&gt;.zip</code>: <code>1_structure_annotations_shp</code> (polygons with FVC <code>class</code> and growth-form <code>structure</code>) and <code>2_structure_label_raster</code>. Orthomosaics and five-band predictor tiles are in the <a href="https://doi.org/10.5281/zenodo.15036860" target="_blank" rel="noopener">imagery record</a>.</div>
         <div class="metadata">
           <h3>Phase metadata</h3>
           <dl><dt>CRS / grid</dt><dd>Matching projected CRS in metres for labels and reference tiles; check each grid's origin and extent.</dd>
@@ -518,7 +782,7 @@
             <ol class="step-gallery">
               <li><strong>Tile the imagery using the annotated grid.</strong>
                 <a href="./figures/phase3-imagery-tiles.png"><img src="./figures/phase3-imagery-tiles.png" alt="Six example multispectral imagery tiles from DD0011." loading="lazy"></a>
-                <small>Historical DD0011 raw tiles; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_1_orthomosaic_to_tiling/notebooks/01_clip_orthomosaic_by_grid.ipynb" target="_blank" rel="noopener">tiling notebook</a>. Select the image to enlarge.</small>
+                <small>DD0011: six of 18 tiles, each 512 × 512 pixels at 6 cm, shown with bands 10, 6 and 2. <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_1_orthomosaic_to_tiling/notebooks/01_clip_orthomosaic_by_grid.ipynb" target="_blank" rel="noopener">Tiling notebook</a>.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>Orthomosaic and annotated grid.</dd><dt>Settings</dt><dd>Matching CRS; default selection <code>annotated=1</code>; historical cells 30.72 m.</dd><dt>Output</dt><dd>Clipped imagery tiles.</dd></dl>
               </li>
               <li><strong>Stack the selected multispectral bands.</strong>
@@ -539,7 +803,7 @@
               </li>
               <li><strong>Run label quality assessment separately.</strong>
                 <a href="./figures/phase3-label-quality.png"><img src="./figures/phase3-label-quality.png" alt="Vegetation polygons and label and predictor footprints for DD0001 tile 26." loading="lazy"></a>
-                <small>Historical DD0001 tile 26 assessment; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/notebooks/01_label_quality_assessment.ipynb" target="_blank" rel="noopener">label QA notebook</a>. Select the image to enlarge.</small>
+                <small>DD0001 tile 26: reference, label and predictor footprints on 1 cm imagery (top) and the 5 cm predictor (bottom). <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/notebooks/01_label_quality_assessment.ipynb" target="_blank" rel="noopener">Label QA notebook</a>.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>Polygons, label rasters and predictor tiles.</dd><dt>Checks</dt><dd>CRS, grid alignment, footprints and annotations.</dd><dt>Output</dt><dd>Separate QA summary and issues CSVs.</dd></dl>
               </li>
             </ol>
@@ -567,17 +831,6 @@
         <div class="note"><strong>Check grids and labels.</strong> The 5 cm labels do not automatically align with the predictor tiles. Inspect CRS, resolution, origin and extent, and run label QA before using the outputs. A 6 cm predictor needs particular care.</div>
         <h3>4. Assess the 2D reference labels</h3>
         <p>Check polygon overlaps, raster agreement, centroid shifts and ±5 cm boundary sensitivity for 15 tiles per site. The boundary test does not measure annotation error. Use the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/README.md" target="_blank" rel="noopener">label QA guide</a> and save the summaries for <a href="#label-transfer-quality">error analysis</a>.</p>
-        <h3>Example output: clipped imagery tiles</h3>
-        <figure>
-          <a href="./figures/phase3-imagery-tiles.png"><img src="./figures/phase3-imagery-tiles.png" alt="Six example multispectral imagery tiles from DD0011, arranged in two rows of three." loading="lazy"></a>
-          <figcaption>Historical DD0011 <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_1_orthomosaic_to_tiling/notebooks/01_clip_orthomosaic_by_grid.ipynb" target="_blank" rel="noopener">tiles</a>: six of 18, each 512 × 512 pixels at 6 cm, shown with bands 10, 6 and 2.</figcaption>
-        </figure>
-        <h3>Example output: label-grid quality</h3>
-        <figure>
-          <a href="./figures/phase3-label-quality.png"><img src="./figures/phase3-label-quality.png" alt="DD0001 tile 26: examples of vegetation polygons and their label and predictor footprints on imagery, with centroid shifts." loading="lazy"></a>
-          <figcaption>Historical DD0001 tile 26 <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/step_3_label_quality/notebooks/01_label_quality_assessment.ipynb" target="_blank" rel="noopener">label QA</a>: reference, label and predictor footprints on 1 cm imagery (top) and the 5 cm predictor (bottom).</figcaption>
-        </figure>
-        <p class="muted">These historical examples use different sites and do not validate a new run.</p>
         <div class="resources">
           <strong>Resources:</strong>
           <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_3_2D_imagery_prep/REPRODUCIBILITY.md" target="_blank" rel="noopener">Reproducibility guide</a> ·
@@ -589,11 +842,11 @@
         <div class="phase-label">Phase 4 / 3D LiDAR preparation</div>
         <h2>Prepare structure-classified point clouds</h2>
         <p>Transfer 2D structure labels to a LiDAR tile, calculate height above ground and fuse the labels into a 3D vegetation product.</p>
-        <div class="facts">
+        <div class="facts io">
           <div class="panel"><strong>Inputs</strong><p>An already ICP-registered LiDAR tile, matching predictor raster and Phase 3 structure mask.</p></div>
           <div class="panel"><strong>Outputs</strong><p>Mask-classified, ground-only, height-normalized and vegetation-only fused LAS files.</p></div>
         </div>
-        <div class="note"><strong>Data for this phase.</strong> <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>, <code>label_transfer_inputs_&lt;site&gt;.zip</code>: <code>3_structure_labelled_image_points</code>, <code>4_lidar_ground_csf</code> (ground points and the PDAL pipeline with its parameters) and <code>5_lidar_znorm</code>. Compare your output with <code>6_fused_3d_labels</code>, the published result for the same tiles.</div>
+        <div class="note data"><strong>Data for this phase.</strong> <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>, <code>label_transfer_inputs_&lt;site&gt;.zip</code>: <code>3_structure_labelled_image_points</code>, <code>4_lidar_ground_csf</code> (ground points and the PDAL pipeline with its parameters) and <code>5_lidar_znorm</code>. Compare your output with <code>6_fused_3d_labels</code>, the published result for the same tiles.</div>
         <div class="metadata">
           <h3>Phase metadata</h3>
           <dl><dt>CRS / format</dt><dd>Same horizontal projected CRS in metres; input LAS 1.4, point format 6 or later. DD0001 tile 109 example: EPSG:7854.</dd>
@@ -601,6 +854,7 @@
             <dt>Classes</dt><dd>Mask classes 64–68; fused vegetation LAS includes <code>Z_norm</code> and <code>treeID</code>. See the <a href="#las-attributes">observed LAS fields</a> below.</dd></dl>
         </div>
         <div class="note"><strong>ICP is a prerequisite.</strong> Phase 2 GeFolki alignment is not the additional ICP registration used in the historical tile workflow. This guide does not perform ICP.</div>
+        <div class="note"><strong>Shortcut:</strong> <a href="#python-api"><code>fvc3d.transfer_labels()</code></a> runs the mask, normalize and fuse stages below in one call, without PDAL.</div>
         <div class="phase-overview">
           <div class="panel">
             <h3>Processing steps</h3>
@@ -611,17 +865,17 @@
               </li>
               <li><strong>Transfer mask classes to the LiDAR points.</strong>
                 <a href="./figures/phase4-mask-points.png"><img src="./figures/phase4-mask-points.png" alt="Mask-classified LiDAR shown by structure class, RGB and point source ID." loading="lazy"></a>
-                <small>Historical DD0001 example; the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_1_clipping/notebooks/04_maskCoreg_site01_L1.ipynb" target="_blank" rel="noopener">mask notebook</a> is configured for tile 109 but may fall back to another tile. Select the image to enlarge.</small>
+                <small>DD0001. The <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_1_clipping/notebooks/04_maskCoreg_site01_L1.ipynb" target="_blank" rel="noopener">mask notebook</a> is set to tile 109 but may fall back to another tile.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>ICP LAS and structure mask.</dd><dt>Settings</dt><dd>Crop to mask bounds; transfer classifications 64–68; no reprojection.</dd><dt>Attributes</dt><dd>Mask values are written to LAS <code>classification</code>.</dd><dt>Output</dt><dd>Mask-classified LAS.</dd></dl>
               </li>
               <li><strong>Extract ground points using CSF.</strong>
                 <a href="./figures/phase4-ground-height.png"><img src="./figures/phase4-ground-height.png" alt="DD0001 tile 109 original elevation, CSF ground classification, and normalized height." loading="lazy"></a>
-                <small>Historical DD0001 tile 109: the middle panel shows ground classification. See the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_2_csf_znorm/notebooks/01_ground_classification_site01.ipynb" target="_blank" rel="noopener">ground notebook</a>; select the image to enlarge.</small>
+                <small>DD0001 tile 109; the middle panel shows ground classification. <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_2_csf_znorm/notebooks/01_ground_classification_site01.ipynb" target="_blank" rel="noopener">Ground notebook</a>.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>ICP-registered LAS.</dd><dt>Defaults</dt><dd>CSF 0.5 m, 500 iterations, threshold 0.01, rigidness 2.</dd><dt>Output</dt><dd>Ground-only LAS and PDAL pipeline JSON.</dd></dl>
               </li>
               <li><strong>Calculate height above ground as <code>Z_norm</code>.</strong>
                 <a href="./figures/phase4-height-model.png"><img src="./figures/phase4-height-model.png" alt="Height model from normalized LiDAR for DD0001 tile 109." loading="lazy"></a>
-                <small>Historical DD0001 tile 109 height model; <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/notebooks/01_run_pipeline_site01_workflow.ipynb" target="_blank" rel="noopener">fusion notebook</a>. Select the image to enlarge.</small>
+                <small>DD0001 tile 109: maximum height above ground in 10 cm cells. <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/notebooks/01_run_pipeline_site01_workflow.ipynb" target="_blank" rel="noopener">Fusion notebook</a>.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>ICP LAS and ground-only LAS.</dd><dt>Default</dt><dd>Inverse-distance interpolation with k=3; negative heights clamped to zero.</dd><dt>Attributes</dt><dd><code>Z_norm</code> is an extra per-point height-above-ground dimension; original Z remains.</dd><dt>Output</dt><dd>Full-tile LAS with <code>Z_norm</code>.</dd></dl>
               </li>
               <li><strong>Fuse structure labels and assign crown <code>treeID</code>s.</strong>
@@ -692,11 +946,6 @@
         </div>
         <p>The largest decrease occurred during grid aggregation at the medium site and voxel transfer at the low site. These changes measure agreement with the same input 2D labels, not independent error terms or 3D accuracy.</p>
         <p>Other checks cover voxel agreement, class heights and crown retention (15 medium tiles; low tiles inspected visually). Sensitivity tests covered 15 tiles at each site: larger voxels increased coverage but also spread labels beyond the 2D footprint. The 10 cm default is a density-based compromise, not an independently validated optimum.</p>
-        <h3>Example output: height above ground</h3>
-        <figure>
-          <a href="./figures/phase4-height-model.png"><img src="./figures/phase4-height-model.png" alt="Canopy height model for DD0001 tile 109, with a height scale in metres." loading="lazy"></a>
-          <figcaption>Historical DD0001 tile 109 <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_4_3D_lidar_prep/step_3_structure_class/notebooks/01_run_pipeline_site01_workflow.ipynb" target="_blank" rel="noopener">height model</a>: maximum normalized height in 10 cm cells.</figcaption>
-        </figure>
         <p class="muted">Check your output with accessible visualizations and numerical summaries.</p>
         <div class="resources">
           <strong>Resources:</strong>
@@ -709,11 +958,11 @@
         <div class="phase-label">Phase 5 / Model input preparation</div>
         <h2>Prepare classified LiDAR for modelling</h2>
         <p>Convert one Phase 4 tile to local-coordinate PLY, retain its coordinate offset and check its labels before creating a model dataset.</p>
-        <div class="facts">
+        <div class="facts io">
           <div class="panel"><strong>Input</strong><p>A classified LAS tile with <code>Z_norm</code> and <code>treeID</code>.</p></div>
           <div class="panel"><strong>Outputs</strong><p>A PLY file and an offset sidecar. Dataset splits, model arrays and training are separate steps.</p></div>
         </div>
-        <div class="note"><strong>Data for this phase.</strong> Input: <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>, <code>label_transfer_inputs_&lt;site&gt;.zip</code>, folder <code>6_fused_3d_labels</code>. To reproduce the released tiles in <code>test_data_&lt;site&gt;_L1.zip</code>, set <code>class_profile: historical_five_class</code>; the output then matches them exactly (same points, labels and attributes). <code>three_class_hsm</code> rejects forb, so it stops on low-site tiles.</div>
+        <div class="note data"><strong>Data for this phase.</strong> Input: <a href="https://doi.org/10.5281/zenodo.24431573" target="_blank" rel="noopener">Zenodo record</a>, <code>label_transfer_inputs_&lt;site&gt;.zip</code>, folder <code>6_fused_3d_labels</code>. To reproduce the released tiles in <code>test_data_&lt;site&gt;_L1.zip</code>, set <code>class_profile: historical_five_class</code>; the output then matches them exactly (same points, labels and attributes). <code>three_class_hsm</code> rejects forb, so it stops on low-site tiles.</div>
         <div class="metadata">
           <h3>Phase metadata</h3>
           <dl><dt>Coordinates</dt><dd>Local PLY coordinates plus a saved XYZ offset; retain the LAS CRS separately. The PLY runner does not voxelize.</dd>
@@ -740,7 +989,7 @@
               </li>
               <li><strong>Prepare and inspect model data separately.</strong>
                 <a href="./figures/phase5-model-arrays.png"><img src="./figures/phase5-model-arrays.png" alt="Historical model-array visualization for DD0001 tile 106: semantic classes, tree instances, bounding boxes and global location." loading="lazy"></a>
-                <small>Historical DD0001 tile 106 NPY inspection from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/notebooks/02_lidar_preprocessing_forestformer.ipynb" target="_blank" rel="noopener">export notebook</a>. It is not produced by the PLY command below. Select the image to enlarge.</small>
+                <small>DD0001 tile 106: labels, instances, bounding boxes and global coordinates, from the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/notebooks/02_lidar_preprocessing_forestformer.ipynb" target="_blank" rel="noopener">export notebook</a>. The PLY command below does not produce these NPY files.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>PLY, offsets and model-specific dataset setup.</dd><dt>Classes</dt><dd>Current HSM exporter: PLY 3/4/5 → 0/1/2; check model taxonomy.</dd><dt>Output</dt><dd>Model dataset and evaluation outputs from a separate workflow.</dd></dl>
               </li>
             </ol>
@@ -780,11 +1029,6 @@
         <h3>4. Check the three-class model handoff</h3>
         <p>For HSM tiles, LAS 66/67/68 become PLY 3/4/5. The current ForestFormer exporter maps those to 0/1/2: grass hummock/shrub/mallee in the HSM configuration. The paper interprets these as ground/wood/leaf respectively, and also maps forb to ground. Verify the dataset, exporter, instance policy and checkpoint before training. Follow the <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/ForestFormer3D/README_ForAINetV2_experiments.md" target="_blank" rel="noopener">model experiment runbook</a> for subsequent dataset and training steps.</p>
         <div class="note"><strong>Retain coordinate metadata.</strong> Save the PLY offset and original LAS/CRS. The model exporter may apply another offset; both are needed for global reconstruction unless combined explicitly.</div>
-        <h3>Example output: model-array inspection</h3>
-        <figure>
-          <a href="./figures/phase5-model-arrays.png"><img src="./figures/phase5-model-arrays.png" alt="Four views of saved model arrays: semantic labels, instance labels, bounding boxes and global XY location." loading="lazy"></a>
-          <figcaption>Historical DD0001 tile 106 <a href="https://github.com/LNSOTOM/fvc_structure/blob/main/phase_5_3d_cnn_training/notebooks/02_lidar_preprocessing_forestformer.ipynb" target="_blank" rel="noopener">model arrays</a>: labels, instances, bounding boxes and global coordinates. These NPY files are not produced by the single-tile PLY command.</figcaption>
-        </figure>
         <p class="muted">Check your own classes and coordinates numerically.</p>
         <div class="resources">
           <strong>Resources:</strong>
@@ -798,7 +1042,7 @@
         <div class="phase-label">After Phase 5 / Model workflows</div>
         <h2>From labelled tiles to model predictions</h2>
         <p>Phase 4 produces classified LAS; Phase 5 exports PLY and offsets. Model training and prediction are separate steps.</p>
-        <div class="facts">
+        <div class="facts cards">
           <div class="panel"><strong>ForestFormer3D</strong><p>Uses prepared point-cloud datasets for semantic and instance segmentation. In the paper it is evaluated in all three experiment families.</p><a href="#forestformer">ForestFormer3D steps</a></div>
           <div class="panel"><strong>SegmentAnyTree</strong><p>Groups points into individual tree instances. In the paper it is a zero-shot instance-level reference, not the fine-tuned model in Experiments 2 and 3.</p><a href="#segmentanytree">SegmentAnyTree steps</a></div>
         </div>
@@ -880,7 +1124,7 @@
               </li>
               <li><strong>Export the model dataset.</strong>
                 <a href="./figures/phase5-model-arrays.png"><img src="./figures/phase5-model-arrays.png" alt="Historical model-array inspection showing semantic labels, tree instances, bounding boxes and global coordinates." loading="lazy"></a>
-                <small>Historical DD0001 tile 106 dataset inspection, not a model prediction; select to enlarge.</small>
+                <small>DD0001 tile 106 dataset inspection, not a model prediction.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>Prepared PLY files and scene lists.</dd><dt>Output</dt><dd>Per-scene XYZ, semantic/instance labels, bounding boxes and offsets as NPY files; dataset preparation also creates point/mask files and split PKLs.</dd><dt>Checks</dt><dd>Point counts, labels and both coordinate offsets.</dd></dl>
               </li>
               <li><strong>Evaluate a checkpoint or train a model.</strong>
@@ -923,7 +1167,7 @@
               </li>
               <li><strong>Compare instances with reference crowns.</strong>
                 <a href="./figures/segmentanytree-medium-l1-f1-coverage.png"><img src="./figures/segmentanytree-medium-l1-f1-coverage.png" alt="Historical SegmentAnyTree medium-L1 per-file instance F1 versus coverage scatter plot." loading="lazy"></a>
-                <small>Historical medium-L1 offline metrics plot from the <a href="https://github.com/LNSOTOM/fvc_structure/tree/main/SegmentAnyTree/metrics/outputs" target="_blank" rel="noopener">saved outputs</a>, not a result generated by this page. Select to enlarge.</small>
+                <small>Medium-L1 offline metrics from the <a href="https://github.com/LNSOTOM/fvc_structure/tree/main/SegmentAnyTree/metrics/outputs" target="_blank" rel="noopener">saved outputs</a>, not a result generated by this page.</small>
                 <dl class="step-metadata"><dt>Input</dt><dd>Merged point results with reference and predicted instance IDs.</dd><dt>Metrics</dt><dd>Precision, recall, F1 and coverage; the paper uses point-wise instance IoU ≥ 0.5 for matching.</dd><dt>Output</dt><dd>Per-file and per-region metrics CSVs and optional plots.</dd></dl>
               </li>
             </ol>
@@ -1125,8 +1369,14 @@
     }
     searchInput.addEventListener("input", searchGuide);
     searchInput.addEventListener("focus", () => { if (searchInput.value.trim()) searchGuide(); });
+    const phoneView = matchMedia("(max-width: 720px)");
     searchForm.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (phoneView.matches && !searchForm.classList.contains("open")) {
+        searchForm.classList.add("open");
+        searchInput.focus();
+        return;
+      }
       if (!searchInput.value.trim()) {
         searchResults.replaceChildren();
         showSearchStatus("Enter a search term.");
@@ -1137,7 +1387,10 @@
       }
     });
     document.addEventListener("click", (event) => {
-      if (!event.composedPath().includes(searchForm) && !event.composedPath().includes(searchFeedback)) searchFeedback.hidden = true;
+      if (!event.composedPath().includes(searchForm) && !event.composedPath().includes(searchFeedback)) {
+        searchFeedback.hidden = true;
+        if (!searchInput.value.trim()) searchForm.classList.remove("open");
+      }
     });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !searchFeedback.hidden) {
@@ -1187,6 +1440,48 @@
         command.prepend(button);
       });
     }
+  </script>
+  <script>
+    // Label each table cell with its column name, for the stacked phone layout.
+    document.querySelectorAll(".analysis-table").forEach((table) => {
+      const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+      table.querySelectorAll("tbody tr").forEach((row) => {
+        [...row.children].forEach((cell, i) => { if (i > 0 && heads[i]) cell.dataset.label = heads[i]; });
+      });
+    });
+  </script>
+  <script>
+    // Repository facts (latest release, stars, forks), as MkDocs Material shows them.
+    // Cached for the visit; if GitHub cannot be reached, "main branch" stays.
+    (async () => {
+      const link = document.querySelector(".top-repo");
+      const facts = link && link.querySelector(".top-repo__facts");
+      if (!facts) return;
+      const key = "fvc-structure-repo-facts";
+      let data = null;
+      try { data = JSON.parse(sessionStorage.getItem(key)); } catch (error) {}
+      if (!data) {
+        try {
+          const api = "https://api.github.com/repos/LNSOTOM/fvc_structure";
+          const repo = await fetch(api).then((r) => (r.ok ? r.json() : Promise.reject()));
+          const release = await fetch(api + "/releases/latest").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+          data = { version: release && release.tag_name, stars: repo.stargazers_count, forks: repo.forks_count };
+          sessionStorage.setItem(key, JSON.stringify(data));
+        } catch (error) { return; }
+      }
+      const format = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n));
+      const items = [];
+      if (data.version) items.push(["version", data.version, "Latest release"]);
+      items.push(["stars", format(data.stars), "Stars"], ["forks", format(data.forks), "Forks"]);
+      facts.replaceChildren(...items.map(([kind, text, label]) => {
+        const li = document.createElement("li");
+        li.className = "top-repo__fact top-repo__fact--" + kind;
+        li.textContent = text;
+        li.title = label;
+        return li;
+      }));
+      link.classList.add("top-repo--active");
+    })();
   </script>
   <script src="./figures/model-comparison-data.js"></script>
   <script src="./model-comparison.js"></script>

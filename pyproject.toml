@@ -1,25 +1,48 @@
 [project]
-name = "fvc-structure-dsm"
+name = "fvc3d"
 version = "0.1.0"
-description = "Reusable DSM generation helpers for georeferenced LAS/LAZ point clouds."
+description = "Transfer 2D vegetation-structure labels onto LiDAR point clouds (fvcStructureRangeland3D)."
+readme = "README.md"
 license = { text = "MIT" }
+authors = [{ name = "Laura N. Sotomayor" }]
 requires-python = ">=3.10,<3.12"
 dependencies = [
-    "dask>=2024.0",
-    "ipykernel>=6.0",
-    "jupyterlab>=4.0",
-    "laspy>=2.0",
-    "matplotlib>=3.8",
+    "laspy[lazrs]>=2.0",
     "numpy<2.0",
     "pyproj>=3.6",
     "pyyaml>=6.0",
     "rasterio>=1.3",
-    "rioxarray>=0.15",
     "scikit-image>=0.22",
     "scipy>=1.11",
+]
+
+[project.urls]
+Paper = "https://doi.org/10.31223/X5948M"
+Guide = "https://lnsotom.github.io/fvc_structure/"
+
+[dependency-groups]
+# Tools for the phase_* research scripts and notebooks; not needed by fvc3d.
+research = [
+    "dask>=2024.0",
+    "ipykernel>=6.0",
+    "jupyterlab>=4.0",
+    "matplotlib>=3.8",
+    "pandas>=2.0",
+    "rioxarray>=0.15",
     "tqdm>=4.0",
     "xarray>=2024.0",
 ]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fvc3d"]
 
 [tool.uv]
-package = false
+default-groups = ["research", "dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

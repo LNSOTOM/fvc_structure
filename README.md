@@ -28,10 +28,69 @@ LiDAR + UAS imagery → DSM → co-registration → 2D tiles + labels
                           → structure-classified LAS → model inputs → instance + semantic predictions
 ```
 
+## Python API (`fvc3d`)
+
+The `fvc3d` package turns a label raster and a LiDAR point cloud into a
+labelled 3D point cloud in one call. It runs the Phase 4 label-transfer method.
+
+```bash
+uv sync            # or: pip install -e .
+```
+
+```python
+from fvc3d import transfer_labels
+
+result = transfer_labels(
+    labels="growth_forms.tif",        # codes 64–68, or pass class_map={1: "shrub", ...}
+    point_cloud="lidar.laz",          # same CRS, already co-registered to the imagery
+    output="labelled_vegetation.laz",
+    validate_alignment=True,          # raises AlignmentError if CRS, overlap or offset fail
+)
+print(result.summary())
+```
+
+**Inputs.** The raster holds forb (64), woody debris (65), hummock (66),
+shrub (67) and mallee (68). The point cloud needs height above ground: a
+`Z_norm` dimension, ground points classified as 2, or a ground-only file
+passed as `ground=`.
+
+**Output.** The LAS/LAZ file holds the labelled points, with `classification`,
+`Z_norm` and a `treeID` for each mallee crown. Pass `keep="all"` to keep
+every point.
+
+**Alignment check.** `fvc3d` does not co-register data; see Phase 2 for that.
+The check needs the same projected CRS in metres and overlapping data. It also
+measures the horizontal offset between the LiDAR canopy (Z_norm ≥ 1 m) and
+the mallee labels, and fails above `max_shift` (default 0.50 m, i.e. 10 pixels at 5 cm).
+
+**Settings.** Pass a `config` dict or a YAML file
+([configs/transfer_labels.yaml](configs/transfer_labels.yaml)). The defaults
+are the paper's.
+
+| Module | What it does |
+|---|---|
+| `fvc3d.io` | Read label rasters and LAS/LAZ; write labelled LAS/LAZ |
+| `fvc3d.registration` | `check_alignment()`: CRS, overlap and canopy offset |
+| `fvc3d.label_transfer` | Label points from the raster, compute `Z_norm`, voxel majority vote |
+| `fvc3d.refinement` | Class height ranges, watershed crowns, polar refinement, consolidation |
+| `fvc3d.quality_control` | Per-pixel accuracy and IoU (Table 5) and height checks (Table 6) |
+| `fvc3d.pipeline` | `transfer_labels()` for files; `fuse_labels()` for arrays in memory |
+
+See [examples/transfer_labels.py](examples/transfer_labels.py) for one tile or
+a folder of tiles. `python -m pytest tests` runs the tests.
+
+`fvc3d` gives the same labels as `fvc3dstruct` (the code behind the paper),
+with one fix. In `fvc3dstruct`, points beyond the crown-detection grid can
+take an edge crown's ID, and the crown vote can then turn them into mallee.
+`fvc3d` gives them no crown. On tile 109 this affects 274 ground points. Set
+`config={"legacy_crown_clamp": True}` to reproduce `fvc3dstruct` exactly.
+
 ## Repository layout
 
 ```
 fvc_structure/
+├── src/fvc3d/                       # Python API: transfer_labels() and its stages
+├── configs/ examples/ tests/        # fvc3d settings, usage examples and tests
 ├── phase_1_image_processing/        # DSM generation from LAS (PDAL)
 ├── phase_2_lidar_coregistration/    # gefolki/ (optical flow), step_0_checks/ (CRS)
 ├── phase_3_2D_imagery_prep/         # step_1 tiling, step_2 2D structure labels

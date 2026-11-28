@@ -1,0 +1,35 @@
+# fvc3d.transfer_labels() method parameters — the values used in the paper.
+# Copy, edit, and pass the path: transfer_labels(..., config="my_config.yaml").
+# Keys left out keep these defaults. Unknown keys are rejected.
+
+# Stage 1: XY radius (m) for matching a labelled point to a height
+height_match_radius: 0.30
+
+# Stage 2: voxel size (m) for the majority-vote transfer
+voxel_size_xy: 0.10
+voxel_size_z: 0.10
+
+# Stage 3: mallee crown detection
+crown_grid_res: 0.10        # grid cell (m)
+min_tree_dist: 1.5          # minimum distance between crown peaks (m), or "auto"
+smoothing_sigma: 1.0        # Gaussian smoothing of the canopy grid (cells), or "auto"
+mallee_min_znorm: null      # override the derived minimum crown height (m)
+
+# Stage 4: crown-centric polar refinement
+r_bin: 0.10                 # radial bin (m)
+theta_bin_deg: 10.0         # angular bin (degrees)
+min_conf: 0.3               # confidence needed to label an unlabelled point
+min_flip_ratio: 1.5         # how much better a class must be to replace a label
+height_prior_out_of_range_weight: 0.1
+
+# Stage 5: height rules (m)
+merge_65_to_68_znorm: 0.5   # woody debris above this becomes mallee; below, unlabelled
+promote_unlabelled_znorm: 1.3
+mallee_force_min_znorm: null
+
+# Output
+collapse_treeid_to_one: false
+
+# true reproduces fvc3dstruct 1.0.0 exactly: points beyond the crown grid take
+# the nearest edge crown's id. false (default) gives them no crown.
+legacy_crown_clamp: false
